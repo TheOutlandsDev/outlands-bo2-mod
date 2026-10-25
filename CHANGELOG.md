@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- Document Windows v0.1.1 preparation, PowerShell commands, explicit runtime
+  paths and direct LAN/console joining for hosts without a game password.
+- Record passing file/preflight and profile-backup checks separately from the
+  unresolved client disconnect and pending Windows gameplay/progression tests.
+- Publish sanitized instructions and outcomes while keeping private connection
+  settings, machine-specific launchers, profiles and raw logs outside the repo.
+
+This documentation update leaves the v0.1.1 release assets and runtime code unchanged.
+
 ## 0.1.1 — Development preview
 
 This update adds automated source checks and release packaging. The configured

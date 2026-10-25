@@ -1,6 +1,7 @@
 # Validation status
 
-Last updated: 2026-10-25. The tested game runtime is Plutonium T6 r5369.
+Last updated: 2026-10-25. The Linux gameplay acceptance runtime is Plutonium T6 r5369.
+The Windows preparation below does not establish a matching game runtime revision.
 These results describe the private development acceptance tests; they are not a
 claim that every OS, runtime update, map or progression challenge has passed.
 Raw logs, private receipts, join details and profile backups stay outside the
@@ -50,9 +51,44 @@ logs now verify the full chat generation-to-native-speech path during human
 play. The earlier `say` method failed to resolve on r5369; the adapter now uses
 the successfully compiled and invoked native `sayall` method.
 
+## Windows preparation, 2026-10-25
+
+The following checks were performed on a Windows client using the v0.1.1
+source release. This is a sanitized preparation record; local identities,
+network addresses, connection settings, profiles and raw logs remain private.
+
+| Check | Result |
+| --- | --- |
+| Release integrity | Downloaded source ZIP matched the SHA-256 digest published with the GitHub release |
+| Owned BO2 multiplayer inputs | Executable and required multiplayer core fastfiles present |
+| Existing Plutonium inputs | Expected bootstrapper and multiplayer runtime executable present; file presence is not a runtime-version or vendor-hash verification |
+| Windows PowerShell preflight | Setup `--dry-run --skip-updater` passed with explicit game/runtime paths and a valid player name; no game launched |
+| Local no-password launcher | Prepared privately; its read-only file/name checks passed, without proving launch or joining |
+| Profile preservation | Existing active `storage/t6` tree copied before setup; every copied file matched its source SHA-256 |
+| Tailscale | Local service running; the hosting peer replied through a relay, without establishing a direct path |
+| Game UDP query | `getinfo` and `getstatus` probes received no reply within the bounded check; this does not prove the game port reachable or the cause of a timeout |
+| Client log review | A bounded review found `PLATFORM_DISCONNECTED_FROM_SERVER`; cause remains unresolved |
+| Joining, team/class selection and spawning | Pending Windows acceptance |
+| Bot combat and completed match | Pending Windows acceptance |
+| Rank/weapon results and quit/relaunch retention | Pending Windows acceptance |
+
+The no-password path uses a local CFG that clears `password` before `connect`.
+It was prepared for a host-requested password change; that host change and a
+successful passwordless connection were not independently verified here.
+v0.1.1's stock Windows setup/join validator still requires a nonempty password;
+the [Windows joining instructions](../README.md#windows-checks-and-direct-joining)
+describe the direct LAN launch and console alternative.
+
+Preparation checks and a profile backup do not complete Windows gameplay
+acceptance. Finish the repeatable sequence below with the same LAN name, record
+after-action rank and weapon progress, quit normally, then rejoin after a full
+client restart. Server restart persistence is a separate check.
+
 ## Implemented, awaiting acceptance
 
-- Windows client setup and actual joining/spawning over Tailscale.
+- Windows setup apply, actual joining/spawning over Tailscale, completed-match
+  rank/weapon results and quit/relaunch retention. Preparation preflight passed
+  as recorded above.
 - Longer-term loadout variation across respawns. The isolated native
   weapon/class variety check has passed.
 - Multiple-human bot replacement, map-change retention and longer-session

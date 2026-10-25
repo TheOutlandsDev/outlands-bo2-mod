@@ -46,9 +46,9 @@ file permissions. Setup enables the Linux launch helpers on its apply path.
 
 Windows needs Windows PowerShell. Open a terminal in this source checkout:
 
-```bat
-setup-client-windows.cmd --invite "C:\private\outlands.invite.json"
-play-outlands-windows.cmd
+```powershell
+.\setup-client-windows.cmd --invite "C:\private\outlands.invite.json"
+.\play-outlands-windows.cmd
 ```
 
 Setup prompts for the owned game folder and a stable, unique player name. It
@@ -67,6 +67,55 @@ LAN identity depends on the player name. Setup saves it in the active runtime's
 Each player must choose a different name and retain it across launches. Private
 connection settings are saved separately in `outlands_join.cfg`. Setup does not
 copy player saves, unlock content or change the stat source.
+
+### Windows checks and direct joining
+
+For an existing runtime, check the install inputs from PowerShell before setup:
+
+```powershell
+.\setup-client-windows.cmd --dry-run --skip-updater --game-dir "D:\Games\Black Ops II" --plutonium-dir "$env:LOCALAPPDATA\Plutonium" --name "Unique Player"
+```
+
+Replace the example game path and player name with your own. This checks file
+presence and input validation; it does not launch BO2 or verify a server join.
+An explicit `--plutonium-dir` is useful when a terminal or automation environment
+redirects `LOCALAPPDATA` away from the installed runtime.
+
+The v0.1.1 Windows setup and saved-join validator require a nonempty password.
+For a host that deliberately uses no game password, start the LAN client
+directly through the existing runtime. This bypasses the saved-join helper and
+needs no private invite file:
+
+```powershell
+$gameDir = "D:\Games\Black Ops II" # Replace with your owned game folder.
+$runtimeDir = "$env:LOCALAPPDATA\Plutonium" # Use the actual installed runtime.
+$playerName = "Unique Player" # Keep the same unique name across launches.
+Push-Location -LiteralPath $runtimeDir
+try {
+    & ".\bin\plutonium-bootstrapper-win32.exe" t6mp "$gameDir\." +name $playerName -lan +set net_port 4976
+} finally {
+    Pop-Location
+}
+```
+
+In the in-game console (`~`), enter these separately, replacing
+`SERVER_ADDRESS:SERVER_PORT` with the details supplied privately by the host:
+
+```text
+password ""
+connect SERVER_ADDRESS:SERVER_PORT
+```
+
+Tailscale access is still required. A Tailscale ping response confirms peer
+reachability, not the BO2 game socket or a successful join. A
+`PLATFORM_DISCONNECTED_FROM_SERVER` message records a disconnect; its cause
+needs diagnosis rather than assuming a password or firewall failure.
+
+Before a playtest, back up the active runtime's `storage\t6` tree and verify the
+copied files against their source hashes. Keep profiles, connection CFGs,
+machine-specific launchers, invites, addresses and raw logs private. The
+[Windows validation record](docs/VALIDATION.md#windows-preparation-2026-10-25)
+separates the completed preparation checks from the remaining gameplay tests.
 
 ## Host a game
 
