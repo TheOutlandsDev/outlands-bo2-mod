@@ -1,0 +1,15 @@
+{
+  "enabled": false,
+  "mode": "ollama",
+  "ollama_url": "http://127.0.0.1:11434",
+  "model": "outlands-bo2-chat",
+  "timeout_seconds": 8,
+  "global_cooldown_seconds": 25,
+  "bot_cooldown_seconds": 90,
+  "max_per_minute": 3,
+  "max_message_chars": 120,
+  "event_ttl_seconds": 15,
+  "queue_size": 2,
+  "fallback_on_error": true,
+  "allowed_event_kinds": ["banter", "reply", "round_end"]
+}
