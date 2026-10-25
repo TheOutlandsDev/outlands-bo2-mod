@@ -13,8 +13,11 @@ CI run or release.
 - Packaging waits for both jobs and produces a deterministic allowlisted source
   ZIP plus `SHA256SUMS`; CI artifacts are retained for 14 days.
 - A version-matching `v*` tag, or manual dispatch on an existing matching tag,
-  reuses the checks before publishing a new development prerelease. Existing
-  releases are not overwritten and previews are not marked as latest.
+  reuses the checks before publishing a new development prerelease.
+- Manual release dispatch on `main` runs all checks before creating the matching
+  tag at the tested commit and publishing with GitHub's built-in token. A tag
+  creation conflict fails without moving the existing tag. Existing releases
+  are not overwritten and previews are not marked as latest.
 - [Release instructions](docs/RELEASING.md) document versioning, checks, package
   boundaries and the remaining gameplay acceptance work.
 

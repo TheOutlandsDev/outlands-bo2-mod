@@ -145,7 +145,10 @@ Version 0.1.1 is a development preview. The configured GitHub Actions pipeline
 checks Linux setup/hosting/chat code, Bash syntax, and Windows PowerShell parsing
 with synthetic client fixtures. Packaging waits for both platform jobs, then
 produces an allowlisted source ZIP and `SHA256SUMS`. Version-matching `v*` tags
-can publish a prerelease after the same checks pass.
+can publish a prerelease after the same checks pass. A manual release run on
+`main` can instead run the checks, create the matching tag at the tested commit,
+then publish using GitHub's built-in token. Dispatch on an existing matching tag
+is also supported.
 
 This describes the configured pipeline, not a report that its checks have run.
 See the repository's Actions results and [release instructions](docs/RELEASING.md).
