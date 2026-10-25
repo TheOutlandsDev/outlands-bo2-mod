@@ -3,5 +3,6 @@
 /.env
 /logs/
 /compose.local.json
+/host-settings.json
 /compose.dockhand.local.yaml
 __pycache__/

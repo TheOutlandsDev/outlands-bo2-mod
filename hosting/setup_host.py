@@ -40,6 +40,23 @@ def atomic_json(path: Path, value: object) -> None:
             temporary.unlink(missing_ok=True)
 
 
+def read_host_settings(path: Path) -> dict[str, str]:
+    if not path.exists() and not path.is_symlink():
+        return {}
+    if path.is_symlink() or not path.is_file() or path.stat().st_size > 16384:
+        raise ValueError("Host settings must be a small regular JSON file")
+    try:
+        value = json.loads(path.read_text())
+    except (OSError, ValueError):
+        raise ValueError("Host settings are not readable JSON") from None
+    if not isinstance(value, dict) or set(value) - {"plutonium_dir", "manifest"}:
+        raise ValueError("Host settings contain unsupported fields")
+    if any(not isinstance(item, str) or not item or any(c in item for c in "\0\r\n")
+           for item in value.values()):
+        raise ValueError("Host settings contain an invalid path")
+    return value
+
+
 def validate_game(path: Path) -> Path:
     path = path.expanduser().resolve(strict=True)
     for relative in REQUIRED_GAME:
@@ -74,39 +91,45 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--game-dir", type=Path)
     parser.add_argument("--plutonium-dir", type=Path)
-    parser.add_argument("--manifest", type=Path, default=PROJECT / "runtime/downloads/plutonium-manifest.json")
+    parser.add_argument("--manifest", type=Path,
+                        help="official manifest file; reuses the last verified host path when omitted")
     parser.add_argument("--apply", action="store_true", help="stage verified runtime and save local build paths; never starts containers")
     options = parser.parse_args()
     try:
         saved = PROJECT / "runtime/client.json"
         settings = json.loads(saved.read_text()) if saved.is_file() else {}
+        host_settings_path = HOSTING / "host-settings.json"
+        host_settings = read_host_settings(host_settings_path)
         local = HOSTING / "compose.local.json"
         local_settings = json.loads(local.read_text()) if local.is_file() else {}
         local_game = local_settings.get("services", {}).get("t6", {}).get("build", {}).get("additional_contexts", {}).get("game")
-        game = options.game_dir or settings.get("game_dir") or local_game
+        game = options.game_dir or local_game or settings.get("game_dir")
         if game is None and (PROJECT.parent / "t6mp.exe").is_file():
             game = PROJECT.parent
         if game is None:
             parser.error("Pass --game-dir with the owned BO2 folder, or run client setup first")
         game = validate_game(Path(game))
-        plut = (options.plutonium_dir or Path(settings.get("plutonium_dir", str(
-            PROJECT / "runtime/compatdata/pfx/drive_c/users/steamuser/AppData/Local/Plutonium")))).expanduser().resolve(strict=True)
+        plut = Path(options.plutonium_dir or host_settings.get("plutonium_dir") or settings.get("plutonium_dir") or (
+            PROJECT / "runtime/compatdata/pfx/drive_c/users/steamuser/AppData/Local/Plutonium")).expanduser().resolve(strict=True)
+        manifest = Path(options.manifest or host_settings.get("manifest") or (
+            PROJECT / "runtime/downloads/plutonium-manifest.json")).expanduser().resolve()
         if not (plut / "info.json").is_file():
             raise ValueError("Run the official Plutonium updater before host setup")
-        if not options.manifest.is_file():
+        if not manifest.is_file():
             if not options.apply:
                 raise ValueError("Vendor manifest is missing; --apply fetches official metadata, or pass --manifest")
-            download_manifest(options.manifest)
+            download_manifest(manifest)
         subprocess.run([sys.executable, "-B", str(HOSTING / "prepare_package.py"),
-                        "--plutonium-dir", str(plut), "--manifest", str(options.manifest),
+                        "--plutonium-dir", str(plut), "--manifest", str(manifest),
                         *(["--apply"] if options.apply else [])], check=True)
         if options.apply:
+            scripts = [HOSTING / name for name in ("manage.sh", "docker.sh")]
+            if any(script.is_symlink() or not script.is_file() for script in scripts):
+                raise ValueError("Hosting launcher must be a regular source file")
             atomic_json(HOSTING / "compose.local.json", {"services": {"t6": {"build": {
                 "additional_contexts": {"game": str(game)}}}}})
-            for name in ("manage.sh", "docker.sh"):
-                script = HOSTING / name
-                if script.is_symlink() or not script.is_file():
-                    raise ValueError("Hosting launcher must be a regular source file")
+            atomic_json(host_settings_path, {"plutonium_dir": str(plut), "manifest": str(manifest)})
+            for script in scripts:
                 script.chmod(0o755)
             print("Private build paths saved. Run ./manage.sh smoke, then ./manage.sh up.")
         else:
