@@ -8,8 +8,9 @@ or server key; each installation still supplies its own legitimate BO2 files.
 The baseline has passed Linux joining, native bot combat and earned rank/weapon
 progression retained after a full client/server restart. Native alias assignment,
 chat GSC compilation and local RCON transport have passed isolated checks, as
-have varied native weapons/classes and cosmetic-level API calls. Visible
-tag/level presentation, complete in-game chat and Windows joining remain pending.
+have varied native weapons/classes and cosmetic-level API calls. The complete
+Ollama-to-native-speech path has also passed during live human play. Visible
+tag/level presentation and Windows joining remain pending.
 See [validation status](../docs/VALIDATION.md).
 
 ## Prepare the host
@@ -140,11 +141,12 @@ read-only volume and shares the private game network namespace. RCON is enabled
 only for this local worker, with a generated private credential and a loopback
 source whitelist. The only submitted command updates a bounded response dvar;
 GSC verifies the pending request, native bot, slot/name and expiry before speech.
-Team/hidden chat is excluded. The adapter compiled successfully with native
-`sayall` on the tested runtime, and local RCON transport passed. See
+Team/hidden chat is excluded. Live banter and public-chat events reached the
+worker; generated replies passed through local RCON, GSC identity checks and
+native `sayall`, with multiple successful speech acknowledgements. A cold-model
+request used the bounded fallback before Ollama generations succeeded. See
 [the chat guide](../ai/README.md) for resource limits, privacy boundaries,
-canned fallbacks and protocol details. End-to-end in-game Ollama chat remains
-pending validation.
+canned fallbacks and protocol details.
 
 ## Operations and Dockhand
 
@@ -158,13 +160,20 @@ pending validation.
 discard saved host data and the Tailscale identity. Back up required volumes and
 client profiles privately before moving or replacing a host.
 
-`compose.yaml` builds locally. `compose.dockhand.yaml` uses the already-built
-`outlands-t6:local` image without a build context or host game-folder mount.
-Import that definition into your Dockhand environment after building locally.
+`compose.yaml` builds locally. For Dockhand, choose one complete image-only
+definition after building locally:
+
+- [`compose.dockhand.yaml`](compose.dockhand.yaml): game and Tailscale, without
+  the optional chat services.
+- [`compose.dockhand.ai.yaml`](compose.dockhand.ai.yaml): all four services
+  (game, Tailscale, Ollama and chat worker). Run `./manage.sh ai-up` first to
+  build its images and initialize the model, then import this definition.
+
+Neither definition needs a build context or host game-folder mount.
 Retain the `outlands-t6` project name and LAN mode so both methods use the same
 volumes. Source/vendor changes require a local rebuild before redeployment.
-The optional AI override is a separate local Compose definition; importing the
-base Dockhand definition alone does not enable chat.
+The base Dockhand definition alone does not enable chat; the AI definition is
+a complete stack rather than an override to paste into the base file.
 
 Copy `.env.example` to `.env` for supported host/port overrides. The defaults use
 LAN mode and a pinned Tailscale image. Keep actual addresses, credentials,

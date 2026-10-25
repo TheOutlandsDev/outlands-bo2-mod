@@ -1,0 +1,8 @@
+**
+!storage/
+!storage/**
+!hosting/
+hosting/**
+!hosting/entrypoint.py
+!hosting/healthcheck.py
+!hosting/store_key.py

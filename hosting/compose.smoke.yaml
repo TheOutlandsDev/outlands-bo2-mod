@@ -1,0 +1,15 @@
+services:
+  t6:
+    network_mode: none
+    depends_on: !reset {}
+    environment:
+      T6_MODE: lan
+      T6_BIND_IP: 127.0.0.1
+      T6_PORT: "14977"
+      T6_CHAT_ENABLED: "1"
+    volumes: !override
+      - smoke-state:/data
+    restart: "no"
+
+volumes:
+  smoke-state:

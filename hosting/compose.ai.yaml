@@ -1,0 +1,67 @@
+services:
+  tailscale:
+    networks:
+      - tailnet-egress
+      - ai-private
+  t6:
+    environment:
+      T6_CHAT_ENABLED: "1"
+  ollama:
+    image: outlands-bo2-ollama:local
+    build:
+      context: ..
+      dockerfile: hosting/Ollama.Dockerfile
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_NUM_PARALLEL: "1"
+      OLLAMA_CONTEXT_LENGTH: "2048"
+      OLLAMA_KEEP_ALIVE: 5m
+    volumes:
+      - ollama-models:/root/.ollama
+    networks:
+      - ai-private
+      - model-download
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    cpus: 4
+    mem_limit: 3g
+    healthcheck:
+      test: [CMD, ollama, list]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    restart: unless-stopped
+  chat:
+    image: outlands-bo2-chat:local
+    build:
+      context: ../ai
+    network_mode: service:tailscale
+    depends_on:
+      t6:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    environment:
+      T6_CHAT_ENABLED: "1"
+      OLLAMA_URL: http://ollama:11434
+      OLLAMA_MODEL: outlands-bo2-chat
+      T6_CHAT_RCON_PORT: ${T6_PORT:-4977}
+    volumes:
+      - t6-state:/data:ro
+    user: "10001:10001"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    cpus: 0.5
+    mem_limit: 128m
+    restart: unless-stopped
+
+networks:
+  ai-private:
+    internal: true
+  model-download:
+    driver: bridge
+
+volumes:
+  ollama-models:

@@ -1,0 +1,7 @@
+/package/
+/.secrets/
+/.env
+/logs/
+/compose.local.json
+/compose.dockhand.local.yaml
+__pycache__/

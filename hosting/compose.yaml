@@ -1,0 +1,67 @@
+name: outlands-t6
+
+services:
+  tailscale:
+    image: ${TAILSCALE_IMAGE:-tailscale/tailscale:v1.104.2}
+    hostname: ${TS_HOSTNAME:-outlands-t6}
+    environment:
+      TS_HOSTNAME: ${TS_HOSTNAME:-outlands-t6}
+      TS_USERSPACE: "false"
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_AUTH_ONCE: "true"
+      TS_BOOT_TIMEOUT: 10m
+      TS_ENABLE_HEALTH_CHECK: "true"
+      TS_LOCAL_ADDR_PORT: 127.0.0.1:9002
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+      - tailscale-state:/var/lib/tailscale
+    networks:
+      - tailnet-egress
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9002/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10m
+    restart: unless-stopped
+
+  t6:
+    image: outlands-t6:local
+    build:
+      context: ..
+      dockerfile: hosting/Dockerfile
+      additional_contexts:
+        plutonium: ./package/plutonium
+        game: ${BO2_GAME_DIR:-../..}
+    network_mode: service:tailscale
+    depends_on:
+      tailscale:
+        condition: service_healthy
+        restart: true
+    environment:
+      T6_MODE: ${T6_MODE:-lan}
+      T6_BIND_IP: ${T6_BIND_IP:-0.0.0.0}
+      T6_PORT: ${T6_PORT:-4977}
+      T6_NAME: ${T6_NAME:-Outlands BO2}
+      T6_CHAT_ENABLED: ${T6_CHAT_ENABLED:-0}
+      T6_SERVER_KEY_FILE: /data/private/plutonium_server_key
+    volumes:
+      - t6-state:/data
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: 30s
+    restart: unless-stopped
+
+networks:
+  tailnet-egress:
+    driver: bridge
+
+volumes:
+  tailscale-state:
+  t6-state:
