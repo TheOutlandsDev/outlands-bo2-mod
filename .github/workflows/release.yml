@@ -1,0 +1,90 @@
+name: Publish dev preview
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  version:
+    name: Verify release tag
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.11'
+      - name: Require a version-matching tag
+        id: version
+        env:
+          RELEASE_REF_TYPE: ${{ github.ref_type }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_EVENT: ${{ github.event_name }}
+        run: |
+          python -B - <<'PY'
+          import os
+          from tools.build_release import release_version
+          tag = 'v' + release_version()
+          manual_main = (os.environ['RELEASE_EVENT'] == 'workflow_dispatch'
+                         and os.environ['RELEASE_REF_TYPE'] == 'branch'
+                         and os.environ['RELEASE_TAG'] == 'main')
+          if not manual_main and (os.environ['RELEASE_REF_TYPE'] != 'tag'
+                                  or os.environ['RELEASE_TAG'] != tag):
+              raise SystemExit('Release tag must match VERSION exactly.')
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
+              output.write('tag=' + tag + '\n')
+          PY
+
+  checks:
+    name: Release acceptance checks
+    needs: version
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    name: Publish ZIP and checksum
+    needs: [version, checks]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.11'
+      - name: Build and verify release files
+        shell: bash
+        run: |
+          version="$(python -B tools/build_release.py --version)"
+          python -B tools/build_release.py --output "dist/outlands-bo2-mod-v${version}-dev-preview.zip"
+          (cd dist && sha256sum --check SHA256SUMS)
+      - name: Publish a new prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.version.outputs.tag }}
+          RELEASE_REF_TYPE: ${{ github.ref_type }}
+          RELEASE_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          if [ "$RELEASE_REF_TYPE" = branch ]; then
+            gh api --method POST "repos/$GH_REPO/git/refs" \
+              -f "ref=refs/tags/$RELEASE_TAG" -f "sha=$RELEASE_SHA" > /dev/null
+          fi
+          gh release create "$RELEASE_TAG" dist/*.zip dist/SHA256SUMS \
+            --verify-tag --prerelease --latest=false \
+            --title "$RELEASE_TAG Dev Preview" --notes-file CHANGELOG.md
