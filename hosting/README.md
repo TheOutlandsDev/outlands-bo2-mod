@@ -9,8 +9,9 @@ The baseline has passed Linux joining, native bot combat and earned rank/weapon
 progression retained after a full client/server restart. Native alias assignment,
 chat GSC compilation and local RCON transport have passed isolated checks, as
 have varied native weapons/classes and cosmetic-level API calls. The complete
-Ollama-to-native-speech path has also passed during live human play. Visible
-tag/level presentation and Windows joining remain pending.
+Ollama-to-native-speech path has also passed during live human play. The player
+confirmed blank clan tags and different cosmetic levels on the scoreboard.
+Windows joining remains pending.
 See [validation status](../docs/VALIDATION.md).
 
 ## Prepare the host
@@ -111,14 +112,15 @@ verified native test clients. Keep `bot_friends 0` and `bot_enemies 0`; configur
 The source also gives clients a 600-second initial team/class selection window.
 
 The new `bots.txt` roster requests aliases with empty clan tags. Native custom
-alias assignment has passed a runtime check; blank tag display still needs an
-in-game check. Chat personality metadata changes conversational voice only.
+alias assignment passed a runtime check, and the player confirmed the default
+`BOT` clan tags are gone on the scoreboard. Chat personality metadata changes
+conversational voice only.
 Optional cosmetic bot levels are bounded by `outlands_bot_level_min` and
 `outlands_bot_level_max`, from 1 to 55. Native combat/loadout eligibility remains
 unchanged, and no human XP/unlock/stat writes are added. An isolated four-bot
 probe observed varied shotgun, LMG, sniper and SMG classes, attachments and
-secondaries. Cosmetic native `setrank` calls completed without errors; the
-rendered levels still need player confirmation.
+secondaries. Cosmetic native `setrank` calls completed without errors, and the
+player confirmed the different rendered levels look correct.
 
 For the optional contained chat setup:
 
