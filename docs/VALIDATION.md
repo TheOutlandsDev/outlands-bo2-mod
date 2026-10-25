@@ -33,6 +33,7 @@ camo challenges have not all been checked individually.
 | Native custom aliases | Runtime assignment from the source roster verified |
 | Native loadout variety | Four bots used distinct shotgun, LMG, sniper and SMG loadouts, varied attachments/secondaries and custom/default classes |
 | Cosmetic level API | Assigned levels 18, 17, 10 and 51; guarded native `setrank` calls completed without errors |
+| Scoreboard presentation | Player confirmed the default `BOT` clan tags are gone and different cosmetic levels look correct |
 | Chat GSC | Isolated r5369 startup healthy; native `sayall` resolves and the adapter initializes |
 | Local RCON | Private loopback control path verified |
 | Live chat events | Banter and a human public-chat reply event emitted during a 1-human/11-bot match |
@@ -42,8 +43,9 @@ camo challenges have not all been checked individually.
 
 Observed aliases included QuietSparks, WinterByte, NightLedger and CometRidge.
 Current weapons included `870mcs`, `qbb95`, `dsr50` and `pdw57` with differing
-attachments. The assigned cosmetic levels and native calls are verified, while
-rendered clan tags and levels still await player confirmation. Separately, live
+attachments. The assigned cosmetic levels and native calls are verified, and
+the player confirmed correct blank clan tags and different rendered levels.
+Separately, live
 logs now verify the full chat generation-to-native-speech path during human
 play. The earlier `say` method failed to resolve on r5369; the adapter now uses
 the successfully compiled and invoked native `sayall` method.
@@ -51,9 +53,8 @@ the successfully compiled and invoked native `sayall` method.
 ## Implemented, awaiting acceptance
 
 - Windows client setup and actual joining/spawning over Tailscale.
-- Empty clan-tag display, including removal of the default visual `BOT` tag.
-- Player-visible cosmetic levels and longer-term loadout variation across
-  respawns. The isolated native weapon/class variety check has passed.
+- Longer-term loadout variation across respawns. The isolated native
+  weapon/class variety check has passed.
 - Multiple-human bot replacement, map-change retention and longer-session
   stability across the configured maps.
 - Individual earned rank unlock, attachment and camo challenge checks.
