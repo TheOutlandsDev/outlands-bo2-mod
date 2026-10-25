@@ -139,6 +139,22 @@ Full movement/personality parity, learning heuristics and individual bot careers
 remain future work. This is an original native T6 integration, not an IW4
 Bot Warfare adapter.
 
+## CI and development releases
+
+Version 0.1.1 is a development preview. The configured GitHub Actions pipeline
+checks Linux setup/hosting/chat code, Bash syntax, and Windows PowerShell parsing
+with synthetic client fixtures. Packaging waits for both platform jobs, then
+produces an allowlisted source ZIP and `SHA256SUMS`. Version-matching `v*` tags
+can publish a prerelease after the same checks pass. A manual release run on
+`main` can instead run the checks, create the matching tag at the tested commit,
+then publish using GitHub's built-in token. Dispatch on an existing matching tag
+is also supported.
+
+This describes the configured pipeline, not a report that its checks have run.
+See the repository's Actions results and [release instructions](docs/RELEASING.md).
+CI does not launch BO2 or prove Windows gameplay; the existing
+[gameplay acceptance record](docs/VALIDATION.md) remains separate.
+
 ## License and credits
 
 Original Outlands source is covered by the [MIT license](LICENSE). BO2 assets,
