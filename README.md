@@ -10,8 +10,9 @@ bots, combat, after-action rank XP and weapon progress, and retention after a
 full client/server restart. Isolated checks also verified custom aliases,
 varied native weapons/classes and cosmetic-level API calls. The complete live
 Ollama request, generation, local RCON and native bot speech path has now passed
-with a human playing. Windows joining and visible tag/level presentation still
-need acceptance. See
+with a human playing. The player also confirmed the scoreboard's blank clan
+tags and different cosmetic levels look correct. Windows joining still needs
+acceptance. See
 [validation status](docs/VALIDATION.md).
 
 This repository contains original mod source and setup tools. Supply your own
@@ -102,9 +103,9 @@ fabricate latency.
 random native roster selection enabled. Custom alias assignment has passed a
 runtime check. Matching chat personalities give each alias a distinct voice.
 Optional random levels from 1 to 55 are cosmetic bot presentation, not earned
-bot careers or weapon unlocks. Their native API calls passed an isolated check;
-visible levels and blank tag display still need player confirmation. The host
-continues to disclose native AI opponents. The optional
+bot careers or weapon unlocks. The native calls passed an isolated check, and
+the player confirmed visible levels and removal of the default `BOT` clan tags
+on the scoreboard. The host continues to disclose native AI opponents. The optional
 [local chat bridge](ai/README.md)
 provides occasional banter and public-chat replies through Ollama, with canned
 fallbacks. Live logs verified generated replies passing through local RCON,
