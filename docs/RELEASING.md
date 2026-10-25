@@ -63,19 +63,27 @@ These commands prepare source artifacts only and do not start the host/game.
    evidence separate from checks still pending for the new revision.
 2. Put the intended source on `main` through the normal review process. Inspect
    the actual Linux and Windows job results and the packaged file list.
-3. Create and push a tag whose name is exactly `v` followed by `VERSION`.
-   For this preview, the tag is `v0.1.1`.
-4. [`release.yml`](../.github/workflows/release.yml) verifies that exact tag,
-   calls the shared CI workflow, and publishes only after its checks pass.
-   It attaches the versioned ZIP and `SHA256SUMS`, uses `CHANGELOG.md` as the
-   release notes, and marks the release as a prerelease rather than latest.
+3. Open the **Publish dev preview** workflow in GitHub Actions, choose **Run
+   workflow** and select `main`. The workflow validates `VERSION` and runs the
+   shared checks. Only after they pass does the publishing job create
+   `v0.1.1` at the tested `GITHUB_SHA` and publish. No local GitHub credential is
+   needed; the job uses GitHub's built-in workflow token.
+4. Alternatively, create and push an exact version-matching tag or manually
+   dispatch on an existing matching tag. The tag name must be `v` followed by
+   `VERSION`. [`release.yml`](../.github/workflows/release.yml) verifies it and
+   reruns the shared checks before publication. Both paths attach the versioned
+   ZIP and `SHA256SUMS`, use `CHANGELOG.md` as release notes, and mark the release
+   as a prerelease rather than latest.
 5. Download the published files, verify the checksum from their containing
    directory, and check that the source archive contains the intended version.
 
-Manual release dispatch must select an existing matching tag. A branch or a
-tag that differs from `VERSION` is rejected. The publishing job alone receives
+Manual release dispatch accepts `main` or an existing matching tag. Other
+branches and mismatched tags are rejected. The publishing job alone receives
 repository-content write permission; test jobs use read access.
 
-Release reruns refuse to overwrite an existing release. Publish a corrected
-version/tag instead of replacing already-distributed preview assets. Confirm
-the actual Actions run and release page before saying publication succeeded.
+Tag creation conflicts fail without moving the existing tag. If a failure
+leaves the matching tag created but no release published, dispatch again on
+that existing tag rather than `main`. Release reruns refuse to overwrite an
+existing release. Publish a corrected version/tag instead of replacing
+already-distributed preview assets. Confirm the actual Actions run and release
+page before saying publication succeeded.
