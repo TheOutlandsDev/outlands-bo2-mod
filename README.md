@@ -8,9 +8,10 @@ server key is needed for this LAN path.
 The playable baseline has been verified on Linux: one human plus 11 native
 bots, combat, after-action rank XP and weapon progress, and retention after a
 full client/server restart. Isolated checks also verified custom aliases,
-varied native weapons/classes, cosmetic-level API calls, chat GSC compilation
-and local RCON transport. Windows joining, visible tag/level presentation and
-complete Ollama chat delivery still need acceptance. See
+varied native weapons/classes and cosmetic-level API calls. The complete live
+Ollama request, generation, local RCON and native bot speech path has now passed
+with a human playing. Windows joining and visible tag/level presentation still
+need acceptance. See
 [validation status](docs/VALIDATION.md).
 
 This repository contains original mod source and setup tools. Supply your own
@@ -106,10 +107,12 @@ visible levels and blank tag display still need player confirmation. The host
 continues to disclose native AI opponents. The optional
 [local chat bridge](ai/README.md)
 provides occasional banter and public-chat replies through Ollama, with canned
-fallbacks. The GSC adapter compiles on the tested runtime with native `sayall`,
-and local RCON transport passed. Complete in-game Ollama delivery remains
-pending. Chat does not control combat or alter stats. Enable it with the
-hosting guide's `ai-up` command.
+fallbacks. Live logs verified generated replies passing through local RCON,
+GSC identity validation and native `sayall`, with multiple successful delivery
+acknowledgements during a human match. Chat does not control combat or alter
+stats. Enable it with the hosting guide's `ai-up` command. Dockhand users can
+then import the complete image-only
+[`compose.dockhand.ai.yaml`](hosting/compose.dockhand.ai.yaml) stack.
 
 Customize bots in `storage/t6/outlands_t6.cfg` and the alias roster:
 
