@@ -1,0 +1,7 @@
+/runtime/
+/dist/
+/.git/
+*.invite.json
+.venv/
+__pycache__/
+*.pyc
