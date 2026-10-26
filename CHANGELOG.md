@@ -1,14 +1,31 @@
 # Changelog
 
+## Unreleased — custom AI profiles
+
+- Add 48 fictional gamertags and matching individual chat personalities.
+- Add weighted bot display levels and random cosmetic prestiges, stable across
+  respawns and guarded by native display limits; human progression is unchanged.
+- Select coherent native class pools for rusher, assault, objective, support and
+  marksman roles, with a bounded marksman count and native anti-air fallback.
+- Vary native low-priority patrol timing per role while retaining the stock
+  pathfinding, objective, combat and recovery brain.
+- Add bounded two-line public bot conversations, human-reply priority,
+  independent dialogue switches and shared cooldown/minute limits.
+- Document the architecture, validation procedure and public-source boundaries
+  without personal session records or private deployment details.
+- Correct backup guidance to preserve the complete client storage directory,
+  including native progression under storage/demonware.
+
+These are working-source changes. The v0.1.2 tag and distributed archives remain
+unchanged. New native display, movement and conversation behavior needs a human
+playtest in addition to the automated and isolated engine checks.
+
 ## 0.1.2 — Development preview
 
-- Preserve the Windows setup/preflight, profile backup and direct LAN joining
-  guidance added after v0.1.1, with subsequent successful joining/bot-combat
-  results separated from the pending Windows progression restart check.
+- Document Windows setup/preflight, full profile backups and direct LAN joining.
 
 This update expands native bot sessions and keeps filling active after transient
-spawn failures. These are implemented settings and controller changes; full
-gameplay acceptance across the expanded rotation remains pending.
+spawn failures.
 
 - Native difficulty is now Hard, with 16 player slots and a target of 16 total
   humans plus bots, allowing 8v8 in team modes.
@@ -40,17 +57,12 @@ Native timer and round rules remain in force. CTF overtime and Demolition
 bomb/round rules can end rounds independently of these score caps. Native
 movement, combat, loadout validity and earned human progression remain under
 the game; this update adds no human XP or unlock writes, persistent bot learning
-or bot careers. Live Raid / Domination checks verified 8v8 assignment,
-16 → 15 → 16 mid-match refill, Windows staying connected, and a second human
-replacing a bot. Full rotation, all-mode gameplay and prolonged failed-add
-recovery still need live acceptance. Earlier baseline results remain documented in
-[validation status](docs/VALIDATION.md).
+or bot careers. Use the [validation guide](docs/VALIDATION.md) to test the chosen
+rotation and runtime.
 
 ## 0.1.1 — Development preview
 
-This update adds automated source checks and release packaging. The configured
-workflow must pass before publishing; this changelog does not assert a completed
-CI run or release.
+This update adds automated source checks and release packaging.
 
 - Linux regression checks cover client setup, host state, release packaging,
   chat boundaries/configuration and Bash syntax.
@@ -67,10 +79,6 @@ CI run or release.
 - [Release instructions](docs/RELEASING.md) document versioning, checks, package
   boundaries and the remaining gameplay acceptance work.
 
-The existing Linux native-bot/progression/chat acceptance record is preserved.
-Windows gameplay remains untested. This update does not claim new runtime
-gameplay, MW2 feature parity, additional unlock checks or bot learning behavior.
-
 ## 0.1.0 — Initial source baseline
 
 - Private Plutonium T6 LAN multiplayer over Tailscale, with a contained Wine
@@ -82,5 +90,4 @@ gameplay, MW2 feature parity, additional unlock checks or bot learning behavior.
 - Source-only distribution: owned BO2 files, official runtime, model weights,
   credentials, private state and player saves remain separate.
 
-See [validation status](docs/VALIDATION.md) for the evidence and limits of this
-baseline rather than treating a source release as platform-wide acceptance.
+See the [validation guide](docs/VALIDATION.md) for platform and runtime checks.

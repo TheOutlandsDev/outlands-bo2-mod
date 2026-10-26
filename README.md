@@ -5,16 +5,10 @@ normal earned rank and weapon progression. Linux and Windows clients use
 Plutonium LAN mode and connect directly to the private host. No Plutonium
 server key is needed for this LAN path.
 
-The playable baseline has been verified on Linux: one human plus 11 native
-bots, combat, after-action rank XP and weapon progress, and retention after a
-full client/server restart. Isolated checks also verified custom aliases,
-varied native weapons/classes and cosmetic-level API calls. The complete live
-Ollama request, generation, local RCON and native bot speech path has now passed
-with a human playing. The player also confirmed the scoreboard's blank clan
-tags and different cosmetic levels look correct. Windows joining, spawning
-and bot combat have since been confirmed; Windows quit/relaunch progression
-retention remains pending. See
-[validation status](docs/VALIDATION.md).
+The source provides native bot filling, configurable identities and class roles,
+optional local Ollama chat, and client setup helpers. See the
+[implementation methodology](docs/METHODOLOGY.md) for architecture and
+[validation guide](docs/VALIDATION.md) for reproducible checks.
 
 This repository contains original mod source and setup tools. Supply your own
 legitimate BO2 installation. Game files, Plutonium binaries, model weights,
@@ -112,11 +106,13 @@ reachability, not the BO2 game socket or a successful join. A
 `PLATFORM_DISCONNECTED_FROM_SERVER` message records a disconnect; its cause
 needs diagnosis rather than assuming a password or firewall failure.
 
-Before a playtest, back up the active runtime's `storage\t6` tree and verify the
-copied files against their source hashes. Keep profiles, connection CFGs,
+Before a playtest or update, close the game and back up the active runtime's
+complete `storage` directory, then verify the copied files against their source
+hashes. Native progression can live in `storage/demonware`; copying only
+`storage/t6` omits those saves. Keep profiles, connection CFGs,
 machine-specific launchers, invites, addresses and raw logs private. The
-[Windows validation record](docs/VALIDATION.md#windows-preparation-2026-10-25)
-records preparation, subsequent joining/combat results and remaining progression tests.
+[validation guide](docs/VALIDATION.md) describes client preparation, joining
+and progression persistence checks.
 
 ## Host a game
 
@@ -153,25 +149,21 @@ retry batches. It keeps polling every two seconds during cooldown and resets
 the retry sequence when the human count or target changes. It removes only
 verified bots when reducing the population. Native BO2 movement, combat and
 difficulty logic remain in control; the mod does not disguise bots as human
-connections or fabricate latency. Live checks on Raid / Domination verified
-eight assigned players per team, a mid-match 16 → 15 → 16 vacancy/refill, and
-Windows staying connected. Full rotation and prolonged failed-add recovery
-acceptance remain pending.
+connections or fabricate latency. Test mid-match replacement, team allocation
+and recovery across the selected maps and modes using the validation guide.
 
-`storage/t6/bots.txt` defines fictional aliases with empty clan-tag fields, with
-random native roster selection enabled. Custom alias assignment has passed a
-runtime check. Matching chat personalities give each alias a distinct voice.
-Optional random levels from 1 to 55 are cosmetic bot presentation, not earned
-bot careers or weapon unlocks. The native calls passed an isolated check, and
-the player confirmed visible levels and removal of the default `BOT` clan tags
-on the scoreboard. The host continues to disclose native AI opponents. The optional
-[local chat bridge](ai/README.md)
-provides occasional banter and public-chat replies through Ollama, with canned
-fallbacks. Live logs verified generated replies passing through local RCON,
-GSC identity validation and native `sayall`, with multiple successful delivery
-acknowledgements during a human match. Chat does not control combat or alter
-stats. Enable it with the hosting guide's `ai-up` command. Dockhand users can
-then import the complete image-only
+`storage/t6/bots.txt` defines 48 fictional aliases with empty clan-tag fields, with
+random native roster selection enabled. Matching chat personalities give each
+alias a distinct voice. The identity module uses weighted levels from 1 to 55
+and random prestiges from 0 to 10 by default. These cosmetic choices stay stable
+across respawns and use bot-only native display calls. Earned bot careers and
+weapon unlocks remain future work. Hosts should disclose the native AI opponents.
+
+The optional [local chat bridge](ai/README.md) provides occasional banter,
+public-chat replies and bounded two-line bot conversations through Ollama, with
+canned fallbacks. Chat uses local RCON, exact bot identity checks and native
+`sayall`; it does not control combat or alter stats. Enable it with the hosting
+guide's `ai-up` command. Dockhand users can import the complete image-only
 [`compose.dockhand.ai.yaml`](hosting/compose.dockhand.ai.yaml) stack.
 
 Customize bots in `storage/t6/outlands_t6.cfg` and the alias roster:
@@ -183,21 +175,49 @@ Customize bots in `storage/t6/outlands_t6.cfg` and the alias roster:
 | `outlands_bot_difficulty` | 0 easy, 1 normal, 2 hard or 3 veteran; currently 2 (Hard) |
 | `sv_randomizeBotNames` | Native random roster order; default 1 |
 | `outlands_bot_levels` | Enable cosmetic bot levels; 0 keeps native display |
-| `outlands_bot_level_min` / `outlands_bot_level_max` | Inclusive cosmetic level range, bounded to 1–55 |
+| `outlands_bot_level_min` / `outlands_bot_level_max` | Inclusive weighted cosmetic level range, bounded to 1–55 |
+| `outlands_bot_prestige_min` / `outlands_bot_prestige_max` | Cosmetic prestige range, default 0–10, bounded by the native icon table |
+| `outlands_bot_profiles` | Enable connection class roles; default 1, enabling requires fresh map initialization |
+| `outlands_bot_marksman_limit` | Maximum marksman roles, default 2; native emergency anti-air selection remains available |
+| `outlands_bot_patrol_profiles` | Enable role-specific low-priority patrol timing; default 1 |
 
 Keep stock `bot_friends` and `bot_enemies` at zero so only the Outlands controller
 owns filling. The stock generator builds valid randomized unlocked weapons,
 attachments, perks and equipment, and native class selection varies between
-lives. An isolated four-bot probe observed distinct shotgun, LMG, sniper and SMG
-loadouts with different attachments and secondaries. The mod keeps the native
-validity rules. Humans use the normal Create-a-Class menu and earned unlocks;
+lives. The mod keeps the native validity rules. Humans use the normal
+Create-a-Class menu and earned unlocks;
 this source does not grant human equipment or levels.
+
+## Custom AI development update
+
+The working source adds five bot class roles: rushers favor SMGs/shotguns,
+assault players favor assault rifles, objective players favor rifles/SMGs,
+support players favor LMGs/rifles, and marksmen favor sniper rifles. The native
+generator still determines valid weapons, attachments, perks and equipment;
+profiles filter eligible class choices and fall back to initialized native
+presets when needed. Native anti-air threat responses retain their class pool.
+Roles last for a bot connection, with at most two marksmen by default.
+
+Optional patrol profiles vary when the native brain considers a new patrol
+point: rushers more frequently, support/marksmen less frequently. Native goal
+selection, objectives, combat and stuck recovery remain in control. Patrol
+cadence changes do not implement new pathfinding or persistent learning; evaluate
+movement quality in gameplay separately from hook execution.
+
+Chat can now schedule one answer from another native bot after a delivered
+banter opener. Human public-chat replies take priority. The exchange ends after
+the second line, shares global/per-bot limits, and stops when no humans remain.
+Defaults are a 60-second opener interval, 14-second answer delay and at most
+four requested lines per minute. `outlands_chat_dialogue 0` disables bot-to-bot
+followups while keeping human replies available. See the [chat guide](ai/README.md)
+for worker configuration and the [validation guide](docs/VALIDATION.md) for
+repeatable checks. These development changes are not part of the frozen v0.1.2
+release assets.
 
 ## Map and mode rotation
 
-The configured rotation now covers the 15 multiplayer maps installed for the
-host baseline: 14 base maps plus Nuketown 2025. Clients need the owned files for
-each selected map; this does not include every separately released DLC map.
+The configured rotation covers 15 multiplayer maps: 14 base maps plus Nuketown
+2025. Clients need the owned files for each selected map; this does not include every separately released DLC map.
 
 Eight modes use native bot support: Free-for-All (`dm`), Team Deathmatch (`tdm`),
 Capture the Flag (`ctf`), Demolition (`dem`), Domination (`dom`), Hardpoint
@@ -221,10 +241,8 @@ All eight wrappers double the baseline time and score targets:
 
 These limits follow each mode's native timer and round structure. CTF overtime
 and Demolition bomb/round rules can end rounds independently of the score cap.
-The Hard/16-player/expanded-rotation update, doubled limits and revised filling
-are configured and loaded. Raid / Domination fill and team allocation passed;
-full gameplay acceptance across the rotation remains pending. They add no
-persistent learning or bot careers.
+Test gameplay across every configured map and mode before extending the rotation.
+The settings add no persistent learning or bot careers.
 
 The MW2 reference is
 [iw4x-bot-warfare-extras](https://github.com/TheOutlandsDev/iw4x-bot-warfare-extras).
@@ -243,10 +261,9 @@ can publish a prerelease after the same checks pass. A manual release run on
 then publish using GitHub's built-in token. Dispatch on an existing matching tag
 is also supported.
 
-This describes the configured pipeline, not a report that its checks have run.
-See the repository's Actions results and [release instructions](docs/RELEASING.md).
-CI does not launch BO2 or prove Windows gameplay; the existing
-[gameplay acceptance record](docs/VALIDATION.md) remains separate.
+See the repository's Actions results for each revision and the
+[release instructions](docs/RELEASING.md) for packaging. CI does not launch BO2;
+follow the separate [gameplay validation guide](docs/VALIDATION.md).
 
 ## License and credits
 
