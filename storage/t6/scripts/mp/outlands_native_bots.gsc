@@ -386,6 +386,13 @@ party_side( preferred, human_allies, human_axis, capacity )
     return preferred;
 }
 
+party_capacity( budget, inactive )
+{
+    if ( inactive < 0 )
+        inactive = 0;
+    return int( max( 0, budget - inactive ) / 2 );
+}
+
 cohort_side( counts )
 {
     if ( counts.human_allies > 0 && counts.human_axis == 0 )
@@ -414,7 +421,10 @@ human_join_side()
         counts.human_allies--;
     if ( isdefined( self.sessionteam ) && self.sessionteam == "axis" )
         counts.human_axis--;
-    capacity = int( getdvarint( "sv_maxclients" ) / 2 );
+    inactive = counts.inactive_humans;
+    if ( !isdefined( self.sessionteam ) || ( self.sessionteam != "allies" && self.sessionteam != "axis" ) )
+        inactive--;
+    capacity = party_capacity( fill_target(), inactive );
     if ( capacity < 1 )
         return preferred;
     selected = party_side( preferred, counts.human_allies, counts.human_axis, capacity );
