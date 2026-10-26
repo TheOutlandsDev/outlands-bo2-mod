@@ -196,6 +196,7 @@ sample_chat_context( players )
 {
     context_function = getfunction( "scripts/mp/outlands_chat", "task_context" );
     request_function = getfunction( "scripts/mp/outlands_chat", "request_chat" );
+    team_function = getfunction( "scripts/mp/outlands_chat", "chat_team" );
     if ( !isdefined( context_function ) || !isdefined( request_function ) )
         return;
     seen = [];
@@ -228,6 +229,9 @@ sample_chat_context( players )
             setting = getdvarint( "outlands_chat_tactical" );
             setdvar( "outlands_chat_tactical", 0 );
             disabled = [[ context_function ]]( bot, "contract" );
+            disabled_team = [[ team_function ]]( bot );
+            if ( disabled_team == bot.pers["team"] && disabled_team != "none" )
+                println( "OUTLANDS_CHAT_GUARD_V1|team_binding" );
             setdvar( "outlands_chat_tactical", setting );
             if ( disabled.wire == "none|none|none|-1|none|none|0|0|0|0|0" )
                 println( "OUTLANDS_CHAT_GUARD_V1|context_disabled" );

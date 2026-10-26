@@ -227,7 +227,7 @@ def assess_chat_context(text, case):
     markers=set(line.strip() for line in clean.splitlines())
     reasons=[]
     if not expected<=topics or invalid:reasons.append('native task context was missing or malformed')
-    if 'OUTLANDS_CHAT_GUARD_V1|rejected' not in markers or 'OUTLANDS_CHAT_GUARD_V1|context_disabled' not in markers or 'OUTLANDS_CHAT_GUARD_V1|failed' in markers:
+    if 'OUTLANDS_CHAT_GUARD_V1|rejected' not in markers or 'OUTLANDS_CHAT_GUARD_V1|context_disabled' not in markers or 'OUTLANDS_CHAT_GUARD_V1|team_binding' not in markers or 'OUTLANDS_CHAT_GUARD_V1|failed' in markers:
         reasons.append('zero-human refusal or context off switch was not verified')
     if 'OUTLANDS_CHAT_ACK_V1|' in clean:reasons.append('production chat spoke without humans')
     if 'OUTLANDS_CHAT_PRIMITIVE_V1|sayall' not in markers:reasons.append('isolated native speech primitive was not exercised')
