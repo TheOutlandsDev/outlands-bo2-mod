@@ -39,6 +39,10 @@ verify_native_match()
     // A fresh native baseline makes within-stage completion evidence possible
     // even if the first short contract finishes before the ten-second sample.
     sample( "sample" );
+    if ( getdvarint( "outlands_verify_lobby" ) )
+        level thread verify_lobby_balance();
+    if ( getdvarint( "outlands_verify_air" ) )
+        level thread verify_air_response();
 
     duration = getdvarint( "outlands_verify_seconds" );
     if ( duration < 30 )
@@ -391,4 +395,192 @@ feature_fields( players )
         }
     }
     return level.outlands_verify_sequence + "|" + squads_enabled + "|" + assigned + "|" + attack + "|" + defend + "|" + support + "|" + targeted + "|" + goal_calls + "|" + distinct + "|" + squad_invalid + "|" + contracts_enabled + "|" + contract_active + "|" + contract_completed + "|" + contract_commendations + "|" + contract_kills + "|" + contract_score + "|" + contract_points + "|" + contract_invalid + "|" + team_bots["allies"] + "|" + team_bots["axis"];
+}
+
+
+lobby_record( phase )
+{
+    pop = getfunction( "scripts/mp/outlands_native_bots", "population" );
+    counts = [[ pop ]]();
+    println( "OUTLANDS_LOBBY_V1|" + phase + "|" + counts.humans + "|" + counts.bots.size + "|" + counts.allies + "|" + counts.axis );
+}
+
+repair_lobby()
+{
+    pop = getfunction( "scripts/mp/outlands_native_bots", "population" );
+    planner = getfunction( "scripts/mp/outlands_native_bots", "population_plan" );
+    execute = getfunction( "scripts/mp/outlands_native_bots", "execute_population_plan" );
+    for ( i = 0; i < 12; i++ )
+    {
+        counts = [[ pop ]]();
+        if ( counts.humans != 0 )
+            return false;
+        if ( counts.bots.size == 16 && counts.allies == 8 && counts.axis == 8 )
+            return true;
+        plan = [[ planner ]]( counts, 16 );
+        [[ execute ]]( plan );
+        wait 1;
+    }
+    return false;
+}
+
+skew_lobby()
+{
+    pop = getfunction( "scripts/mp/outlands_native_bots", "population" );
+    select = getfunction( "scripts/mp/outlands_native_bots", "bot_on_team" );
+    spawn_bot = getfunction( "maps/mp/bots/_bot", "spawn_bot" );
+    counts = [[ pop ]]();
+    bot = [[ select ]]( counts, "axis" );
+    if ( !isdefined( bot ) || !bot istestclient() || !isdefined( spawn_bot ) )
+        return false;
+    println( "OUTLANDS_LOBBY_DIAG_V1|selected|" + bot.sessionteam );
+    // Replace a real axis bot using native explicit-team creation. Existing
+    // ranked menus deliberately disallow manual team changes after combat.
+    bot botleavegame();
+    wait 0.5;
+    [[ spawn_bot ]]( "allies" );
+    for ( i = 0; i < 20; i++ )
+    {
+        wait 0.5;
+        counts = [[ pop ]]();
+        if ( counts.humans != 0 )
+            return false;
+        if ( counts.bots.size == 16 && counts.allies == 9 && counts.axis == 7 )
+            return true;
+    }
+    println( "OUTLANDS_LOBBY_DIAG_V1|skew_failed|" + counts.allies + "|" + counts.axis );
+    return false;
+}
+
+verify_lobby_balance()
+{
+    level endon( "game_ended" );
+    pop = getfunction( "scripts/mp/outlands_native_bots", "population" );
+    select = getfunction( "scripts/mp/outlands_native_bots", "bot_on_team" );
+    side = getfunction( "scripts/mp/outlands_native_bots", "party_side" );
+    planner = getfunction( "scripts/mp/outlands_native_bots", "population_plan" );
+    if ( !isdefined( level.outlands_team_hooks ) || !isdefined( side ) )
+    {
+        println( "OUTLANDS_PARTY_POLICY_V1|failed" );
+        return;
+    }
+    // Count-only fixtures do not create or relabel human connections.
+    policy = [[ side ]]( "allies", 0, 0, 8 ) == "allies";
+    policy = policy && [[ side ]]( "allies", 2, 0, 8 ) == "allies";
+    policy = policy && [[ side ]]( "axis", 0, 2, 8 ) == "axis";
+    policy = policy && [[ side ]]( "allies", 7, 0, 8 ) == "allies";
+    policy = policy && [[ side ]]( "allies", 8, 0, 8 ) == "axis";
+    policy = policy && [[ side ]]( "axis", 0, 8, 8 ) == "allies";
+    if ( !policy )
+    {
+        println( "OUTLANDS_PARTY_POLICY_V1|failed" );
+        return;
+    }
+    println( "OUTLANDS_PARTY_POLICY_V1|pass" );
+    for ( i = 0; i < 40; i++ )
+    {
+        counts = [[ pop ]]();
+        if ( counts.bots.size == 16 && counts.allies == 8 && counts.axis == 8 )
+            break;
+        wait 0.5;
+    }
+    wait 3;
+    counts = [[ pop ]]();
+    lobby_record( "baseline" );
+    bot = [[ select ]]( counts, "allies" );
+    if ( !isdefined( bot ) || !bot istestclient() )
+        return;
+    bot botleavegame();
+    wait 1;
+    lobby_record( "deficit" );
+    if ( !repair_lobby() )
+        return;
+    lobby_record( "refilled" );
+    if ( !skew_lobby() )
+        return;
+    lobby_record( "imbalanced" );
+    if ( !repair_lobby() )
+        return;
+    lobby_record( "rebalanced" );
+    setdvar( "outlands_balance_teams", 0 );
+    setdvar( "outlands_coop_teams", 0 );
+    wait 2;
+    if ( !skew_lobby() )
+        return;
+    counts = [[ pop ]]();
+    plan = [[ planner ]]( counts, 16 );
+    if ( plan.action != "none" )
+        return;
+    lobby_record( "disabled" );
+    setdvar( "outlands_balance_teams", 1 );
+    setdvar( "outlands_coop_teams", 1 );
+    if ( !repair_lobby() )
+        return;
+    lobby_record( "resumed" );
+    // Exercise the real controller tick while native-bot ownership is off.
+    setdvar( "outlands_native_bots", 0 );
+    wait 3;
+    restored = getdvarint( "scr_teambalance" ) == 1;
+    setdvar( "outlands_native_bots", 1 );
+    wait 3;
+    if ( restored && getdvarint( "scr_teambalance" ) == 0 )
+        println( "OUTLANDS_BALANCE_RESTORE_V1|pass" );
+    else
+        println( "OUTLANDS_BALANCE_RESTORE_V1|failed" );
+}
+
+// Script entities test the native detour and timers, not real aircraft combat.
+verify_air_response()
+{
+    level endon( "game_ended" );
+    wait 25;
+    filter = getfunction( "maps/mp/bots/_bot_combat", "threat_should_ignore" );
+    classify = getfunction( "scripts/mp/outlands_bot_profiles", "air_support_target" );
+    bot = undefined;
+    foreach ( player in get_players() )
+        if ( isdefined( player ) && isplayer( player ) && player istestclient() && isdefined( player.bot ) )
+        {
+            bot = player;
+            break;
+        }
+    if ( !isdefined( bot ) || !isdefined( level.outlands_profiles_air_ignore ) )
+    {
+        println( "OUTLANDS_AIR_POLICY_V1|failed" );
+        return;
+    }
+    delay = getdvar( "outlands_bot_air_reaction_ms" );
+    chance = getdvar( "outlands_bot_air_response_chance" );
+    target = spawn( "script_origin", ( 0, 0, 0 ) );
+    other = spawn( "script_origin", ( 0, 0, 0 ) );
+    target.targetname = "uav";
+    other.targetname = "counteruav";
+    setdvar( "outlands_bot_air_reaction_ms", 1000 );
+    setdvar( "outlands_bot_air_response_chance", 100 );
+    delayed = bot [[ filter ]]( target );
+    multiple = bot [[ filter ]]( other );
+    // The same target must retain its deadline across interleaved candidates.
+    ready = bot.outlands_air_gates[target getentitynumber()].ready;
+    wait 2;
+    resumed = !bot [[ filter ]]( target );
+    stable = ready == bot.outlands_air_gates[target getentitynumber()].ready;
+    setdvar( "outlands_bot_air_reaction_ms", 0 );
+    setdvar( "outlands_bot_air_response_chance", 0 );
+    declined = bot [[ filter ]]( target );
+    setdvar( "outlands_bot_air_response_chance", 100 );
+    stock = !bot [[ filter ]]( target );
+    // Native ignore deadlines continue to win even when the mod gate is off.
+    bot.bot.ignore_entity[target getentitynumber()] = gettime() + 1000;
+    native_ignored = bot [[ filter ]]( target );
+    bot.bot.ignore_entity[target getentitynumber()] = 0;
+    ground = ![[ classify ]]( bot );
+    target.targetname = "remote_mortar";
+    ground = ground && ![[ classify ]]( target );
+    setdvar( "outlands_bot_air_reaction_ms", delay );
+    setdvar( "outlands_bot_air_response_chance", chance );
+    target delete();
+    other delete();
+    if ( delayed && multiple && resumed && stable && declined && stock && native_ignored && ground )
+        println( "OUTLANDS_AIR_POLICY_V1|pass" );
+    else
+        println( "OUTLANDS_AIR_POLICY_V1|failed" );
 }
