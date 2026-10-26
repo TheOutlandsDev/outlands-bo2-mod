@@ -28,6 +28,8 @@ jobs:
         run: python -B -m unittest discover -s ai/tests -v
       - name: Validate chat configuration
         run: python -B ai/bridge.py --check
+      - name: Check synthetic rival chat without a model or game
+        run: python -B ai/benchmark.py --mode fallback
       - name: Audit distributable source and Bash syntax
         shell: bash
         run: |
