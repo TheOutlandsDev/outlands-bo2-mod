@@ -130,6 +130,15 @@ class HostStateTests(unittest.TestCase):
         self.assertEqual(self.value("outlands_chat_max_per_minute"), "4")
         self.assertEqual(self.stats.read_bytes(), self.original_stats)
 
+    def test_tactical_chat_default_migrates_and_preserves_explicit_off(self):
+        source = self.mod / host.CFG_NAME
+        source.write_text(source.read_text() + 'set outlands_chat_tactical 1\n')
+        host.configure_mod(None)
+        self.assertEqual(self.value("outlands_chat_tactical"), "1")
+        self.cfg.write_text(self.cfg.read_text().replace('set outlands_chat_tactical 1', 'set outlands_chat_tactical 0'))
+        host.configure_mod(None)
+        self.assertEqual(self.value("outlands_chat_tactical"), "0")
+
     def test_disabling_chat_clears_rcon_and_retains_secret_for_reenable(self):
         _, original = host.configure_mod(None)
         with patch.dict(os.environ, {"T6_CHAT_ENABLED": "0"}):
