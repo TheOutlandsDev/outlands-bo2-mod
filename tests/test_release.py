@@ -127,7 +127,12 @@ class ReleaseTests(unittest.TestCase):
         path = self.root / "README.md"
         values = (b"synthetic\0binary", b"\xffnot utf8", b"x" * (RELEASE.MAX_SOURCE_BYTES + 1),
                   (".".join(("100", "64", "0", "1")) + ":4977").encode(),
-                  ("/" + "home" + "/fixture/private.txt").encode())
+                  ("/" + "home" + "/fixture/private.txt").encode(),
+                  ("C:" + "\\Users\\" + "fixture\\private.txt").encode(),
+                  ("C:" + "/Users/" + "fixture/private.txt").encode(),
+                  ("DESKTOP" + "-TEST123").encode(),
+                  ("laptop" + "-test123").encode(),
+                  ("fixture-host.fixture-tailnet" + ".ts.net").encode())
         for raw in values:
             with self.subTest(kind=raw[:16]):
                 path.write_bytes(raw)
@@ -175,7 +180,11 @@ class ReleaseTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "exactly match"):
                 RELEASE.build_archive(output, inputs, self.root)
         self.assertFalse(output.parent.exists())
-        for name in ("invalid.txt", "bad\nname.zip", "bad\\name.zip"):
+        invalid_names = ["invalid.txt", "bad\nname.zip"]
+        # Backslash is a filename character on POSIX, but a path separator on Windows.
+        if os.name == "posix":
+            invalid_names.append("bad\\name.zip")
+        for name in invalid_names:
             with self.assertRaisesRegex(ValueError, "filename"):
                 RELEASE.build_archive(output.parent / name, files, self.root)
         self.assertFalse(output.parent.exists())

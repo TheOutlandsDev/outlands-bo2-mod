@@ -73,6 +73,14 @@ function Test-OutlandsPassword([string]$Password) {
     if ($Password.Length -lt 1 -or $Password.Length -gt 128 -or $Password -match '[^\x20-\x7e]|["\\;/]') { throw 'Password must be 1-128 printable ASCII characters excluding quotes, slashes, backslashes and semicolons.' }
     return $Password
 }
+function New-OutlandsJoinText([string]$Address, [string]$Password, [switch]$NoPassword) {
+    $target = Test-OutlandsAddress $Address
+    if ($NoPassword) {
+        if (-not [string]::IsNullOrEmpty($Password)) { throw 'Choose a password or explicit no-password mode, not both.' }
+        $value = ''
+    } else { $value = Test-OutlandsPassword $Password }
+    return 'password "' + $value + '"' + [char]10 + 'connect ' + $target + [char]10
+}
 function Read-OutlandsInvite([string]$Path) {
     try {
         $item = Get-Item -LiteralPath $Path
@@ -95,7 +103,10 @@ function Test-OutlandsJoin([string]$Path) {
         $lines = [regex]::Split([Text.Encoding]::ASCII.GetString($bytes), '\r?\n')
         if ($lines.Count -gt 1 -and $lines[-1] -eq '') { $lines = $lines[0..($lines.Count - 2)] }
         if ($lines.Count -ne 2 -or $lines[0] -cnotmatch '\Apassword "([^"]*)"\z') { throw 'Invalid password command' }
-        $null = Test-OutlandsPassword $Matches[1]
+        # An exact empty value deliberately clears a previously saved password.
+        # Nonempty values retain the same validation used by protected invites.
+        $passwordValue = $Matches[1]
+        if ($passwordValue.Length -gt 0) { $null = Test-OutlandsPassword $passwordValue }
         if ($lines[1] -cnotmatch '\Aconnect ([^\s]+)\z') { throw 'Invalid connect command' }
         $null = Test-OutlandsAddress $Matches[1]
     } catch { throw 'Private join CFG must contain only valid password and connect commands.' }

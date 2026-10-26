@@ -40,6 +40,11 @@ contact a model or prove a working Tailscale game connection.
 
 ## Client preparation and joining
 
+The [Windows guide](WINDOWS.md) includes full-storage backup/hash commands,
+explicit runtime paths and the current Windows `--no-password` setup option.
+Protected invites retain nonempty passwords; no-password mode cannot be combined
+with `--invite`. Test the actual connection separately from synthetic CFG checks.
+
 1. Close BO2 and back up the active Plutonium runtime's complete `storage`
    directory. Include `storage/demonware` and `storage/t6`; verify copied file
    hashes. Keep the same runtime and a stable, unique LAN name across launches.

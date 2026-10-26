@@ -5,3 +5,12 @@
 .venv/
 __pycache__/
 *.pyc
+/backups/
+/private/
+*.lnk
+*.log
+*.log.*
+/storage/t6/players/
+/storage/demonware/
+/storage/t6/outlands_join.cfg
+/storage/t6/outlands_player_name.txt
