@@ -259,6 +259,8 @@ def configure_mod(name: str | None) -> tuple[str, str]:
                     "outlands_bot_level_max", "outlands_bot_prestige_min", "outlands_bot_prestige_max",
                     "outlands_bot_profiles", "outlands_bot_marksman_limit", "outlands_bot_patrol_profiles",
                     "outlands_bot_career_snapshot_seconds", "outlands_bot_career_restore_seconds",
+                    "outlands_coop_teams", "outlands_balance_teams",
+                    "outlands_bot_air_reaction_ms", "outlands_bot_air_response_chance",
                     "outlands_squads", "outlands_squad_reassess_seconds", "outlands_squad_attackers",
                     "outlands_squad_defenders", "outlands_squad_goal_seconds", "outlands_contracts",
                     "outlands_contract_seconds", "outlands_contract_seed", "outlands_contract_goal_scale",

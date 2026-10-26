@@ -130,6 +130,30 @@ class HostStateTests(unittest.TestCase):
         self.assertEqual(self.value("outlands_chat_max_per_minute"), "4")
         self.assertEqual(self.stats.read_bytes(), self.original_stats)
 
+    def test_air_response_defaults_migrate_without_overwriting_tuning(self):
+        source = self.mod / host.CFG_NAME
+        source.write_text(source.read_text() + 'set outlands_bot_air_reaction_ms 2500\nset outlands_bot_air_response_chance 80\n')
+        host.configure_mod(None)
+        self.assertEqual(self.value('outlands_bot_air_reaction_ms'), '2500')
+        self.assertEqual(self.value('outlands_bot_air_response_chance'), '80')
+        self.cfg.write_text(self.cfg.read_text().replace('outlands_bot_air_reaction_ms 2500', 'outlands_bot_air_reaction_ms 0').replace('outlands_bot_air_response_chance 80', 'outlands_bot_air_response_chance 100'))
+        host.configure_mod(None)
+        self.assertEqual(self.value('outlands_bot_air_reaction_ms'), '0')
+        self.assertEqual(self.value('outlands_bot_air_response_chance'), '100')
+        self.assertEqual(self.stats.read_bytes(), self.original_stats)
+
+    def test_cooperative_team_defaults_migrate_and_preserve_explicit_off(self):
+        source = self.mod / host.CFG_NAME
+        source.write_text(source.read_text() + 'set outlands_coop_teams 1\nset outlands_balance_teams 1\n')
+        host.configure_mod(None)
+        for name in ('outlands_coop_teams', 'outlands_balance_teams'):
+            self.assertEqual(self.value(name), '1')
+        self.cfg.write_text(self.cfg.read_text().replace('set outlands_coop_teams 1', 'set outlands_coop_teams 0').replace('set outlands_balance_teams 1', 'set outlands_balance_teams 0'))
+        host.configure_mod(None)
+        self.assertEqual(self.value('outlands_coop_teams'), '0')
+        self.assertEqual(self.value('outlands_balance_teams'), '0')
+        self.assertEqual(self.stats.read_bytes(), self.original_stats)
+
     def test_tactical_chat_default_migrates_and_preserves_explicit_off(self):
         source = self.mod / host.CFG_NAME
         source.write_text(source.read_text() + 'set outlands_chat_tactical 1\n')

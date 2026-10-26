@@ -67,6 +67,38 @@ class BackendReportTests(unittest.TestCase):
         present=FakeDocker('true')
         verify.require_map_asset(present,'synthetic-image',verify.Case('mp_village','koth'))
 
+    def test_air_response_report_distinguishes_script_policy_from_aircraft_combat(self):
+        marker = 'OUTLANDS_AIR_POLICY_V1|pass'
+        result = verify.assess_air_response(marker)
+        self.assertTrue(result['passed'])
+        self.assertFalse(result['actual_aircraft_combat'])
+        for bad in ('', 'Player: '+marker, marker+'\n'+marker,
+                    marker+'\nOUTLANDS_AIR_POLICY_V1|failed'):
+            self.assertFalse(verify.assess_air_response(bad)['passed'])
+
+    def test_lobby_report_requires_ordered_native_repairs_and_count_policy(self):
+        phases = [('baseline', (0,16,8,8)), ('deficit', (0,15,7,8)),
+                  ('refilled', (0,16,8,8)), ('imbalanced', (0,16,9,7)),
+                  ('rebalanced', (0,16,8,8)), ('disabled', (0,16,9,7)),
+                  ('resumed', (0,16,8,8))]
+        lines = ['OUTLANDS_LOBBY_V1|'+phase+'|'+'|'.join(map(str, values)) for phase, values in phases]
+        good = 'OUTLANDS_PARTY_POLICY_V1|pass\nOUTLANDS_BALANCE_RESTORE_V1|pass\n'+'\n'.join(lines)
+        self.assertTrue(verify.assess_lobby(good)['passed'])
+        self.assertTrue(verify.assess_lobby(good.replace('|deficit|0|15|7|8', '|deficit|0|15|8|7'))['passed'])
+        self.assertFalse(verify.assess_lobby(good)['human_join_acceptance'])
+        bad_cases = [good+'\n'+lines[0], good.replace(lines[1]+'\n', ''),
+                     good.replace(lines[0]+'\n'+lines[1], lines[1]+'\n'+lines[0]),
+                     good.replace('|baseline|0|16', '|baseline|1|16'),
+                     good.replace('|refilled|0|16|8|8', '|refilled|0|16|9|7'),
+                     good.replace('OUTLANDS_LOBBY_V1|', 'Player: OUTLANDS_LOBBY_V1|'),
+                     good.replace('OUTLANDS_PARTY_POLICY_V1|pass', 'OUTLANDS_PARTY_POLICY_V1|failed'),
+                     good+'\nOUTLANDS_LOBBY_V1|baseline|invalid',
+                     good+'\nOUTLANDS_PARTY_POLICY_V1|pass',
+                     good.replace('OUTLANDS_BALANCE_RESTORE_V1|pass', 'OUTLANDS_BALANCE_RESTORE_V1|failed')]
+        for bad in bad_cases:
+            self.assertFalse(verify.assess_lobby(bad)['passed'], bad)
+        self.assertTrue(verify.assess_lobby('\x1b[38;2;255;255;255m'+good)['passed'])
+
     def test_chat_context_requires_native_topics_guards_and_no_production_speech(self):
         prefix = 'OUTLANDS_CONTEXT_V1|3|Trailblazer|mp_raid|dom|'
         records = '\n'.join(prefix+topic+'|allies|attack|0|enemy|combined_score|1|100|1000|0|45' for topic in ('squad','objective','contract'))

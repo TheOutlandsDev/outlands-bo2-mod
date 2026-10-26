@@ -236,8 +236,43 @@ def assess_chat_context(text, case):
     return {'passed':not reasons,'reasons':reasons,'records':records,'topics':sorted(topics),'production_speech':False,'native_primitive_only':True}
 
 
+def assess_lobby(text):
+    rows = []
+    markers = [line.strip() for line in ANSI.sub('', text).splitlines()]
+    malformed = False
+    for line in markers:
+        if not line.startswith('OUTLANDS_LOBBY_V1|'):
+            continue
+        parts = line.split('|')
+        if len(parts) != 6 or not all(re.fullmatch(r'[0-9]{1,2}', value) for value in parts[2:]):
+            malformed = True
+            continue
+        rows.append((parts[1], tuple(map(int, parts[2:]))))
+    phases = ['baseline', 'deficit', 'refilled', 'imbalanced', 'rebalanced', 'disabled', 'resumed']
+    expected = [(0,16,8,8), None, (0,16,8,8), (0,16,9,7), (0,16,8,8), (0,16,9,7), (0,16,8,8)]
+    reasons = []
+    if malformed or [phase for phase, _ in rows] != phases or any(
+        values not in ((0,15,7,8), (0,15,8,7)) if wanted is None else values != wanted
+        for (_, values), wanted in zip(rows, expected)
+    ):
+        reasons.append('native refill, imbalance repair or disabled-state evidence missing')
+    if markers.count('OUTLANDS_PARTY_POLICY_V1|pass') != 1 or 'OUTLANDS_PARTY_POLICY_V1|failed' in markers:
+        reasons.append('cooperative capacity/side policy did not pass native table checks')
+    if markers.count('OUTLANDS_BALANCE_RESTORE_V1|pass') != 1 or 'OUTLANDS_BALANCE_RESTORE_V1|failed' in markers:
+        reasons.append('stock balance policy was not restored when native-bot ownership was disabled')
+    return {'passed': not reasons, 'reasons': reasons, 'observations': dict(rows),
+            'actual_humans': False, 'human_join_acceptance': False}
+
+
+def assess_air_response(text):
+    markers = [line.strip() for line in ANSI.sub('', text).splitlines()]
+    passed = markers.count('OUTLANDS_AIR_POLICY_V1|pass') == 1 and 'OUTLANDS_AIR_POLICY_V1|failed' not in markers
+    return {'passed': passed, 'reasons': [] if passed else ['native air-response timer/filter policy did not pass'],
+            'script_entity_fixture': True, 'actual_aircraft_combat': False}
+
+
 def config_for(case: Case, seconds: int, restart: bool, careers: bool,
-               squads: bool = False, contracts: bool = False, switches: bool = False, chat_context: bool = False) -> str:
+               squads: bool = False, contracts: bool = False, switches: bool = False, chat_context: bool = False, lobby_balance: bool = False, air_response: bool = False) -> str:
     cfg = (ROOT / "storage/t6/outlands_t6.cfg").read_text()
     cfg = re.sub(r'^sv_maprotation .*$', f'sv_maprotation "gametype {case.mode} execgts outlands_{case.mode}.cfg map {case.map_name}"', cfg, flags=re.M)
     return cfg + (f'\nset outlands_backend_verification 1\nset outlands_verify_seconds {seconds}\n'
@@ -249,7 +284,9 @@ def config_for(case: Case, seconds: int, restart: bool, careers: bool,
                   # state; the probe never fabricates events, humans or XP.
                   ('set outlands_contract_seconds 30\nset outlands_contract_seed 0\nset outlands_contract_goal_scale 25\n' if contracts else '') +
                   ('set outlands_verify_switches 1\n' if switches else '')+
-                  ('set outlands_verify_chat_context 1\nset outlands_chat_tactical 1\n' if chat_context else ''))
+                  ('set outlands_verify_chat_context 1\nset outlands_chat_tactical 1\n' if chat_context else '')+
+                  ('set outlands_verify_lobby 1\nset outlands_coop_teams 1\nset outlands_balance_teams 1\nset scr_teambalance 1\n' if lobby_balance else '')+
+                  ('set outlands_verify_air 1\n' if air_response else ''))
 
 
 def career_summary(docker: Docker, worker: str) -> dict:
@@ -272,7 +309,7 @@ def require_map_asset(docker: Docker, image: str, case: Case):
 
 def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool, directory: Path,
              careers: bool = False, worker_image: str = "outlands-bo2-chat:rivals-dev",
-             process_restart: bool = False, squads: bool = False, contracts: bool = False, switches: bool = False, chat_context: bool = False) -> dict:
+             process_restart: bool = False, squads: bool = False, contracts: bool = False, switches: bool = False, chat_context: bool = False, lobby_balance: bool = False, air_response: bool = False) -> dict:
     require_map_asset(docker, image, case)
     resource = "outlands-backend-" + uuid.uuid4().hex
     volume = resource + "-state"
@@ -293,7 +330,7 @@ def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool
                 "x=json.load(sys.stdin);(p/'scripts/mp').mkdir(parents=True,exist_ok=True)\n"
                 "(p/'outlands_t6.cfg').write_text(x['cfg'])\n"
                 "(p/'scripts/mp/outlands_backend_verification.gsc').write_text(x['gsc'])\n")
-        payload = json.dumps({"cfg": config_for(case, seconds, restart, careers, squads, contracts, switches, chat_context),
+        payload = json.dumps({"cfg": config_for(case, seconds, restart, careers, squads, contracts, switches, chat_context, lobby_balance, air_response),
                               "gsc": (ROOT / "hosting/verification.gsc").read_text()})
         docker.call("run", "--rm", "-i", "--network", "none", "--cap-drop", "ALL",
                     "--security-opt", "no-new-privileges:true", "-v", volume + ":/data",
@@ -340,6 +377,15 @@ def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool
         if switches:
             samples = [s for s in samples if s.get("squads_enabled") and s.get("contracts_enabled")]
         report = assess(samples, case, restart, careers, squads, contracts)
+        if air_response:
+            report['air_response'] = assess_air_response(all_logs)
+            if not report['air_response']['passed']:
+                report['passed'] = False
+                report['reasons'].extend(report['air_response']['reasons'])
+        if lobby_balance:
+            report['lobby_balance']=assess_lobby(all_logs)
+            if not report['lobby_balance']['passed']:
+                report['passed']=False;report['reasons'].extend(report['lobby_balance']['reasons'])
         if chat_context:
             report['chat_context']=assess_chat_context(all_logs,case)
             if not report['chat_context']['passed']:
@@ -450,6 +496,8 @@ def main(argv=None) -> int:
     parser.add_argument("--squads", action="store_true", help="verify native coordinated squad roles/goals; unsupported modes must remain native")
     parser.add_argument("--contracts", action="store_true", help="verify team contracts from native counters using disposable short thresholds")
     parser.add_argument("--switches", action="store_true", help="also disable and resume both modules during one isolated objective match")
+    parser.add_argument('--air-response', action='store_true', help='verify bot-only air target gate with private script entities, not actual aircraft combat')
+    parser.add_argument('--lobby-balance',action='store_true',help='verify native bot refill, imbalance repair and count-only cooperative side policy; no humans fabricated')
     parser.add_argument('--chat-context',action='store_true',help='capture native task snapshots and verify human-presence/context guards; native speech primitive is tested separately')
     parser.add_argument("--worker-image", default="outlands-bo2-chat:rivals-dev")
     parser.add_argument("--process-restart", action="store_true", help="also restart the actual game/worker containers with their same disposable volumes")
@@ -469,8 +517,12 @@ def main(argv=None) -> int:
             raise ValueError("Switch acceptance requires both modules, one objective case, at least 90 seconds and no restart flags")
         if args.chat_context and (not args.contracts or any(c.mode in OBJECTIVE_MODES for c in cases) and not args.squads):
             raise ValueError('Chat context acceptance needs contracts and objective squads where supported')
+        if args.air_response and (args.seconds < 60 or args.restart or args.process_restart):
+            raise ValueError('Air-response fixture requires at least 60 seconds and no restart flags')
+        if args.lobby_balance and (any(c.mode=='dm' for c in cases) or args.seconds<90 or args.switches or args.process_restart or args.restart):
+            raise ValueError('Lobby verification needs team modes, at least 90 seconds and no restart/switch flags')
         plan = {"server_process_restart": args.process_restart, "careers": args.careers, "squads": args.squads, "contracts": args.contracts, "contract_test_thresholds": args.contracts, "cases": [asdict(case) for case in cases], "seconds": args.seconds,
-                "native_restart": args.restart, "runtime_switches": args.switches, "chat_context":args.chat_context, "network_mode": "none", "published_ports": False,
+                "native_restart": args.restart, "runtime_switches": args.switches, "chat_context":args.chat_context, "lobby_balance":args.lobby_balance, "air_response":args.air_response, "network_mode": "none", "published_ports": False,
                 "human_clients": False, "live_state": False}
         if not args.run:
             print(json.dumps(plan, indent=2))
@@ -483,7 +535,7 @@ def main(argv=None) -> int:
         docker = Docker(ROOT / "hosting/docker.sh")
         reports = []
         for case in cases:
-            report = run_case(docker, args.image, case, args.seconds, args.restart, directory, args.careers, args.worker_image, args.process_restart, args.squads, args.contracts, args.switches,args.chat_context)
+            report = run_case(docker, args.image, case, args.seconds, args.restart, directory, args.careers, args.worker_image, args.process_restart, args.squads, args.contracts, args.switches,args.chat_context,args.lobby_balance,args.air_response)
             reports.append(report)
             (directory / "report.json").write_text(json.dumps({"plan": plan, "results": reports}, indent=2) + "\n")
             print(f"{'PASS' if report['passed'] else 'FAIL'}: {case.map_name}/{case.mode}", flush=True)
