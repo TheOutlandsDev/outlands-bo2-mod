@@ -93,6 +93,7 @@ assign_identity()
             self.outlands_identity_alias = self.name;
         self.outlands_identity_ready = 1;
     }
+    self thread career_identity_updates();
     self apply_identity();
     println( "Outlands native bot identity: slot=" + ( self getentitynumber() ) + " level=" + self.outlands_cosmetic_level + " prestige=" + self.outlands_cosmetic_prestige );
 
@@ -100,6 +101,17 @@ assign_identity()
     {
         self waittill( "spawned_player" );
         wait 0.1;
+        self apply_identity();
+    }
+}
+
+career_identity_updates()
+{
+    self endon( "disconnect" );
+    level endon( "game_ended" );
+    for (;;)
+    {
+        self waittill( "outlands_career_restored" );
         self apply_identity();
     }
 }
@@ -112,6 +124,25 @@ apply_identity()
         return;
     if ( !isdefined( self.outlands_identity_ready ) )
         return;
+
+    // The optional private career ledger supplies only cosmetic bot values.
+    // Revalidate against native display limits even after the adapter checks.
+    if ( getdvarint( "outlands_bot_careers" ) && isdefined( self.outlands_career_ready ) && isdefined( self.outlands_career_level ) && isdefined( self.outlands_career_prestige ) )
+    {
+        maximum_level = 55;
+        if ( isdefined( level.maxrank ) && level.maxrank + 1 < maximum_level )
+            maximum_level = level.maxrank + 1;
+        maximum_prestige = 0;
+        if ( isdefined( level.maxprestige ) )
+            maximum_prestige = level.maxprestige;
+        if ( maximum_prestige > 10 )
+            maximum_prestige = 10;
+        if ( self.outlands_career_level >= 1 && self.outlands_career_level <= maximum_level && self.outlands_career_prestige >= 0 && self.outlands_career_prestige <= maximum_prestige )
+        {
+            self.outlands_cosmetic_level = self.outlands_career_level;
+            self.outlands_cosmetic_prestige = self.outlands_career_prestige;
+        }
+    }
 
     // Native _rank.gsc uses setrank(rank_index, prestige). This display call
     // deliberately leaves pers rank/XP/prestige, DDL and class data unchanged.
