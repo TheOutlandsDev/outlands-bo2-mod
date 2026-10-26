@@ -70,11 +70,11 @@ class BackendReportTests(unittest.TestCase):
     def test_chat_context_requires_native_topics_guards_and_no_production_speech(self):
         prefix = 'OUTLANDS_CONTEXT_V1|3|Trailblazer|mp_raid|dom|'
         records = '\n'.join(prefix+topic+'|allies|attack|0|enemy|combined_score|1|100|1000|0|45' for topic in ('squad','objective','contract'))
-        guards = '\nOUTLANDS_CHAT_GUARD_V1|rejected\nOUTLANDS_CHAT_GUARD_V1|context_disabled\nOUTLANDS_CHAT_GUARD_V1|team_binding\nOUTLANDS_CHAT_PRIMITIVE_V1|sayall'
+        guards = '\nOUTLANDS_CHAT_GUARD_V1|rejected\nOUTLANDS_CHAT_GUARD_V1|context_disabled\nOUTLANDS_CHAT_GUARD_V1|team_binding\nOUTLANDS_CHAT_GUARD_V1|stale_assignment\nOUTLANDS_CHAT_PRIMITIVE_V1|sayall'
         good = records+guards
         case = verify.Case('mp_raid','dom')
         self.assertTrue(verify.assess_chat_context(good,case)['passed'])
-        for bad in (guards, good.replace('|1000|','|0|'), good.replace('|dom|','|tdm|'), good.replace('|rejected','|failed'), good+'\nOUTLANDS_CHAT_ACK_V1|unexpected', good.replace('OUTLANDS_CHAT_PRIMITIVE_V1|sayall',''), good.replace('OUTLANDS_CHAT_GUARD_V1|team_binding',''), good.replace('OUTLANDS_CONTEXT_V1|','Player: OUTLANDS_CONTEXT_V1|')):
+        for bad in (guards, good.replace('|1000|','|0|'), good.replace('|dom|','|tdm|'), good.replace('|rejected','|failed'), good+'\nOUTLANDS_CHAT_ACK_V1|unexpected', good.replace('OUTLANDS_CHAT_PRIMITIVE_V1|sayall',''), good.replace('OUTLANDS_CHAT_GUARD_V1|team_binding',''), good.replace('OUTLANDS_CHAT_GUARD_V1|stale_assignment',''), good.replace('OUTLANDS_CONTEXT_V1|','Player: OUTLANDS_CONTEXT_V1|')):
             self.assertFalse(verify.assess_chat_context(bad,case)['passed'])
 
     def test_only_exact_bounded_native_sample_records_are_accepted(self):
