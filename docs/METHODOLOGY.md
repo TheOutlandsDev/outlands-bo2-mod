@@ -148,3 +148,18 @@ weights, runtime prefixes, profiles, logs, invites and credentials are excluded.
 Technical documentation uses generic examples and does not include personal
 playtest narratives or deployment identities. Preserve existing release tags;
 publish changed release contents under a new version.
+
+## Grounded task conversation verification
+
+Capture squad, objective and contract context through the same formatter used by
+production requests, in network-isolated native bot matches. Validate exact
+schemas, current assignments and contract values; reject malformed snapshots.
+Test the no-human production request guard and context off switch independently
+from a probe-only native speech primitive. Never fabricate human presence.
+
+Feed private snapshots to the worker's model benchmark with no RCON credential
+or server-state mount. Require bounded, task-compatible output and report model
+versus fallback use. Unit checks cover conflicting orders, false completion,
+stale conversation context, team/phase matching and existing rate/queue guards.
+These checks do not establish human-visible timing or naturalness; retain that
+as a separate client acceptance test. Publish code and aggregate outcomes only.
