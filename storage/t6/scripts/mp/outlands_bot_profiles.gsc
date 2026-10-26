@@ -37,6 +37,13 @@ start()
     level.outlands_profiles_warthog = warthog;
     replacefunc( classes, ::profile_class_pool );
     replacefunc( patrol, ::profile_patrol_update );
+    // Narrow optional hook; another mod's threat filter remains authoritative.
+    air_ignore = getfunction( "maps/mp/bots/_bot_combat", "threat_should_ignore" );
+    if ( isdefined( air_ignore ) && !isdefined( getdetour( air_ignore ) ) )
+    {
+        level.outlands_profiles_air_ignore = air_ignore;
+        replacefunc( air_ignore, ::profile_air_ignore );
+    }
     level.outlands_profiles_started = 1;
     println( "Outlands bot profiles: native class pools and optional patrol cadence active; objective/recovery brain unchanged." );
 }
@@ -256,4 +263,53 @@ profile_patrol_update()
         println( "Outlands bot patrol cadence: slot=" + ( self getentitynumber() ) + " role=" + self.outlands_profile_role + " next_ms=" + interval + " native goals unchanged" );
         self.outlands_profile_patrol_logs++;
     }
+}
+
+// Per-target reaction pause and modest participation reduction for air support.
+// Preserve the native ignore result, classification, lock-on and damage rules.
+air_support_target( entity )
+{
+    if ( !isdefined( entity ) || isplayer( entity ) )
+        return false;
+    if ( isdefined( entity.targetname ) && ( entity.targetname == "uav" || entity.targetname == "counteruav" ) )
+        return true;
+    if ( isdefined( entity.helitype ) && entity.helitype == "qrdrone" )
+        return false;
+    return isdefined( entity.classname ) && entity.classname == "script_vehicle" && isdefined( entity.vehicleclass ) && ( entity.vehicleclass == "helicopter" || entity.vehicleclass == "plane" );
+}
+
+profile_air_ignore( entity )
+{
+    disabledetouronce( level.outlands_profiles_air_ignore );
+    ignored = self [[ level.outlands_profiles_air_ignore ]]( entity );
+    if ( ignored || !self profile_enabled() || !air_support_target( entity ) )
+        return ignored;
+    delay = 2500;
+    chance = 80;
+    if ( getdvar( "outlands_bot_air_reaction_ms" ) != "" )
+        delay = getdvarint( "outlands_bot_air_reaction_ms" );
+    if ( getdvar( "outlands_bot_air_response_chance" ) != "" )
+        chance = getdvarint( "outlands_bot_air_response_chance" );
+    delay = int( max( 0, min( 8000, delay ) ) );
+    chance = int( max( 0, min( 100, chance ) ) );
+    // These values restore stock selection immediately, even with cached state.
+    if ( delay == 0 && chance == 100 )
+        return false;
+    if ( !isdefined( self.outlands_air_gates ) )
+        self.outlands_air_gates = [];
+    slot = entity getentitynumber();
+    settings = delay + ":" + chance;
+    gate = self.outlands_air_gates[slot];
+    if ( !isdefined( gate ) || !isdefined( gate.entity ) || gate.entity != entity || gate.settings != settings )
+    {
+        gate = spawnstruct();
+        gate.entity = entity;
+        gate.settings = settings;
+        gate.responds = randomint( 100 ) < chance;
+        gate.ready = gettime() + delay;
+        if ( delay > 0 )
+            gate.ready += randomint( int( delay / 2 ) + 1 );
+        self.outlands_air_gates[slot] = gate;
+    }
+    return !gate.responds || gettime() < gate.ready;
 }
