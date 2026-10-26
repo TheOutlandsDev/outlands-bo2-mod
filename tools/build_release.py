@@ -24,7 +24,7 @@ HOST_FILES = {"README.md", ".gitignore", ".env.example", "Dockerfile", "Dockerfi
               "healthcheck.py", "store_key.py", "prepare_package.py", "setup_host.py", "export_invite.py",
               "backend_verify.py", "verification.gsc"}
 AI_FILES = {"README.md", "Dockerfile", "Modelfile", "bridge.py", "tests/test_bridge.py",
-            "config.example.json", "personalities.json", "careers.py", "tests/test_careers.py", "benchmark.py"}
+            "config.example.json", "personalities.json", "careers.py", "tests/test_careers.py", "benchmark.py", "tactics.py", "tests/test_tactics.py"}
 TOOL_FILES = {"build_release.py", "client_settings.py", "install_files.py", "play_lan_windows.ps1",
               "preflight.py", "setup_client.py", "windows_client.ps1", "content_inventory.py", "contract_rules.py"}
 TEST_FILES = {"test_client_setup.py", "test_host_setup.py", "test_host_state.py", "test_release.py",
