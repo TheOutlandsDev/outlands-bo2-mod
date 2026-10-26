@@ -235,6 +235,21 @@ sample_chat_context( players )
             setdvar( "outlands_chat_tactical", setting );
             if ( disabled.wire == "none|none|none|-1|none|none|0|0|0|0|0" )
                 println( "OUTLANDS_CHAT_GUARD_V1|context_disabled" );
+            valid = getfunction( "scripts/mp/outlands_squads", "assignment_valid" );
+            if ( isdefined( level.outlands_squads_started ) && isdefined( bot.outlands_squad_team ) && isdefined( valid ) )
+            {
+                // Same-frame rejected metadata fixture, with no native team,
+                // score, goal, human-presence or progression mutation.
+                original_team = bot.outlands_squad_team;
+                bot.outlands_squad_team = "outlands_verification_stale";
+                stale_valid = bot [[ valid ]]();
+                stale_context = [[ context_function ]]( bot, "squad" );
+                bot.outlands_squad_team = original_team;
+                if ( !stale_valid && stale_context.topic == "none" )
+                    println( "OUTLANDS_CHAT_GUARD_V1|stale_assignment" );
+                else
+                    println( "OUTLANDS_CHAT_GUARD_V1|failed" );
+            }
             // A direct native primitive test is separate from production chat.
             // This probe exists only in network-isolated disposable storage.
             bot sayall( "Checking our next contract." );
@@ -286,6 +301,18 @@ feature_fields( players )
         }
         if ( !isdefined( bot.outlands_squad_role ) || bot.outlands_squad_role == "" )
             continue;
+        // Native team changes can precede the next squad reassessment. A rejected
+        // stale record is not an effective assignment. Retaining our own steering
+        // goal or accepting that record is still a failure; final coverage must
+        // recover to all sixteen current assignments.
+        if ( !isdefined( bot.outlands_squad_team ) || !isdefined( bot.team ) || bot.outlands_squad_team != bot.team )
+        {
+            if ( !isdefined( valid_assignment ) || bot [[ valid_assignment ]]() || bot hasgoal( "outlands_squad" ) )
+                squad_invalid++;
+            else
+                println( "OUTLANDS_SQUAD_REFRESH_V1|rejected_stale_team" );
+            continue;
+        }
         assigned++;
         role = bot.outlands_squad_role;
         if ( role == "attack" )
@@ -303,8 +330,6 @@ feature_fields( players )
         else if ( role == "support" )
             support++;
         else
-            squad_invalid++;
-        if ( !isdefined( bot.outlands_squad_team ) || !isdefined( bot.team ) || bot.outlands_squad_team != bot.team )
             squad_invalid++;
         // Official objectives can be structs as well as entities. The module
         // validates live native collection membership before getgoal is used.

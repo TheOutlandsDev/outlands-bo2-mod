@@ -229,6 +229,8 @@ def assess_chat_context(text, case):
     if not expected<=topics or invalid:reasons.append('native task context was missing or malformed')
     if 'OUTLANDS_CHAT_GUARD_V1|rejected' not in markers or 'OUTLANDS_CHAT_GUARD_V1|context_disabled' not in markers or 'OUTLANDS_CHAT_GUARD_V1|team_binding' not in markers or 'OUTLANDS_CHAT_GUARD_V1|failed' in markers:
         reasons.append('zero-human refusal or context off switch was not verified')
+    if case.mode in OBJECTIVE_MODES and 'OUTLANDS_CHAT_GUARD_V1|stale_assignment' not in markers:
+        reasons.append('stale squad assignment was not rejected by native steering and task context')
     if 'OUTLANDS_CHAT_ACK_V1|' in clean:reasons.append('production chat spoke without humans')
     if 'OUTLANDS_CHAT_PRIMITIVE_V1|sayall' not in markers:reasons.append('isolated native speech primitive was not exercised')
     return {'passed':not reasons,'reasons':reasons,'records':records,'topics':sorted(topics),'production_speech':False,'native_primitive_only':True}
