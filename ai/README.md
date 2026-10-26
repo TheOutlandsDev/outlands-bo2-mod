@@ -102,7 +102,52 @@ Environment overrides:
 | `T6_CHAT_RCON_PORT` | Game UDP port, default `4977` |
 | `T6_CHAT_RCON_SECRET_FILE` | Private generated RCON credential path |
 
-Transport contract, version 1:
+## Grounded squad, objective and contract chat
+
+Periodic banter rotates through squad orders, objective intent, the current team
+contract and general lobby conversation. The model receives a typed snapshot of
+its selected native bot's assignment, objective ownership/home state and current
+team contract. It can describe intent, such as watching a flag or chasing score
+for a contract. It cannot infer arrival, a capture, enemy positions, named A/B/C
+flags, player rewards or future success from that snapshot. Short grounded
+fallbacks keep those topics available if model output is late or unsuitable.
+Recent lines are avoided when another safe fallback is available.
+
+`outlands_chat_tactical 0` removes task context while retaining general chat.
+Existing host choices are preserved during configuration migration. Task replies
+expire after fifteen seconds and are discarded if the bot's role, target,
+objective state, contract phase or completion state changes. A second bot must
+be on the opener's team with a compatible current topic/contract phase. Both
+turns retain the existing human-presence guard, queues and shared rate limits.
+Snapshots are ephemeral; neither task context nor dialogue text enters careers.
+
+New adapters emit V2, with these eleven fields appended to the V1 fields:
+
+```text
+topic|team|role|target|state|contract|phase|progress|goal|complete|remaining
+```
+
+The worker validates exact field counts, enums and numeric bounds before using
+this data. It continues to accept V1 from older adapters. Model output cannot
+issue orders or mutate the squad/contract controller.
+
+`hosting/backend_verify.py --chat-context --squads --contracts` captures actual
+native task snapshots in disposable matches. It separately tests zero-human
+request rejection, the context off switch and a direct native `sayall` primitive.
+The primitive test does not prove the full production delivery path with a human
+connected. Generate model responses from a private probe log without RCON or
+posting chat to the game:
+
+```sh
+python3 -B ai/benchmark.py --mode fallback --native-log PRIVATE_PROBE_LOG
+python3 -B ai/benchmark.py --mode ollama --native-log PRIVATE_PROBE_LOG
+```
+
+Reports distinguish accepted model output from grounded fallbacks. Keep raw
+logs and generated lines private. A later human client playtest must check chat
+visibility, timing, naturalness and stale-order rejection during live play.
+
+Transport contract, version 1 (legacy input):
 
 ```text
 OUTLANDS_CHAT_V1|request_id|bot_slot|bot_name|kind|map|gametype|speaker|text
