@@ -1,6 +1,13 @@
 # Changelog
 
-## Unreleased — grounded task chat, objective squads, contracts and persistent rivals
+## Unreleased — cooperative lobbies, grounded task chat, squads, contracts and rivals
+
+- Keep human joins together up to team capacity through native team menus.
+  Balance teams using bot-only removals and native refill, including mid-match
+  departures and full uneven lobbies; reserve spectator slots and retain FFA.
+- Add isolated native departure/refill, imbalance repair and off/resume checks,
+  plus count-only party capacity checks. Actual human joins remain a separate
+  client acceptance step; no fake human presence is used by verification.
 
 - Ground occasional squad/order, objective and contract banter in each selected
   bot's current native task, with short model replies and matching fallbacks.

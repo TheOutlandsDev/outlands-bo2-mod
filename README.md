@@ -125,6 +125,16 @@ difficulty logic remain in control; the mod does not disguise bots as human
 connections or fabricate latency. Test mid-match replacement, team allocation
 and recovery across the selected maps and modes using the validation guide.
 
+Human team selection and auto-assign keep a group together by default, up to
+one team's capacity (eight humans with the shipped settings). Two humans play
+with six friendly bots against eight enemy bots. Later joins follow the current
+human side, including after native side swaps; spectators can remain spectators.
+The controller repairs uneven teams by removing only a bot from the oversized
+side and refilling the smaller side. Convergence takes several polls during
+joins, departures and native spawn initialization. With spectators, their slots
+are reserved and the active population rounds down to an even total; an odd
+configured target also rounds down. Free-for-all keeps native assignment.
+
 `storage/t6/bots.txt` defines 48 fictional aliases with empty clan-tag fields, with
 random native roster selection enabled. Matching chat personalities give each
 alias a distinct voice. The identity module uses weighted levels from 1 to 55
@@ -145,6 +155,8 @@ Customize bots in `storage/t6/outlands_t6.cfg` and the alias roster:
 | --- | --- |
 | `sv_maxclients` | Server capacity; currently 16 |
 | `outlands_bot_fill` | Total humans plus bots, capped by server capacity; currently 16 |
+| `outlands_coop_teams` | Keep human joins on the same side up to team capacity; default 1, team modes only |
+| `outlands_balance_teams` | Repair team population using bot removal/refill; default 1, team modes only |
 | `outlands_bot_difficulty` | 0 easy, 1 normal, 2 hard or 3 veteran; currently 2 (Hard) |
 | `sv_randomizeBotNames` | Native random roster order; default 1 |
 | `outlands_bot_levels` | Enable cosmetic bot levels; 0 keeps native display |
