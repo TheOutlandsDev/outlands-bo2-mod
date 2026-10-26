@@ -5,14 +5,9 @@ The primary host is a Linux Docker Compose stack running a Plutonium T6
 LAN mode and connect over Tailscale. This path needs no Plutonium account sign-in
 or server key; each installation still supplies its own legitimate BO2 files.
 
-The baseline has passed Linux joining, native bot combat and earned rank/weapon
-progression retained after a full client/server restart. Native alias assignment,
-chat GSC compilation and local RCON transport have passed isolated checks, as
-have varied native weapons/classes and cosmetic-level API calls. The complete
-Ollama-to-native-speech path has also passed during live human play. The player
-confirmed blank clan tags and different cosmetic levels on the scoreboard.
-See [validation status](../docs/VALIDATION.md) for the current Windows,
-expanded-rotation and recovery checks.
+See the [implementation methodology](../docs/METHODOLOGY.md) for the component
+boundaries and the [validation guide](../docs/VALIDATION.md) for isolated startup,
+client joining, progression and gameplay checks.
 
 ## Prepare the host
 
@@ -143,16 +138,18 @@ population. Keep `bot_friends 0` and `bot_enemies 0`; configure
 `outlands_bot_fill` and `outlands_bot_difficulty` in the persistent host CFG. The
 source also gives clients a 600-second initial team/class selection window.
 
-The new `bots.txt` roster requests aliases with empty clan tags. Native custom
-alias assignment passed a runtime check, and the player confirmed the default
-`BOT` clan tags are gone on the scoreboard. Chat personality metadata changes
-conversational voice only.
-Optional cosmetic bot levels are bounded by `outlands_bot_level_min` and
-`outlands_bot_level_max`, from 1 to 55. Native combat/loadout eligibility remains
-unchanged, and no human XP/unlock/stat writes are added. An isolated four-bot
-probe observed varied shotgun, LMG, sniper and SMG classes, attachments and
-secondaries. Cosmetic native `setrank` calls completed without errors, and the
-player confirmed the different rendered levels look correct.
+`bots.txt` supplies fictional aliases with empty clan tags. Matching chat
+personalities affect conversational voice only. The bot-only identity module
+assigns weighted cosmetic levels from 1 to 55 and prestiges from 0 to 10 by
+default, bounded by native display limits. These remain stable across respawns.
+Human progression and native loadout eligibility stay under the game.
+
+Five connection roles filter valid native class pools: rusher, assault,
+objective, support and marksman. Native presets provide a fallback, and native
+anti-air class selection remains available. Optional role-specific patrol timing
+changes low-priority patrol cadence while preserving native objective, combat,
+pathfinding and recovery behavior. Configure the profile switches and ranges in
+`storage/t6/outlands_t6.cfg`; enabling hooks requires fresh map initialization.
 
 ## Map and mode rotation
 
@@ -242,8 +239,8 @@ enter the key privately. It is stored in the server data volume at
 
 Set `T6_MODE=online` in the local `.env` and in any separately saved Dockhand
 configuration, then redeploy with matching authenticated online clients. LAN
-startup ignores that key path. The verified Linux baseline described here is
-LAN mode; online-mode compatibility is not asserted.
+startup ignores that key path. Validate online-mode compatibility separately
+from the LAN deployment described here.
 
 References: [Plutonium server setup](https://plutonium.pw/docs/server/t6/setting-up-a-server/),
 [LAN dedicated hosting](https://forum.plutonium.pw/topic/38120/t6-lan-server-not-authenticated-to-plutonium),
