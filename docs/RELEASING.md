@@ -23,10 +23,8 @@ version taken from `VERSION` for subsequent releases.
 Synthetic tests use temporary fixture files, not real BO2 assets or profiles.
 They do not launch a game, run a native dedicated server, download a runtime or
 model, or establish Tailscale reachability. Passing Windows checks verifies the
-tested setup logic. Windows joining/spawning and bot combat were separately
-confirmed during live play; Windows progression retention remains pending. Native GSC,
-bot combat, progression saves and visible presentation need the separate
-[gameplay acceptance record](VALIDATION.md).
+tested setup logic. Native GSC, joining, combat, progression retention and visible
+presentation need the separate [gameplay validation guide](VALIDATION.md).
 
 ## Source package boundaries
 
@@ -65,8 +63,8 @@ These commands prepare source artifacts only and do not start the host/game.
 
 ## Publish a preview
 
-1. Update `VERSION`, `CHANGELOG.md` and relevant validation notes. Keep existing
-   evidence separate from checks still pending for the new revision.
+1. Update `VERSION`, `CHANGELOG.md` and relevant technical documentation. Use a
+   new version for changed release contents; preserve already-distributed tags.
 2. Put the intended source on `main` through the normal review process. Inspect
    the actual Linux and Windows job results and the packaged file list.
 3. Open the **Publish dev preview** workflow in GitHub Actions, choose **Run

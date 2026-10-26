@@ -24,14 +24,25 @@ init()
 
     level.outlands_native_bots_controller_started = 1;
     apply_native_difficulty();
+    start_extension( "scripts/mp/outlands_bot_profiles", "class and patrol profiles" );
+    start_extension( "scripts/mp/outlands_bot_identity", "cosmetic identities" );
     println( "Outlands native bots: single-owner command fill controller active." );
     level thread fill_native_bots();
-    level thread watch_native_personas();
+    level thread watch_native_loadout_probes();
 }
 
-// Presentation comes from native bots.txt. Chat voice and optional display
-// levels never alter native movement, aim, loadout eligibility or human stats.
-watch_native_personas()
+start_extension( script, label )
+{
+    start = getfunction( script, "start" );
+    if ( isdefined( start ) )
+        [[ start ]]();
+    else
+        println( "Outlands native bots: optional " + label + " unavailable." );
+}
+
+// Read-only diagnostics. Identity and class controllers own their independent
+// bot-only presentation/profile work; the native game still owns respawning.
+watch_native_loadout_probes()
 {
     level endon( "game_ended" );
     for (;;)
@@ -51,17 +62,6 @@ watch_native_personas()
             if ( !isdefined( bot.name ) )
                 continue;
 
-            if ( !isdefined( bot.outlands_persona ) )
-            {
-                bot.outlands_alias = bot.name;
-                bot.outlands_persona = persona_for_alias( bot.name );
-                println( "Outlands native bot persona: slot=" + ( bot getentitynumber() ) + " name=" + bot.outlands_alias + " voice=" + bot.outlands_persona );
-            }
-            if ( !isdefined( bot.outlands_cosmetic_level_started ) )
-            {
-                bot.outlands_cosmetic_level_started = 1;
-                bot thread watch_cosmetic_level();
-            }
             if ( !isdefined( bot.outlands_loadout_probe_started ) )
             {
                 bot.outlands_loadout_probe_started = 1;
@@ -114,91 +114,6 @@ log_native_loadout()
     }
     println( "Outlands native bot loadout: slot=" + ( self getentitynumber() ) + " name=" + self.name + " class=" + class_name + " index=" + class_index + " current=" + ( self getcurrentweapon() ) + " primary=" + primary + " secondary=" + secondary );
     return true;
-}
-
-watch_cosmetic_level()
-{
-    self endon( "disconnect" );
-    level endon( "game_ended" );
-    if ( !isdedicated() || !self istestclient() || !getdvarint( "outlands_bot_levels" ) )
-        return;
-
-    // Let the stock bot rank/loadout initialization finish first. Never call
-    // syncxpstat or write pers rank/XP: the chosen level is display-only.
-    attempts = 0;
-    while ( !isdefined( self.pers["bot_loadout"] ) && attempts < 100 )
-    {
-        wait 0.1;
-        attempts++;
-    }
-    if ( !isdefined( self.pers["bot_loadout"] ) || !self istestclient() )
-        return;
-
-    maximum = 55;
-    if ( isdefined( level.maxrank ) && level.maxrank + 1 < maximum )
-        maximum = level.maxrank + 1;
-    low = 1;
-    high = maximum;
-    if ( getdvar( "outlands_bot_level_min" ) != "" )
-        low = getdvarint( "outlands_bot_level_min" );
-    if ( getdvar( "outlands_bot_level_max" ) != "" )
-        high = getdvarint( "outlands_bot_level_max" );
-    if ( low < 1 )
-        low = 1;
-    if ( low > maximum )
-        low = maximum;
-    if ( high < low )
-        high = low;
-    if ( high > maximum )
-        high = maximum;
-
-    self.outlands_cosmetic_level = randomintrange( low, high + 1 );
-    self apply_cosmetic_level();
-    println( "Outlands native bot display: slot=" + ( self getentitynumber() ) + " name=" + self.name + " cosmetic level=" + self.outlands_cosmetic_level );
-    for (;;)
-    {
-        self waittill( "spawned_player" );
-        wait 0.05;
-        if ( !getdvarint( "outlands_bot_levels" ) )
-            return;
-        self apply_cosmetic_level();
-    }
-}
-
-apply_cosmetic_level()
-{
-    if ( !isdedicated() || !self istestclient() || !getdvarint( "outlands_bot_levels" ) )
-        return;
-    if ( !isdefined( self.outlands_cosmetic_level ) )
-        return;
-    // Native _bot::bot_set_rank uses this same API; rank indexes are zero-based.
-    self setrank( self.outlands_cosmetic_level - 1 );
-}
-
-persona_for_alias( alias )
-{
-    switch ( alias )
-    {
-        case "Trailblazer": return "upbeat flanker, brief confident callouts";
-        case "MossCircuit": return "calm support, friendly and observant";
-        case "NightLedger": return "dry strategist, measured and concise";
-        case "CopperWren": return "cheerful teammate, light wordplay";
-        case "StaticBloom": return "energetic rusher, playful without insults";
-        case "RiftRunner": return "competitive flanker, respects good plays";
-        case "AshSignal": return "quiet anchor, useful short callouts";
-        case "WinterByte": return "cool analyst, understated humor";
-        case "QuietSparks": return "reserved teammate, encouraging when it counts";
-        case "CometRidge": return "optimistic challenger, quick reactions in chat";
-        case "NovaLatch": return "curious tactician, asks short friendly questions";
-        case "GravelPulse": return "steady veteran, practical and patient";
-        case "PaperFalcon": return "witty improviser, never hostile";
-        case "OrbitMoth": return "relaxed night owl, odd gentle humor";
-        case "CedarGhost": return "polite scout, low-key precise callouts";
-        case "VelvetRook": return "composed planner, courteous competition";
-        case "IronTangent": return "direct objective player, team-first comments";
-        case "SolarKite": return "bright optimist, celebrates teammates";
-    }
-    return "calm adaptive teammate, short friendly comments";
 }
 
 apply_native_difficulty()

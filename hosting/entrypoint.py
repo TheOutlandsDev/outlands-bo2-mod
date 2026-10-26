@@ -47,6 +47,8 @@ MOD_PAYLOADS = (
     Path("gamesettings/outlands_koth.cfg"),
     Path("gamesettings/outlands_hq.cfg"),
     Path("gamesettings/outlands_conf.cfg"),
+    Path("scripts/mp/outlands_bot_identity.gsc"),
+    Path("scripts/mp/outlands_bot_profiles.gsc"),
 )
 
 
@@ -250,8 +252,11 @@ def configure_mod(name: str | None) -> tuple[str, str]:
     # regenerating the private CFG. Only this small reviewed list is migrated.
     source_cfg = (MOD / CFG_NAME).read_text(encoding="utf-8")
     for setting in ("sv_randomizeBotNames", "outlands_bot_levels", "outlands_bot_level_min",
-                    "outlands_bot_level_max", "outlands_chat_cooldown", "outlands_chat_interval",
-                    "outlands_chat_timeout"):
+                    "outlands_bot_level_max", "outlands_bot_prestige_min", "outlands_bot_prestige_max",
+                    "outlands_bot_profiles", "outlands_bot_marksman_limit", "outlands_bot_patrol_profiles",
+                    "outlands_chat_cooldown", "outlands_chat_interval", "outlands_chat_timeout",
+                    "outlands_chat_dialogue", "outlands_chat_dialogue_delay", "outlands_chat_bot_cooldown",
+                    "outlands_chat_max_per_minute"):
         if not list(assignment_pattern(setting).finditer(content)):
             source_matches = list(assignment_pattern(setting).finditer(source_cfg))
             if len(source_matches) == 1:

@@ -1,117 +1,131 @@
-# Validation status
+# Validation guide
 
-This document records project coverage and a repeatable acceptance method.
-It contains no personal profiles, player identities, connection details, raw
-logs or conversation transcript. Historical acceptance applies to the tested
-runtime/configuration; source checks do not rerun gameplay.
+Validate source logic, native-engine integration and client gameplay separately.
+A source package or healthy container does not establish progression retention,
+rendered badges, movement quality or compatibility across every map and runtime.
+This guide contains reusable procedures; keep individual playtest records,
+identities, addresses, profiles and raw logs outside the public repository.
 
-## Recorded project coverage
+## Automated source checks
 
-The existing Linux gameplay record uses Plutonium T6 r5369. The Windows client
-runtime revision was not independently recorded. Preserve that distinction
-when comparing a new runtime or release.
+From the project root:
 
-| Area | Existing coverage | Remaining work |
-| --- | --- | --- |
-| Linux host | Isolated smoke startup, LAN socket, private Tailscale sidecar and no published host ports | Repeat for changed runtime/host images |
-| Linux client | Map negotiation, team/class selection, spawning and native bot combat | Wider map and mode coverage |
-| Earned progression | After-action rank/weapon increases and client/server restart retention were confirmed in the Linux baseline | Individual unlock, attachment and camo checks |
-| Windows client | Joining, spawning and native bot combat were confirmed in the existing project acceptance record | Completed-match rank/weapon results and normal quit/relaunch retention |
-| Native population controller | Hard difficulty, 16-player filling, 8v8 team assignment, vacancy/refill and a second human replacing a bot | Repeated joins/leaves, later maps and prolonged failed-add recovery |
-| Bot presentation | Custom fictional aliases, blank clan tags, varied native loadouts and cosmetic level calls | Longer-term variation across respawns |
-| Optional chat | Compilation, generated response, local RCON, request/native-bot identity validation and native speech | Continue expiry, slot-reuse and team/hidden-chat boundary checks |
-| Source checks | Synthetic client, hosting, chat and release tests are provided | Inspect CI for the exact source commit being deployed |
+```sh
+python3 -B -m unittest discover -s tests -v
+python3 -B -m unittest discover -s ai/tests -v
+python3 -B ai/bridge.py --check
+python3 -B tools/build_release.py
+```
 
-Windows joining coverage does not establish Windows progression persistence.
-A score increase, an anonymous server XP line or the Linux result cannot
-identify a particular Windows client's saved rank/weapon result.
+GitHub Actions also checks Bash syntax and runs Windows PowerShell 5.1 parsing
+and synthetic client fixtures. Inspect the Actions result for the exact commit.
+These checks use synthetic inputs and do not launch BO2, download game assets,
+contact a model or prove a working Tailscale game connection.
 
-## Windows preparation methodology
+## Isolated native-engine checks
 
-The [Windows guide](WINDOWS.md) contains the input checks, backup/hash procedure,
-configuration commands and direct-join fallback. Use a stable unique LAN name,
-an explicitly selected runtime and the exact owned game directory.
+1. Supply owned game files and the official runtime as described in the
+   [hosting guide](../hosting/README.md). Back up complete persistent server
+   storage before an update and retain a rollback image.
+2. Run `./manage.sh check` and `./manage.sh smoke` from `hosting/`. The smoke
+   stack uses network mode `none`, separate state and no published ports.
+3. Confirm script initialization, a bound game socket and absence of GSC errors.
+   Startup alone does not establish bot combat or a working client connection.
+4. For custom engine probes, use disposable smoke storage only. Verify native
+   test-client identities, role assignment, class-pool and patrol-hook execution,
+   bounded level/prestige ranges and a native map restart. Probe scripts must
+   not enter the public package or live server state.
+5. Stop the isolated server. Promote only the intended source payload, preserving
+   private access settings and operator-selected configuration.
 
-The source now supports deliberate Windows `--no-password` setup. It writes an
-empty password command before the locally supplied connection command and uses
-the existing saved-settings launcher. Protected invites continue to require
-their nonempty password. Synthetic tests cover the generated CFG, command
-injection rejection, conflicting setup options and read-only launch checks.
-These tests do not establish a live connection for the new setup option.
+## Client preparation and joining
 
-Keep evidence in separate stages:
+The [Windows guide](WINDOWS.md) includes full-storage backup/hash commands,
+explicit runtime paths and the current Windows `--no-password` setup option.
+Protected invites retain nonempty passwords; no-password mode cannot be combined
+with `--invite`. Test the actual connection separately from synthetic CFG checks.
 
-| Stage | What it establishes | What it does not establish |
-| --- | --- | --- |
-| Release hash comparison | Downloaded bytes match the published digest | Runtime compatibility or game ownership |
-| File/input preflight | Required paths and supported values are present | A matching vendor hash, server socket or game join |
-| Profile backup and copied-file hash comparison | The selected profile tree was preserved | Saved progression after a new match |
-| Tailscale peer reply | Reachability to that authorized peer, possibly through a relay | A direct path, UDP game service or completed join |
-| Map/team/class/spawn | The client reached playable state | Completed-match awards or restart retention |
-| After-action results | The client observed earned rank/weapon outcomes | Persistence after quitting |
-| Normal quit, restart and rejoin | The same identity retained those outcomes | Other maps, modes, unlocks or clients |
+1. Close BO2 and back up the active Plutonium runtime's complete `storage`
+   directory. Include `storage/demonware` and `storage/t6`; verify copied file
+   hashes. Keep the same runtime and a stable, unique LAN name across launches.
+2. Verify the source ZIP against its published `SHA256SUMS`. Run the platform
+   setup helper with `--dry-run` before applying configuration. File presence
+   does not establish runtime compatibility or successful game launch.
+3. Authorize the client on the host's tailnet, then join in LAN mode using a
+   private invite or the documented direct-console path. Tailscale ping checks
+   peer reachability; test the actual game connection separately.
+4. Select a team and class, spawn and verify native combat. Repeat with two
+   clients simultaneously and distinct names. Record each platform separately.
+5. If joining fails, inspect bounded private client/server diagnostics. A
+   disconnect string or missing UDP query response alone does not identify the
+   cause. Avoid publishing raw logs or connection details when reporting a bug.
 
-A timeout or `PLATFORM_DISCONNECTED_FROM_SERVER` is a diagnostic observation.
-Investigate runtime, endpoint, server state and authorization without treating
-the error alone as a root-cause determination.
+## Progression and persistence
 
-## Controller and rotation checks
+Record rank, weapon progress and a specific earned unlock before a match. Earn
+normal awards, finish the match, and inspect the after-action report. Quit
+through the normal game menu, fully relaunch, rejoin with the same saved LAN
+name and compare the values. Test a server restart separately from a client
+restart. Repeat for each platform and for individual attachments or challenges
+that matter to the deployment.
 
-The current controller uses native Hard difficulty, 16 slots and a 16-player
-fill target. Team modes target 8v8; Free-for-All uses individual players. Dead
-players retain slots and native respawning. Only verified native test clients
-may be removed when the fill target shrinks.
-
-After three failed additions, bounded retry batches use 10/20/30-second
-cooldowns while two-second polling continues. Changes to human count or target
-reset the retry state. Disabling and reenabling filling must reuse the same
-population manager.
-
-Existing acceptance covers team assignment and a mid-match vacancy/refill
-without disconnecting the Windows client. Deliberate prolonged failed-add
-fault injection, repeated human joins/leaves and map-change retention remain
-pending.
-
-All eight gamesettings wrappers are distributed. Time and score targets are
-configured at twice the earlier baseline; native round endings still apply.
-Check assets, objectives, team allocation and rotation separately in `dm`,
-`tdm`, `ctf`, `dem`, `dom`, `koth`, `hq` and `conf`. Configuration or one
-map's readback does not establish acceptance across the full rotation.
-
-## Read-only progression diagnostics
-
-The stock rank script initializes `pers["rankxp"]` as a connection-time
-snapshot. Score events call the engine's `addrankxp` directly, so an unchanged
-snapshot does not establish stalled earned XP. Read the current DDL value:
+The optional read-only probe uses the current native DDL value:
 
 ```gsc
 self GetDStat("playerstatslist", "RANKXP", "StatValue");
 ```
 
-This diagnostic does not award XP or write stats. An in-session change and a
-quit/restart retention result are separate observations. Keep the same saved
-LAN name throughout the comparison.
+`pers["rankxp"]` is a connection-time snapshot; an unchanged snapshot cannot
+establish that earned XP stopped. Increased scores or live DDL XP alone cannot
+establish saved progression. The probe does not award XP or write DDL stats.
+Keep numeric results and profile backups private.
 
-Sources: [native score-event XP](https://github.com/plutoniummod/t6-scripts/blob/main/MP/Core/maps/mp/_scoreevents.gsc),
-[native rank data](https://github.com/plutoniummod/t6-scripts/blob/main/MP/Core/maps/mp/gametypes/_rank.gsc),
-[LAN name-based identity](https://plutonium.pw/docs/changelog/#r5202).
+Sources: [native score events](https://github.com/plutoniummod/t6-scripts/blob/main/MP/Core/maps/mp/_scoreevents.gsc),
+[native rank script](https://github.com/plutoniummod/t6-scripts/blob/main/MP/Core/maps/mp/gametypes/_rank.gsc),
+[LAN identity behavior](https://plutonium.pw/docs/changelog/#r5202).
 
-## Repeatable acceptance sequence
+## Bot population, classes and movement
 
-1. Verify the source digest, owned game and selected official runtime.
-2. Back up the active runtime's full profile storage and compare file hashes.
-3. Run preflight, configure the connection locally and check saved settings.
-4. Confirm Tailscale access, join, select a team/class and spawn.
-5. Verify native combat, bot filling, team assignment and human replacement.
-6. Complete a match and compare after-action rank/weapon results privately.
-7. Quit normally, restart the client and rejoin with the same name. Compare
-   persistence; test server restart retention separately.
-8. Repeat required maps, modes and unlock/challenge checks. For chat, verify
-   bounded public replies and rejection of expired or reused-slot requests.
+| Area | Acceptance check |
+| --- | --- |
+| Population | Fill to the configured total, counting connected humans and bots; dead players retain slots |
+| Team allocation | Verify 8v8 in team modes at the default 16-player target; check spectators and unassigned players separately |
+| Mid-match refill | Reduce the target, restore it and confirm only native bots are removed/replaced while clients stay connected |
+| Join/leave | Repeat human joins/leaves and map changes; confirm bot replacement and controller recovery |
+| Failed additions | In disposable state, exercise repeated native-add failures and the bounded 10/20/30-second retry cooldown |
+| Display identity | Inspect fictional aliases, blank clan tags, varied valid levels/prestiges and stability across respawns |
+| Classes | Observe all five roles, valid primary/secondary equipment, native fallback and anti-air choices across multiple lives |
+| Movement | Assess navigation, objective participation and recovery across maps; hook execution alone cannot establish better movement |
 
-Publish only the tested feature, source/runtime version, method and pass/fail
-outcome. Keep player names, profile values, timestamps of personal activity,
-addresses, credentials, screenshots, raw logs and receipts private.
+Run the checks across `dm`, `tdm`, `ctf`, `dem`, `dom`, `koth`, `hq` and `conf`.
+Confirm clients own every selected map, each mode loads its wrapper, and native
+time/score readbacks match the [configured limits](../README.md#map-and-mode-rotation).
+Native overtime, bomb and round endings still apply. Longer sessions should
+exercise repeated rotations and reconnects.
 
-MW2 feature parity, persistent bot careers and additional learning behavior
-remain future work.
+## Optional chat
+
+1. Run worker tests and configuration checks before enabling chat. Use synthetic
+   event fixtures for malformed records, expired requests, reused slots, unsafe
+   text, rate limits, queue priority and off switches.
+2. On a private test host, verify one banter opener, one answer by a different
+   bot, and a public human-chat reply. Confirm native `sayall` delivery in game;
+   a worker submission alone does not establish speech delivery.
+3. Confirm the exchange ends after two lines, human replies take priority,
+   shared budgets apply to both turns, and no ambient chat occurs without a
+   human. Test disconnects and slot reuse before delivery.
+4. Test both a cold/unavailable model's canned fallback and a warm-model reply.
+   Confirm the dialogue switch disables followups and the global switch clears
+   queued speech. Do not forward team or hidden chat.
+
+The [chat guide](../ai/README.md) specifies the protocol and bounded context.
+Keep player text, generated conversations, private credentials and raw console
+logs out of public test reports. Publish only technical outcomes and limitations.
+
+## Scope limits
+
+Native pathfinding and combat remain authoritative. Cosmetic bot ranks do not
+implement earned bot careers. Persistent learning, player-strategy imitation,
+custom route training and MW2 feature parity are future work. Evaluate new
+presentation, movement and dialogue changes in human gameplay before describing
+them as accepted.

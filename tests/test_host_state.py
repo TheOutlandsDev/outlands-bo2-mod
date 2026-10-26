@@ -83,6 +83,32 @@ class HostStateTests(unittest.TestCase):
         self.assertIn('set rcon_password "' + first + '"', text)
         self.assertEqual(self.stats.read_bytes(), self.original_stats)
 
+    def test_custom_ai_defaults_migrate_without_overwriting_operator_choices(self):
+        source = self.mod / host.CFG_NAME
+        source.write_text(source.read_text() +
+                          'set outlands_bot_prestige_min 0\n'
+                          'set outlands_bot_prestige_max 10\n'
+                          'set outlands_bot_profiles 1\n'
+                          'set outlands_bot_marksman_limit 2\n'
+                          'set outlands_bot_patrol_profiles 1\n'
+                          'set outlands_chat_dialogue 1\n'
+                          'set outlands_chat_dialogue_delay 14\n'
+                          'set outlands_chat_bot_cooldown 60\n'
+                          'set outlands_chat_max_per_minute 4\n')
+        self.cfg.write_text(self.cfg.read_text() +
+                            'set outlands_bot_prestige_max 4\n'
+                            'set outlands_bot_profiles 0\n')
+        host.configure_mod(None)
+        self.assertEqual(self.value("outlands_bot_prestige_max"), "4")
+        self.assertEqual(self.value("outlands_bot_profiles"), "0")
+        self.assertEqual(self.value("outlands_bot_prestige_min"), "0")
+        self.assertEqual(self.value("outlands_bot_marksman_limit"), "2")
+        self.assertEqual(self.value("outlands_chat_dialogue"), "1")
+        self.assertEqual(self.value("outlands_chat_dialogue_delay"), "14")
+        self.assertEqual(self.value("outlands_chat_bot_cooldown"), "60")
+        self.assertEqual(self.value("outlands_chat_max_per_minute"), "4")
+        self.assertEqual(self.stats.read_bytes(), self.original_stats)
+
     def test_disabling_chat_clears_rcon_and_retains_secret_for_reenable(self):
         _, original = host.configure_mod(None)
         with patch.dict(os.environ, {"T6_CHAT_ENABLED": "0"}):

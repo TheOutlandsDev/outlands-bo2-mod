@@ -8,6 +8,8 @@ main()
 {
     if ( getdvar( "outlands_chat_enabled" ) == "" )
         setdvar( "outlands_chat_enabled", 0 );
+    if ( getdvar( "outlands_chat_dialogue" ) == "" )
+        setdvar( "outlands_chat_dialogue", 1 );
 }
 
 init()
@@ -21,6 +23,9 @@ init()
     level.outlands_chat_epoch = "m" + randomint( 1000000000 ) + "_" + gettime();
     level.outlands_chat_sequence = 0;
     level.outlands_chat_pending = undefined;
+    level.outlands_chat_human_pending = undefined;
+    level.outlands_chat_dialogue_pending = undefined;
+    level.outlands_chat_request_times = [];
     level.outlands_chat_next_request = gettime() + 15000;
     setdvar( "outlands_chat_response", "" );
     println( "Outlands chat: local bridge active; native AI speakers, one pending request maximum." );
@@ -45,7 +50,7 @@ safe_field( text, maximum )
 {
     if ( !isdefined( text ) )
         return "";
-    allowed = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 _.!?'-~";
+    allowed = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 _.,!?'-~";
     result = "";
     // Bound raw scanning as well as output; never copy controls or pipes.
     limit = text.size;
@@ -109,29 +114,112 @@ chat_population()
     return population;
 }
 
-request_chat( kind, speaker, text )
+request_chat( kind, speaker, text, parent_id )
 {
     if ( !getdvarint( "outlands_chat_enabled" ) || isdefined( level.outlands_chat_pending ) )
-        return;
+        return false;
     if ( gettime() < level.outlands_chat_next_request )
-        return;
+        return false;
+    if ( kind != "reply" && isdefined( level.outlands_chat_human_pending ) )
+        return false;
+    if ( kind == "banter" && isdefined( level.outlands_chat_dialogue_pending ) )
+        return false;
+    if ( kind == "bot_reply" && ( !getdvarint( "outlands_chat_dialogue" ) || parent_id == "" || parent_id.size > 62 ) )
+        return false;
 
     population = chat_population();
     if ( population.humans < 1 || population.bots.size < 1 )
-        return;
-    bot = population.bots[randomint( population.bots.size )];
+        return false;
+    eligible = [];
+    for ( index = 0; index < population.bots.size; index++ )
+    {
+        candidate = population.bots[index];
+        if ( kind == "bot_reply" && candidate.name == speaker )
+            continue;
+        if ( isdefined( candidate.outlands_chat_next_request ) && gettime() < candidate.outlands_chat_next_request )
+            continue;
+        eligible[eligible.size] = candidate;
+    }
+    if ( eligible.size < 1 )
+        return false;
+    recent = [];
+    for ( index = 0; index < level.outlands_chat_request_times.size; index++ )
+    {
+        if ( gettime() - level.outlands_chat_request_times[index] < 60000 )
+            recent[recent.size] = level.outlands_chat_request_times[index];
+    }
+    level.outlands_chat_request_times = recent;
+    maximum = bounded_seconds( "outlands_chat_max_per_minute", 4, 1, 6 );
+    if ( recent.size >= maximum )
+        return false;
+    bot = eligible[randomint( eligible.size )];
     level.outlands_chat_sequence++;
     request = spawnstruct();
     request.id = level.outlands_chat_epoch + "_" + level.outlands_chat_sequence;
+    if ( kind == "bot_reply" )
+        request.id = parent_id + "_r";
+    request.kind = kind;
     request.bot = bot;
     request.slot = bot getentitynumber();
     request.name = bot.name;
     request.created = gettime();
     level.outlands_chat_pending = request;
-    cooldown = bounded_seconds( "outlands_chat_cooldown", 20, 10, 120 );
+    cooldown = bounded_seconds( "outlands_chat_cooldown", 12, 10, 120 );
     level.outlands_chat_next_request = gettime() + cooldown * 1000;
+    bot_cooldown = bounded_seconds( "outlands_chat_bot_cooldown", 60, 30, 3600 );
+    bot.outlands_chat_next_request = gettime() + bot_cooldown * 1000;
+    level.outlands_chat_request_times[level.outlands_chat_request_times.size] = gettime();
 
     println( "OUTLANDS_CHAT_V1|" + request.id + "|" + request.slot + "|" + request.name + "|" + kind + "|" + safe_field( getdvar( "mapname" ), 32 ) + "|" + safe_field( getdvar( "g_gametype" ), 16 ) + "|" + safe_field( speaker, 24 ) + "|" + safe_field( text, 240 ) );
+    return true;
+}
+
+queue_human_reply( player, text )
+{
+    // One latest public human message only. It takes priority over a queued
+    // second bot turn; a model request already in flight may finish first.
+    queued = spawnstruct();
+    queued.player = player;
+    queued.slot = player getentitynumber();
+    queued.name = player.name;
+    queued.text = text;
+    queued.created = gettime();
+    level.outlands_chat_human_pending = queued;
+    level.outlands_chat_dialogue_pending = undefined;
+}
+
+dispatch_queued_chat()
+{
+    if ( !getdvarint( "outlands_chat_dialogue" ) )
+        level.outlands_chat_dialogue_pending = undefined;
+    if ( isdefined( level.outlands_chat_human_pending ) )
+    {
+        queued = level.outlands_chat_human_pending;
+        player = queued.player;
+        if ( gettime() - queued.created > 20000 || !isdefined( player ) || !isplayer( player ) || player istestclient() )
+            level.outlands_chat_human_pending = undefined;
+        else if ( ( player getentitynumber() ) != queued.slot || player.name != queued.name )
+            level.outlands_chat_human_pending = undefined;
+        else if ( request_chat( "reply", queued.name, queued.text, "" ) )
+            level.outlands_chat_human_pending = undefined;
+        return;
+    }
+    if ( !isdefined( level.outlands_chat_dialogue_pending ) )
+        return;
+    dialogue = level.outlands_chat_dialogue_pending;
+    speaker = dialogue.bot;
+    if ( gettime() > dialogue.expires || !isdefined( speaker ) || !isplayer( speaker ) || !speaker istestclient() )
+    {
+        level.outlands_chat_dialogue_pending = undefined;
+        return;
+    }
+    if ( ( speaker getentitynumber() ) != dialogue.slot || speaker.name != dialogue.name )
+    {
+        level.outlands_chat_dialogue_pending = undefined;
+        return;
+    }
+    if ( gettime() >= dialogue.ready && request_chat( "bot_reply", dialogue.name, dialogue.text, dialogue.parent_id ) )
+        level.outlands_chat_dialogue_pending = undefined;
 }
 
 watch_public_chat()
@@ -157,7 +245,7 @@ watch_public_chat()
         public_text = safe_field( message, 240 );
         if ( public_text == "" )
             continue;
-        request_chat( "reply", player.name, public_text );
+        queue_human_reply( player, public_text );
     }
 }
 
@@ -169,7 +257,7 @@ periodic_banter()
         interval = bounded_seconds( "outlands_chat_interval", 60, 30, 600 );
         wait interval;
         if ( getdvarint( "outlands_chat_enabled" ) )
-            request_chat( "banter", "match", "A brief in-character reaction to this multiplayer match." );
+            request_chat( "banter", "match", "A short friendly match comment or light teamwork question for another AI teammate.", "" );
     }
 }
 
@@ -179,6 +267,14 @@ consume_responses()
     for (;;)
     {
         wait 0.5;
+        if ( !getdvarint( "outlands_chat_enabled" ) )
+        {
+            level.outlands_chat_pending = undefined;
+            level.outlands_chat_human_pending = undefined;
+            level.outlands_chat_dialogue_pending = undefined;
+            setdvar( "outlands_chat_response", "" );
+            continue;
+        }
         response = getdvar( "outlands_chat_response" );
         if ( response != "" )
         {
@@ -196,6 +292,7 @@ consume_responses()
                 println( "Outlands chat: pending request expired without speech." );
             }
         }
+        dispatch_queued_chat();
     }
 }
 
@@ -209,6 +306,11 @@ accept_response( response )
     if ( response != fields[0] + "|" + fields[1] + "|" + fields[2] + "|" + fields[3] )
         return;
     request = level.outlands_chat_pending;
+    if ( request.kind == "bot_reply" && !getdvarint( "outlands_chat_dialogue" ) )
+    {
+        level.outlands_chat_pending = undefined;
+        return;
+    }
     if ( fields[0] != request.id || fields[1] != "" + request.slot || fields[2] != request.name )
         return;
     timeout = bounded_seconds( "outlands_chat_timeout", 45, 10, 120 );
@@ -227,5 +329,20 @@ accept_response( response )
 
     level.outlands_chat_pending = undefined;
     bot sayall( fields[3] );
-    println( "Outlands chat: native speaker delivered one bounded response." );
+    println( "Outlands chat: native speaker delivered one bounded response. kind=" + request.kind );
+    // Only an accepted opener can schedule one second turn. Bot replies and
+    // human replies never extend a conversation, and bot say events are ignored.
+    if ( request.kind == "banter" && getdvarint( "outlands_chat_dialogue" ) && !isdefined( level.outlands_chat_human_pending ) )
+    {
+        dialogue = spawnstruct();
+        dialogue.bot = bot;
+        dialogue.slot = request.slot;
+        dialogue.name = request.name;
+        dialogue.text = fields[3];
+        dialogue.parent_id = request.id;
+        delay = bounded_seconds( "outlands_chat_dialogue_delay", 14, 12, 30 );
+        dialogue.ready = gettime() + delay * 1000;
+        dialogue.expires = dialogue.ready + 20000;
+        level.outlands_chat_dialogue_pending = dialogue;
+    }
 }
