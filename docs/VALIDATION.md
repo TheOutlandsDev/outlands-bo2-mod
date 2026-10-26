@@ -122,10 +122,24 @@ The [chat guide](../ai/README.md) specifies the protocol and bounded context.
 Keep player text, generated conversations, private credentials and raw console
 logs out of public test reports. Publish only technical outcomes and limitations.
 
+## Unattended rival integration
+
+The [rival guide](RIVALS.md) documents the disposable all-bot runner. It exercises
+normal native match startup with zero prematch periods, guarded bot profile
+restores, native counters, round restart and private-ledger worker/server
+restarts. No real or fabricated human client is required. Inspect generated
+private reports for the exact image and selected map/mode pairs.
+
+The source tests cover private atomic ledger writes, replay/counter-reset
+handling, roster restrictions, current-context freshness and delivery ACKs.
+No-human runs keep production chat's human-presence guard intact. Synthetic
+chat fixtures and a native function call are separate from a full human-chat
+interaction acceptance result.
+
 ## Scope limits
 
-Native pathfinding and combat remain authoritative. Cosmetic bot ranks do not
-implement earned bot careers. Persistent learning, player-strategy imitation,
+Native pathfinding and combat remain authoritative. Random cosmetic ranks are separate
+from the optional fictional-bot career ledger. Persistent learning, player-strategy imitation,
 custom route training and MW2 feature parity are future work. Evaluate new
 presentation, movement and dialogue changes in human gameplay before describing
 them as accepted.
