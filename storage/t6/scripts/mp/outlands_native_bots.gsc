@@ -26,6 +26,7 @@ init()
     apply_native_difficulty();
     start_extension( "scripts/mp/outlands_bot_profiles", "class and patrol profiles" );
     start_extension( "scripts/mp/outlands_bot_identity", "cosmetic identities" );
+    start_extension( "scripts/mp/outlands_bot_careers", "persistent bot careers" );
     println( "Outlands native bots: single-owner command fill controller active." );
     level thread fill_native_bots();
     level thread watch_native_loadout_probes();

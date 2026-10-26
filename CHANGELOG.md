@@ -1,6 +1,15 @@
 # Changelog
 
-## Unreleased — custom AI profiles and Windows setup
+## Unreleased — persistent rivals, custom AI and Windows setup
+
+- Add private, roster-only persistent bot careers with idempotent native-score
+  snapshots, guarded cosmetic restores and independent chat/career switches.
+- Enrich all fictional bot personalities with stable traits, fresh own-scoreboard
+  context and bot-only familiarity confirmed by native speech acknowledgements.
+- Add an isolated native-bot verification runner with match, round-restart,
+  worker-restart and server-process-restart checks; no human fixture is fabricated.
+- Add metadata-only owned-content inventory, DLC/mode boundaries and strict source
+  rotation preflight; no commercial assets are distributed.
 
 - Add explicit Windows `--no-password` setup and reusable join-CFG generation.
   Protected invites still require a nonempty password; conflicting modes and

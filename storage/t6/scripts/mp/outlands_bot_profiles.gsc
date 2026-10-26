@@ -55,7 +55,10 @@ native_class_pool()
 
 assign_profile()
 {
-    if ( !self profile_enabled() || isdefined( self.outlands_profile_role ) )
+    if ( !self profile_enabled() )
+        return;
+    career = getdvarint( "outlands_bot_careers" ) && isdefined( self.outlands_career_ready ) && isdefined( self.outlands_career_role ) && !isdefined( self.outlands_career_role_applied );
+    if ( isdefined( self.outlands_profile_role ) && !career )
         return;
 
     roll = randomint( 100 );
@@ -69,6 +72,14 @@ assign_profile()
         role = "support";
     else
         role = "marksman";
+
+    if ( career )
+    {
+        saved = self.outlands_career_role;
+        if ( saved == "rusher" || saved == "assault" || saved == "objective" || saved == "support" || saved == "marksman" )
+            role = saved;
+        self.outlands_career_role_applied = 1;
+    }
 
     // Limit marksman profiles, not native emergency anti-air class choices.
     limit = 2;
@@ -84,7 +95,7 @@ assign_profile()
         players = get_players();
         foreach ( player in players )
         {
-            if ( !isdefined( player ) || !isplayer( player ) || !player istestclient() )
+            if ( !isdefined( player ) || !isplayer( player ) || !player istestclient() || player == self )
                 continue;
             if ( isdefined( player.outlands_profile_role ) && player.outlands_profile_role == "marksman" )
                 count++;

@@ -9,6 +9,7 @@ import unittest
 from unittest.mock import patch
 
 import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 SPEC = importlib.util.spec_from_file_location("outlands_bridge", Path(__file__).resolve().parents[1] / "bridge.py")
 bridge = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = bridge
@@ -115,7 +116,7 @@ class RuntimeTests(unittest.TestCase):
         class Sink:
             def send(self, item, text):
                 sent.append((item.request_id, text))
-        worker = bridge.Worker(bridge.Config(), None, Sink(), None)
+        worker = bridge.Worker(bridge.Config(enabled=True), None, Sink(), None)
         lines = [f"OUTLANDS_CHAT_V1|id{index}|3|Scout|reply|mp_raid|tdm|Player|hi" for index in range(5)]
         worker.ingest(lines + [lines[-1]], 100)
         self.assertEqual([x.request_id for x in worker.queue], ["id3", "id4"])
@@ -215,7 +216,7 @@ class DialogueTests(unittest.TestCase):
         class Sink:
             def send(self, item, text):
                 sent.append((item, text))
-        return bridge.Worker(config or bridge.Config(), None, Sink(), None)
+        return bridge.Worker(config or bridge.Config(enabled=True), None, Sink(), None)
 
     def test_two_turn_exchange_requires_an_opener_and_cannot_extend_itself(self):
         worker = self.worker()
@@ -273,7 +274,7 @@ class DialogueTests(unittest.TestCase):
         self.assertIn(b"set outlands_chat_response", packet)
 
     def test_dialogue_off_rejects_second_turn_without_disabling_human_replies(self):
-        worker = self.worker(bridge.Config(dialogue_enabled=False))
+        worker = self.worker(bridge.Config(enabled=True, dialogue_enabled=False))
         worker.dialogue.record(self.opener, self.line, 101)
         worker.ingest([self.wire(self.followup), self.wire(event(request="human_request"))], 115)
         self.assertEqual([item.kind for item in worker.queue], ["reply"])
@@ -319,6 +320,111 @@ class DialogueTests(unittest.TestCase):
                 return io.BytesIO(json.dumps({"message": {"content": "I will cover the other lane."}}).encode())
         generator.opener = FakeOpener()
         self.assertEqual(generator.generate(self.followup, []), ("I will cover the other lane.", "ollama"))
+
+
+class ChatQualityTests(unittest.TestCase):
+    def generator_returning(self, text, fallback=True):
+        generator = bridge.Generator(bridge.Config(fallback_on_error=fallback), bridge.Personalities(BASE / "personalities.json"))
+        class Opener:
+            def open(self, *args, **kwargs):
+                return io.BytesIO(json.dumps({"message": {"content": text}}).encode())
+        generator.opener = Opener()
+        return generator
+
+    def test_unicode_punctuation_keeps_contractions_and_word_boundaries(self):
+        pairs = [("Let’s go—same plan…", "Let's go same plan..."),
+                 ("We’re ready–let’s try it.", "We're ready let's try it."),
+                 ("“GG”—let’s go.", "GG let's go."),
+                 ("new\u200broute", "new route")]
+        for raw, expected in pairs:
+            self.assertEqual(bridge.sanitize_reply(raw), expected)
+        self.assertEqual(bridge.context_text("new—route", 30), "new route")
+        generator = self.generator_returning("Fresh plan—same team.")
+        line, source = generator.generate(event(), [])
+        self.assertEqual((line, source), ("Fresh plan same team.", "ollama"))
+        self.assertEqual(bridge.rcon_packet("x" * 32, event(), line).count(b'"'), 2)
+
+    def test_final_bot_reply_question_uses_fallback_even_if_model_ignores_prompt(self):
+        item = replace(event(name="MossCircuit"), kind="bot_reply", request_id="fixture_r",
+                       speaker="Trailblazer", text="Want to try a different approach next round?")
+        for text in ("How about we switch tactics and try a different strategy?",
+                     "Want to try a different approach", "Sounds good. Any other ideas?",
+                     "Sounds good. How about a different route"):
+            line, source = self.generator_returning(text).generate(item, [])
+            self.assertEqual(source, "fallback")
+            self.assertFalse(bridge.is_final_question(line))
+            self.assertLessEqual(len(bridge.words(line)), 12)
+        self.assertEqual(self.generator_returning("How about another route?", False).generate(item, []), ("", "unavailable"))
+        self.assertEqual(self.generator_returning("Yeah, let's try the other route.").generate(item, []),
+                         ("Yeah, let's try the other route.", "ollama"))
+
+    def test_banter_does_not_repeat_scene_instruction_or_instruction_fragments(self):
+        item = replace(event(name="StaticBloom"), kind="banter", speaker="match",
+                       text="A brief good-sport comment after a close round.")
+        for text in ("A brief good-sport comment after a close round.",
+                     "Brief good-sport comment after a close round!",
+                     "Here is a brief good-sport comment."):
+            line, source = self.generator_returning(text).generate(item, [])
+            self.assertEqual(source, "fallback")
+            self.assertNotEqual(bridge.words(line), bridge.words(item.text))
+        self.assertEqual(self.generator_returning("Close one, gg.").generate(item, []), ("Close one, gg.", "ollama"))
+
+    def test_formal_assistant_phrasing_and_long_sentences_use_short_safe_fallback(self):
+        for text in ("Pushing forward with a fresh mindset lets find synergy in the flank.",
+                     "Certainly, I recommend we optimize our approach.",
+                     "I'm happy to assist with your game strategy.",
+                     "One two three four five six seven eight nine ten eleven twelve thirteen."):
+            line, source = self.generator_returning(text).generate(event(), [])
+            self.assertEqual(source, "fallback", text)
+            self.assertLessEqual(len(bridge.words(line)), 12)
+
+    def test_scene_hints_are_data_and_final_turn_is_explicit(self):
+        personalities = bridge.Personalities(BASE / "personalities.json")
+        generator = bridge.Generator(bridge.Config(), personalities)
+        current = [replace(event(name="StaticBloom"), kind="banter", text="A short friendly match comment.")]
+        class Opener:
+            def open(inner, request, timeout):
+                payload = json.loads(request.data)
+                context = json.loads(payload["messages"][1]["content"])
+                if current[0].kind == "banter":
+                    self.assertEqual(context["scene_hint"], current[0].text)
+                    self.assertNotIn("message_text", context)
+                else:
+                    self.assertTrue(context["final_turn"])
+                self.assertIn("2-12 words", context["response_style"])
+                self.assertEqual([x["role"] for x in payload["messages"]], ["system", "user"])
+                return io.BytesIO(b'{"message":{"content":"Yeah, sounds good."}}')
+        generator.opener = Opener()
+        generator.generate(current[0], [])
+        current[0] = replace(current[0], kind="bot_reply", request_id="test_r", speaker="Trailblazer", text="Ready to push?")
+        generator.generate(current[0], [])
+
+    def test_validated_role_pools_and_alias_overrides_provide_distinct_fallbacks(self):
+        personalities = bridge.Personalities(BASE / "personalities.json")
+        with patch.object(bridge.random, "choice", side_effect=lambda choices: choices[0]):
+            self.assertEqual(personalities.fallback(replace(event(name="Trailblazer"), kind="banter")),
+                             "Anyone up for the long way round?")
+            self.assertEqual(personalities.fallback(replace(event(name="MossCircuit"), kind="banter")),
+                             "Let's take the next push together.")
+        for pools in (personalities.default["fallback"], *personalities.role_fallbacks.values(),
+                      *(profile.get("fallback", {}) for profile in personalities.profiles.values())):
+            for kind, choices in pools.items():
+                for line in choices:
+                    self.assertLessEqual(len(bridge.words(line)), 12)
+                    self.assertEqual(bridge.sanitize_reply(line), line)
+                    if kind == "bot_reply":
+                        self.assertFalse(bridge.is_final_question(line))
+        for mutate in (lambda data: data.update(role_fallbacks={"admin": {}}),
+                       lambda data: data["profiles"]["Trailblazer"].update(fallback={"bot_reply": ["How about another push?"]}),
+                       lambda data: data.update(role_fallbacks={"support": {"reply": ['hello";quit']}}),
+                       lambda data: data["profiles"]["Trailblazer"].update(fallback={"command": ["GG"]})):
+            with tempfile.TemporaryDirectory() as directory:
+                data = json.loads((BASE / "personalities.json").read_text())
+                mutate(data)
+                path = Path(directory) / "personalities.json"
+                path.write_text(json.dumps(data))
+                with self.assertRaises(bridge.ConfigError):
+                    bridge.Personalities(path)
 
 
 if __name__ == "__main__":

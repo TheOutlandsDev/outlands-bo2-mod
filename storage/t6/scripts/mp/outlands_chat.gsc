@@ -329,6 +329,7 @@ accept_response( response )
 
     level.outlands_chat_pending = undefined;
     bot sayall( fields[3] );
+    println( "OUTLANDS_CHAT_ACK_V1|" + request.id + "|" + request.slot + "|" + request.name + "|" + request.kind );
     println( "Outlands chat: native speaker delivered one bounded response. kind=" + request.kind );
     // Only an accepted opener can schedule one second turn. Bot replies and
     // human replies never extend a conversation, and bot say events are ignored.

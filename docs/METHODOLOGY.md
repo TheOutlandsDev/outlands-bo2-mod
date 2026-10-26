@@ -15,6 +15,7 @@ population, appearance, class roles and conversation.
 | `outlands_native_bots.gsc` | Own population filling and bounded recovery |
 | `outlands_bot_identity.gsc` | Apply bot-only cosmetic level and prestige display |
 | `outlands_bot_profiles.gsc` | Filter native class choices and adjust optional patrol cadence |
+| `outlands_bot_careers.gsc` / `ai/careers.py` | Persist fictional-bot native-score deltas and restore guarded cosmetic careers |
 | `outlands_chat.gsc` | Schedule bounded events and validate responses before native speech |
 | `ai/bridge.py` and Ollama | Generate or select short chat lines through a fixed local response mailbox |
 | `tools/build_release.py` | Audit and package an explicit source-only allowlist |
@@ -35,8 +36,10 @@ Bot identity is separate from human profiles. The identity watcher waits for
 native bot loadout initialization and checks `istestclient()` before applying
 native display calls. Weighted levels and prestiges are sampled once per bot
 connection, bounded against native rank/icon limits and reapplied after respawn.
-They do not write DDL XP, change loadout unlock eligibility or create persistent
-bot careers. The roster contains fictional aliases and matching chat voices.
+Random display identities do not write DDL XP or change loadout eligibility. The
+optional [rival ledger](RIVALS.md) adds persistent fictional-bot careers from native
+scoreboard deltas, with separate cosmetic XP and guarded restores. The roster
+contains fictional aliases and matching chat voices.
 
 ## Population and match settings
 
@@ -99,7 +102,8 @@ Ambient conversation has at most an opener and one answer by another bot.
 Human public-chat replies take priority and cancel queued followups. Both turns
 share global, per-bot and per-minute budgets. Context is short-lived, no chat is
 generated without humans, and team/hidden chat is excluded. The worker stores
-no chat history; console events can contain public chat, so raw server logs
+no persistent chat text; its short model context stays in memory. Console events
+can contain public chat, so raw server logs
 must remain private. See the [chat protocol](../ai/README.md) for exact limits.
 
 ## Configuration, testing and distribution

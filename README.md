@@ -129,8 +129,8 @@ and recovery across the selected maps and modes using the validation guide.
 random native roster selection enabled. Matching chat personalities give each
 alias a distinct voice. The identity module uses weighted levels from 1 to 55
 and random prestiges from 0 to 10 by default. These cosmetic choices stay stable
-across respawns and use bot-only native display calls. Earned bot careers and
-weapon unlocks remain future work. Hosts should disclose the native AI opponents.
+across respawns and use bot-only native display calls. The optional rival ledger
+adds persistent cosmetic careers; native bot weapon unlocks remain separate. Hosts should disclose the native AI opponents.
 
 The optional [local chat bridge](ai/README.md) provides occasional banter,
 public-chat replies and bounded two-line bot conversations through Ollama, with
@@ -148,6 +148,7 @@ Customize bots in `storage/t6/outlands_t6.cfg` and the alias roster:
 | `outlands_bot_difficulty` | 0 easy, 1 normal, 2 hard or 3 veteran; currently 2 (Hard) |
 | `sv_randomizeBotNames` | Native random roster order; default 1 |
 | `outlands_bot_levels` | Enable cosmetic bot levels; 0 keeps native display |
+| `outlands_bot_careers` | Host-controlled optional fictional-bot ledger/restore switch |
 | `outlands_bot_level_min` / `outlands_bot_level_max` | Inclusive weighted cosmetic level range, bounded to 1–55 |
 | `outlands_bot_prestige_min` / `outlands_bot_prestige_max` | Cosmetic prestige range, default 0–10, bounded by the native icon table |
 | `outlands_bot_profiles` | Enable connection class roles; default 1, enabling requires fresh map initialization |
@@ -187,7 +188,25 @@ for worker configuration and the [validation guide](docs/VALIDATION.md) for
 repeatable checks. These development changes are not part of the frozen v0.1.2
 release assets.
 
+## Persistent AI rivals
+
+The optional [rival system](docs/RIVALS.md) restores returning fictional bots with
+persistent cosmetic careers, curated class roles and richer personality traits.
+Native bot kills and positive score deltas earn separate bot career XP. This
+never changes human progression or grants native equipment unlocks.
+
+A private ledger survives worker/server restarts and deduplicates snapshots.
+Chat can use each bot's own fresh scoreboard context, career and prior bot-to-bot
+familiarity. Familiarity is recorded only after native delivery acknowledgement;
+human identities and chat text are excluded from persistent storage. Native
+pathfinding and combat remain authoritative. The AI hosting profile enables
+careers independently of the chat switch, using a separate private volume.
+
 ## Map and mode rotation
+
+Use `python3 -B tools/content_inventory.py --game-dir /path/to/owned/BO2 --strict`
+to check source rotation assets before hosting. The inventory distinguishes paid
+DLC and separately discovered Zombies files without distributing either.
 
 The configured rotation covers 15 multiplayer maps: 14 base maps plus Nuketown
 2025. Clients need the owned files for each selected map; this does not include every separately released DLC map.
@@ -215,11 +234,12 @@ All eight wrappers double the baseline time and score targets:
 These limits follow each mode's native timer and round structure. CTF overtime
 and Demolition bomb/round rules can end rounds independently of the score cap.
 Test gameplay across every configured map and mode before extending the rotation.
-The settings add no persistent learning or bot careers.
+These match settings are independent of the optional rival ledger and add no
+persistent strategy learning.
 
 The MW2 reference is
 [iw4x-bot-warfare-extras](https://github.com/TheOutlandsDev/iw4x-bot-warfare-extras).
-Full movement/personality parity, learning heuristics and individual bot careers
+Full movement parity, learned tactical policies and native bot weapon careers
 remain future work. This is an original native T6 integration, not an IW4
 Bot Warfare adapter.
 
