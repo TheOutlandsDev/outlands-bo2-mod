@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+- Add explicit Windows `--no-password` setup and reusable join-CFG generation.
+  Protected invites still require a nonempty password; conflicting modes and
+  command injection are rejected. The existing launcher accepts the deliberately
+  empty-password CFG without changing a player's saved identity or stats.
+- Provide a reusable Windows guide covering explicit runtime paths, full-storage
+  backup/hash verification, preflight, joining and progression acceptance.
+- Replace dated workstation/session notes and personal progression values with
+  a project acceptance matrix and repeatable methodology.
+- Extend the source privacy audit to reject Windows user paths, default PC names
+  and private tailnet DNS names. Keep profile storage, backups and runtime logs
+  outside Git and the explicit release allowlist.
+
 ## 0.1.2 — Development preview
 
 - Preserve the Windows setup/preflight, profile backup and direct LAN joining

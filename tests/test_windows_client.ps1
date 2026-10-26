@@ -100,6 +100,37 @@ try {
         }
     }
 
+    Test-Case 'documented backup copies full storage and verifies relative-file hashes' {
+        $guide = [IO.File]::ReadAllText((Join-Path $repository 'docs\WINDOWS.md'))
+        $blocks = [regex]::Matches($guide, '(?ms)^```powershell\r?\n(.*?)^```')
+        foreach ($block in $blocks) {
+            $tokens = $null; $errors = $null
+            $null = [Management.Automation.Language.Parser]::ParseInput($block.Groups[1].Value, [ref]$tokens, [ref]$errors)
+            Assert-Equal @($errors).Count 0 'A documented PowerShell example failed to parse.'
+        }
+        $fixtureRuntime = Join-Path $temporary 'backup source runtime'
+        $fixtureBackups = Join-Path $temporary 'profile backups'
+        Write-FixtureText (Join-Path $fixtureRuntime 'storage\t6\players\synthetic.cfg') 'synthetic settings'
+        Write-FixtureBytes (Join-Path $fixtureRuntime 'storage\demonware\synthetic-profile\stats') ([byte[]](1,2,3,255))
+        $before = Get-FixtureSnapshot $fixtureRuntime
+        $sample = @($blocks | Where-Object { $_.Groups[1].Value.Contains('$manifest =') })
+        Assert-Equal $sample.Count 1 'Expected exactly one complete backup example.'
+        $code = [regex]::Replace($sample[0].Groups[1].Value, '(?m)^\$runtimeDir = .*$', '$runtimeDir = $fixtureRuntime')
+        $code = [regex]::Replace($code, '(?m)^\$backupParent = .*$', '$backupParent = $fixtureBackups')
+        $backupRoot = & ([scriptblock]::Create($code + "`nWrite-Output `$backupRoot"))
+        Assert-Equal (Get-FixtureSnapshot $fixtureRuntime) $before 'The backup example changed source storage.'
+        $manifest = [IO.File]::ReadAllText((Join-Path $backupRoot 'SHA256-MANIFEST.json')) | ConvertFrom-Json
+        Assert-Equal @($manifest).Count 2 'The backup omitted a T6 or stat-storage file.'
+        foreach ($row in $manifest) {
+            Assert-True (-not [IO.Path]::IsPathRooted($row.Path)) 'The manifest exposed an absolute source path.'
+            $copied = Join-Path (Join-Path $backupRoot 'storage') $row.Path
+            Assert-Equal (Get-FileHash -LiteralPath $copied -Algorithm SHA256).Hash $row.SHA256 'A copied file does not match its manifest hash.'
+        }
+        $fixtureBackups = Join-Path $fixtureRuntime 'storage\nested backup'
+        $null = Assert-Throws { & ([scriptblock]::Create($code)) } 'A recursive backup inside source storage was accepted.'
+        Assert-Equal (Get-FixtureSnapshot $fixtureRuntime) $before 'Rejected recursive backup changed source storage.'
+    }
+
     $scratch = Join-Path $temporary 'helper fixtures'
     $null = [IO.Directory]::CreateDirectory($scratch)
     $invitePath = Join-Path $scratch 'private invite.json'
@@ -120,6 +151,7 @@ try {
             @{ field = 'server_address'; value = "outlands.example`nquit" },
             @{ field = 'server_address'; value = 'user@outlands.example' },
             @{ field = 'join_password'; value = 'DO-NOT-ECHO;quit' },
+            @{ field = 'join_password'; value = '' },
             @{ field = 'join_password'; value = 'bad"password' },
             @{ field = 'join_password'; value = 'bad\password' },
             @{ field = 'join_password'; value = 'bad//password' },
@@ -138,6 +170,21 @@ try {
         Write-FixtureJson $invitePath $invalid
         $null = Assert-Throws { Read-OutlandsInvite $invitePath } 'Unknown invite field was accepted.'
         Write-FixtureJson $invitePath $valid
+    }
+
+    Test-Case 'join builder requires explicit no-password intent and rejects injection' {
+        $text = New-OutlandsJoinText 'outlands.example' '' -NoPassword
+        Assert-Equal $text "password `"`"`nconnect outlands.example:4977`n" 'No-password mode did not clear the saved password first.'
+        $path = Join-Path $scratch 'no password join.cfg'
+        Write-FixtureText $path $text
+        Test-OutlandsJoin $path
+        $null = Assert-Throws { New-OutlandsJoinText 'outlands.example' '' } 'Missing password silently enabled no-password mode.'
+        $null = Assert-Throws { New-OutlandsJoinText 'outlands.example' 'synthetic-secret' -NoPassword } 'Conflicting password modes were accepted.'
+        foreach ($address in @('outlands.example;quit', "outlands.example`nquit", 'outlands.example:0')) {
+            $null = Assert-Throws { New-OutlandsJoinText $address '' -NoPassword } 'Unsafe no-password address was accepted.'
+        }
+        Write-FixtureText $path "password `"`"`nconnect outlands.example:4977`nquit`n"
+        $null = Assert-Throws { Test-OutlandsJoin $path } 'An extra command was accepted in a no-password CFG.'
     }
 
     Test-Case 'saved LAN identity accepts one stable name and rejects malformed files' {
@@ -251,6 +298,30 @@ exit $LASTEXITCODE
         Assert-Equal (Get-FixtureSnapshot $temporary) $before 'Play check changed the identity or profile.'
     }
 
+    Test-Case 'no-password preflight is read-only and rejects conflicting invites' {
+        $before = Get-FixtureSnapshot $temporary
+        $result = Invoke-ClientChild $setup @('--dry-run', '--skip-updater', '--no-password')
+        Assert-Equal $result.code 0 ('No-password preflight failed: ' + $result.error)
+        Assert-Equal (Get-FixtureSnapshot $temporary) $before 'No-password preflight changed client or profile files.'
+        $result = Invoke-ClientChild $setup @('--dry-run', '--no-password', '--invite', $invitePath)
+        Assert-True ($result.code -ne 0) 'Setup accepted an invite together with no-password mode.'
+        Assert-True (-not ($result.output + $result.error).Contains('synthetic-test-password')) 'Rejected setup exposed a password.'
+        Assert-Equal (Get-FixtureSnapshot $temporary) $before 'Conflicting setup options changed client state.'
+    }
+
+    Test-Case 'saved no-password CFG passes launch checks without changing profile or identity' {
+        $original = [IO.File]::ReadAllBytes($joinPath)
+        try {
+            Write-FixtureText $joinPath (New-OutlandsJoinText 'outlands.example' '' -NoPassword)
+            $before = Get-FixtureSnapshot $temporary
+            $result = Invoke-ClientChild $play @('--join', '--check')
+            Assert-Equal $result.code 0 ('No-password launch check failed: ' + $result.error)
+            $result = Invoke-ClientChild $setup @('--check')
+            Assert-Equal $result.code 0 ('No-password setup check failed: ' + $result.error)
+            Assert-Equal (Get-FixtureSnapshot $temporary) $before 'No-password checks changed profile files or LAN identity.'
+        } finally { Write-FixtureBytes $joinPath $original }
+    }
+
     Test-Case 'invalid dry-run identity fails without changing any client state' {
         $before = Get-FixtureSnapshot $temporary
         $result = Invoke-ClientChild $setup @('--dry-run', '--name', 'bad;command')
@@ -258,7 +329,13 @@ exit $LASTEXITCODE
         Assert-Equal (Get-FixtureSnapshot $temporary) $before 'Rejected setup changed existing state.'
     }
 } finally {
-    if ([IO.Directory]::Exists($temporary)) { Remove-Item -LiteralPath $temporary -Recurse -Force }
+    $cleanupTarget = [IO.Path]::GetFullPath($temporary)
+    $tempParent = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\') + '\'
+    if (-not $cleanupTarget.StartsWith($tempParent, [StringComparison]::OrdinalIgnoreCase) -or
+        [IO.Path]::GetFileName($cleanupTarget) -notmatch '^Outlands Windows tests [0-9a-f]{32}$') {
+        throw 'Refusing cleanup outside the dedicated synthetic test directory.'
+    }
+    if ([IO.Directory]::Exists($cleanupTarget)) { Remove-Item -LiteralPath $cleanupTarget -Recurse -Force }
 }
 
 Write-Output ('Windows synthetic checks: ' + $script:passed + ' passed, ' + $script:failed + ' failed.')

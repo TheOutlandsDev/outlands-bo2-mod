@@ -28,7 +28,7 @@ TOOL_FILES = {"build_release.py", "client_settings.py", "install_files.py", "pla
               "preflight.py", "setup_client.py", "windows_client.ps1"}
 TEST_FILES = {"test_client_setup.py", "test_host_setup.py", "test_host_state.py", "test_release.py",
               "test_windows_client.ps1"}
-DOC_FILES = {"VALIDATION.md", "RELEASING.md"}
+DOC_FILES = {"VALIDATION.md", "RELEASING.md", "WINDOWS.md"}
 WORKFLOW_FILES = {"ci.yml", "release.yml"}
 STORAGE_FILES = {"storage/t6/outlands_t6.cfg", "storage/t6/gamesettings/outlands_tdm.cfg",
                  "storage/t6/gamesettings/outlands_dm.cfg", "storage/t6/gamesettings/outlands_ctf.cfg",
@@ -103,7 +103,11 @@ def public_files(root: Path = ROOT) -> list[Path]:
                 has_tailnet_address |= ipaddress.ip_address(address) in TAILNET_NETWORK
             except ValueError:
                 pass
-        if has_tailnet_address or re.search(r"/home/[A-Za-z0-9_.-]+/", text):
+        private_path = re.search(r"/home/[A-Za-z0-9_.-]+/", text) or re.search(
+            r"(?i)\b[A-Z]:[\\/]+Users[\\/]+[^\\/\s\"']+", text)
+        private_host = re.search(r"(?i)\b(?:desktop|laptop)-[a-z0-9]{7}\b", text) or re.search(
+            r"(?i)\b[a-z0-9.-]+\.ts\.net\b", text)
+        if has_tailnet_address or private_path or private_host:
             raise ValueError(f"Private development setup appears in public source: {name}")
         files.append(path)
     release_version(root)

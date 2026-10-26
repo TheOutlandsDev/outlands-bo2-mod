@@ -42,6 +42,11 @@ downloaded model weights, runtime prefixes, logs, invites, passwords, tokens,
 server volumes or player saves. A checksum verifies downloaded bytes; it does
 not establish gameplay compatibility or replace review of package contents.
 
+The source audit rejects private tailnet addresses/DNS names, user-specific
+Linux and Windows home paths, and default Windows PC names. The public Windows
+guide uses generic examples and keeps personal activity, profile values and
+conversation metadata out of its instructions and acceptance matrix.
+
 To audit the public source locally without packaging:
 
 ```sh

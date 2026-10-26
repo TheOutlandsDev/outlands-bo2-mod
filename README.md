@@ -10,8 +10,8 @@ bots, combat, after-action rank XP and weapon progress, and retention after a
 full client/server restart. Isolated checks also verified custom aliases,
 varied native weapons/classes and cosmetic-level API calls. The complete live
 Ollama request, generation, local RCON and native bot speech path has now passed
-with a human playing. The player also confirmed the scoreboard's blank clan
-tags and different cosmetic levels look correct. Windows joining, spawning
+during live play. Scoreboard checks confirmed blank clan tags and distinct
+cosmetic levels. Windows joining, spawning
 and bot combat have since been confirmed; Windows quit/relaunch progression
 retention remains pending. See
 [validation status](docs/VALIDATION.md).
@@ -71,52 +71,27 @@ copy player saves, unlock content or change the stat source.
 
 ### Windows checks and direct joining
 
-For an existing runtime, check the install inputs from PowerShell before setup:
+Follow the [Windows setup and validation guide](docs/WINDOWS.md) to verify the
+release hash, select the exact game/runtime paths, preserve profile storage and
+check the client before launching.
+
+For a private host deliberately configured without a game password, the
+current Windows source provides an explicit setup option:
 
 ```powershell
-.\setup-client-windows.cmd --dry-run --skip-updater --game-dir "D:\Games\Black Ops II" --plutonium-dir "$env:LOCALAPPDATA\Plutonium" --name "Unique Player"
+.\setup-client-windows.cmd --skip-updater --no-password --game-dir "D:\Games\Black Ops II" --plutonium-dir "D:\Tools\Plutonium" --name "Player One"
+.\setup-client-windows.cmd --check
+.\play-outlands-windows.cmd
 ```
 
-Replace the example game path and player name with your own. This checks file
-presence and input validation; it does not launch BO2 or verify a server join.
-An explicit `--plutonium-dir` is useful when a terminal or automation environment
-redirects `LOCALAPPDATA` away from the installed runtime.
+Replace example paths and names with your own; setup collects the server
+address privately. This mode clears any saved password before connecting and
+cannot be combined with `--invite`. Protected invite behavior is preserved.
+Older tagged releases can use the guide's direct LAN/console fallback.
 
-The setup and saved-join validator still require a nonempty password.
-For a host that deliberately uses no game password, start the LAN client
-directly through the existing runtime. This bypasses the saved-join helper and
-needs no private invite file:
-
-```powershell
-$gameDir = "D:\Games\Black Ops II" # Replace with your owned game folder.
-$runtimeDir = "$env:LOCALAPPDATA\Plutonium" # Use the actual installed runtime.
-$playerName = "Unique Player" # Keep the same unique name across launches.
-Push-Location -LiteralPath $runtimeDir
-try {
-    & ".\bin\plutonium-bootstrapper-win32.exe" t6mp "$gameDir\." +name $playerName -lan +set net_port 4976
-} finally {
-    Pop-Location
-}
-```
-
-In the in-game console (`~`), enter these separately, replacing
-`SERVER_ADDRESS:SERVER_PORT` with the details supplied privately by the host:
-
-```text
-password ""
-connect SERVER_ADDRESS:SERVER_PORT
-```
-
-Tailscale access is still required. A Tailscale ping response confirms peer
-reachability, not the BO2 game socket or a successful join. A
-`PLATFORM_DISCONNECTED_FROM_SERVER` message records a disconnect; its cause
-needs diagnosis rather than assuming a password or firewall failure.
-
-Before a playtest, back up the active runtime's `storage\t6` tree and verify the
-copied files against their source hashes. Keep profiles, connection CFGs,
-machine-specific launchers, invites, addresses and raw logs private. The
-[Windows validation record](docs/VALIDATION.md#windows-preparation-2026-10-25)
-records preparation, subsequent joining/combat results and remaining progression tests.
+The guide separates file checks, Tailscale access, joining, combat, after-action
+results and restart retention. Private settings, profile data and connection
+details stay outside the public source.
 
 ## Host a game
 
@@ -163,8 +138,8 @@ random native roster selection enabled. Custom alias assignment has passed a
 runtime check. Matching chat personalities give each alias a distinct voice.
 Optional random levels from 1 to 55 are cosmetic bot presentation, not earned
 bot careers or weapon unlocks. The native calls passed an isolated check, and
-the player confirmed visible levels and removal of the default `BOT` clan tags
-on the scoreboard. The host continues to disclose native AI opponents. The optional
+scoreboard checks confirmed visible levels and removal of the default `BOT`
+clan tags. The host continues to disclose native AI opponents. The optional
 [local chat bridge](ai/README.md)
 provides occasional banter and public-chat replies through Ollama, with canned
 fallbacks. Live logs verified generated replies passing through local RCON,

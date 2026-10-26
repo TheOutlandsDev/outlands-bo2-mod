@@ -24,7 +24,7 @@ function Ask-OutlandsValue([string]$Prompt, $Default, [scriptblock]$Validator, [
     }
 }
 try {
-    $check = $false; $dry = $false; $skipUpdater = $false; $shortcut = $false; $options = @{}
+    $check = $false; $dry = $false; $skipUpdater = $false; $shortcut = $false; $noPassword = $false; $options = @{}
     for ($index = 0; $index -lt $clientArguments.Count; $index++) {
         $option = $clientArguments[$index].ToLowerInvariant()
         switch -Exact ($option) {
@@ -33,6 +33,7 @@ try {
                 Write-Output 'Interactive setup downloads/opens the official updater and collects private connection details using hidden terminal prompts.'
                 Write-Output '--invite PATH imports private JSON: schema_version 1, server_address (IPv4/DNS without port), server_port, join_password.'
                 Write-Output 'Options: --game-dir PATH, --name NAME, --plutonium-dir PATH, --port PORT, --skip-updater, --desktop-shortcut.'
+                Write-Output '--no-password explicitly saves an empty game password for a host configured without one; cannot combine with --invite.'
                 Write-Output '--dry-run validates install inputs; --check validates an installed client. Neither writes, downloads, prompts or launches.'
                 Write-Output 'Each player needs owned BO2 files and a unique stable LAN name. Close the game before setup. Existing stats are preserved.'
                 Write-Output 'Install/sign in to Tailscale separately: https://tailscale.com/download/windows . No system service is changed.'
@@ -42,6 +43,7 @@ try {
             { $_ -in '--dry-run', '-dryrun' } { $dry = $true }
             { $_ -in '--skip-updater', '-skipupdater' } { $skipUpdater = $true }
             { $_ -in '--desktop-shortcut', '-desktopshortcut' } { $shortcut = $true }
+            '--no-password' { $noPassword = $true }
             { $_ -in '--game-dir', '--name', '--plutonium-dir', '--port', '--invite' } {
                 $index++
                 if ($index -ge $clientArguments.Count -or $clientArguments[$index] -eq '') { throw 'An option is missing its value. Run with --help.' }
@@ -51,6 +53,7 @@ try {
         }
     }
     if ($check -and $dry) { throw 'Choose either --check or --dry-run.' }
+    if ($noPassword -and $options.ContainsKey('--invite')) { throw 'Choose either --invite or --no-password.' }
     $settingsFile = Join-Path $project 'runtime\client.json'
     $settings = Read-OutlandsSettings $settingsFile
     $game = if ($options.ContainsKey('--game-dir')) { $options['--game-dir'] } elseif ($env:OUTLANDS_GAME_DIR) { $env:OUTLANDS_GAME_DIR } elseif ($settings.game_dir) { $settings.game_dir } else { Join-Path ${env:ProgramFiles(x86)} 'Steam\steamapps\common\Call of Duty Black Ops II' }
@@ -110,16 +113,16 @@ try {
     }
     $plutonium = Test-OutlandsRuntime $plutonium
     $joinFile = Join-Path $storage 'outlands_join.cfg'
-    $replace = $null -ne $invite -or -not (Test-Path -LiteralPath $joinFile)
+    $replace = $noPassword -or $null -ne $invite -or -not (Test-Path -LiteralPath $joinFile)
     if (-not $replace) { $replace = Ask-OutlandsYes 'Replace existing private connection settings?' $false }
     $joinBytes = $null
     if ($replace) {
         if ($invite) { $address = $invite.address; $password = $invite.password }
         else {
             $address = Ask-OutlandsValue 'Private hosting IPv4 or DNS name, optionally :port (hidden)' $null { param($value) Test-OutlandsAddress $value } $true
-            $password = Ask-OutlandsValue 'Private server join password (hidden)' $null { param($value) Test-OutlandsPassword $value } $true
+            $password = if ($noPassword) { '' } else { Ask-OutlandsValue 'Private server join password (hidden)' $null { param($value) Test-OutlandsPassword $value } $true }
         }
-        $joinBytes = [Text.Encoding]::ASCII.GetBytes('password "' + $password + '"' + [char]10 + 'connect ' + $address + [char]10)
+        $joinBytes = [Text.Encoding]::ASCII.GetBytes((New-OutlandsJoinText $address $password -NoPassword:$noPassword))
     } else { Test-OutlandsJoin $joinFile }
     Write-OutlandsFile $nameFile ([Text.Encoding]::ASCII.GetBytes($name + [char]10))
     if ($null -ne $joinBytes) { Write-OutlandsFile $joinFile $joinBytes }
