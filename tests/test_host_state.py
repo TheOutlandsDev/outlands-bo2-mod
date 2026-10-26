@@ -47,7 +47,7 @@ class HostStateTests(unittest.TestCase):
         constants = patch.multiple(host, DATA=self.data, MOD=self.mod, PLUTONIUM=self.plutonium)
         constants.start()
         self.addCleanup(constants.stop)
-        environment = patch.dict(os.environ, {"T6_CHAT_ENABLED": "1"})
+        environment = patch.dict(os.environ, {"T6_CHAT_ENABLED": "1", "T6_CAREERS_ENABLED": "0"})
         environment.start()
         self.addCleanup(environment.stop)
         self.secret = self.data / "private/outlands_rcon_password"
@@ -125,6 +125,22 @@ class HostStateTests(unittest.TestCase):
         self.assertEqual(self.stats.read_bytes(), self.original_stats)
         _, reenabled = host.configure_mod(None)
         self.assertEqual(reenabled, original)
+
+    def test_careers_can_use_local_control_with_chat_disabled(self):
+        with patch.dict(os.environ, {"T6_CHAT_ENABLED": "0", "T6_CAREERS_ENABLED": "1"}):
+            _, control = host.configure_mod(None)
+        self.assertTrue(control)
+        self.assertEqual(self.value("outlands_chat_enabled"), "0")
+        self.assertEqual(self.value("outlands_bot_careers"), "1")
+        self.assertEqual(self.value("rcon_password"), control)
+        self.assertIn("rconWhitelistAdd 127.0.0.1", self.cfg.read_text())
+        self.assertEqual(self.stats.read_bytes(), self.original_stats)
+        with patch.dict(os.environ, {"T6_CHAT_ENABLED": "0", "T6_CAREERS_ENABLED": "0"}):
+            _, disabled = host.configure_mod(None)
+        self.assertEqual(disabled, "")
+        self.assertEqual(self.value("rcon_password"), "")
+        self.assertNotIn("rconWhitelistAdd", self.cfg.read_text())
+        self.assertEqual(self.secret.read_text(), control)
 
     def test_preexisting_public_rcon_secret_is_rejected_without_cfg_change(self):
         self.secret.parent.mkdir()
