@@ -2,6 +2,12 @@
 
 ## Unreleased — cooperative lobbies, grounded task chat, squads, contracts and rivals
 
+- Double ambient conversation frequency with a shared six-line-per-minute cap,
+  shorter answer delay and per-bot cooldown. General replies and fallbacks react
+  to the previous message and fresh own-scoreboard context; human input keeps
+  priority and task grounding remains independent. Own-scoreboard context now
+  expires after sixty seconds without a fresh native sample.
+
 - Slightly stagger bot response to UAVs and other air support: a bounded initial
   delay and stable per-target 80 percent participation, preserving native ignore,
   launcher, lock-on and damage rules. Add tuning and stock-selection overrides.

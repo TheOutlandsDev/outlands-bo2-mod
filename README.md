@@ -203,8 +203,9 @@ movement quality in gameplay separately from hook execution.
 Chat can now schedule one answer from another native bot after a delivered
 banter opener. Human public-chat replies take priority. The exchange ends after
 the second line, shares global/per-bot limits, and stops when no humans remain.
-Defaults are a 60-second opener interval, 14-second answer delay and at most
-four requested lines per minute. `outlands_chat_dialogue 0` disables bot-to-bot
+Defaults are a 30-second opener interval, 12-second answer delay and at most
+six requested lines per minute. General replies react to the preceding line and fresh own-scoreboard context;
+public human messages take priority. `outlands_chat_dialogue 0` disables bot-to-bot
 followups while keeping human replies available. See the [chat guide](ai/README.md)
 for worker configuration and the [validation guide](docs/VALIDATION.md) for
 repeatable checks. These development changes are not part of the frozen v0.1.2
