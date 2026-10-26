@@ -26,10 +26,10 @@ HOST_FILES = {"README.md", ".gitignore", ".env.example", "Dockerfile", "Dockerfi
 AI_FILES = {"README.md", "Dockerfile", "Modelfile", "bridge.py", "tests/test_bridge.py",
             "config.example.json", "personalities.json", "careers.py", "tests/test_careers.py", "benchmark.py"}
 TOOL_FILES = {"build_release.py", "client_settings.py", "install_files.py", "play_lan_windows.ps1",
-              "preflight.py", "setup_client.py", "windows_client.ps1", "content_inventory.py"}
+              "preflight.py", "setup_client.py", "windows_client.ps1", "content_inventory.py", "contract_rules.py"}
 TEST_FILES = {"test_client_setup.py", "test_host_setup.py", "test_host_state.py", "test_release.py",
-              "test_windows_client.ps1", "test_backend_verify.py", "test_content_inventory.py"}
-DOC_FILES = {"VALIDATION.md", "RELEASING.md", "WINDOWS.md", "METHODOLOGY.md", "RIVALS.md"}
+              "test_windows_client.ps1", "test_backend_verify.py", "test_content_inventory.py", "test_contract_rules.py"}
+DOC_FILES = {"VALIDATION.md", "RELEASING.md", "WINDOWS.md", "METHODOLOGY.md", "RIVALS.md", "SQUADS-CONTRACTS.md"}
 WORKFLOW_FILES = {"ci.yml", "release.yml"}
 STORAGE_FILES = {"storage/t6/outlands_t6.cfg", "storage/t6/gamesettings/outlands_tdm.cfg",
                  "storage/t6/gamesettings/outlands_dm.cfg", "storage/t6/gamesettings/outlands_ctf.cfg",
@@ -39,6 +39,7 @@ STORAGE_FILES = {"storage/t6/outlands_t6.cfg", "storage/t6/gamesettings/outlands
                  "storage/t6/scripts/mp/outlands_status.gsc", "storage/t6/scripts/mp/outlands_native_bots.gsc",
                  "storage/t6/scripts/mp/outlands_bot_identity.gsc", "storage/t6/scripts/mp/outlands_bot_profiles.gsc",
                  "storage/t6/scripts/mp/outlands_bot_careers.gsc",
+                 "storage/t6/scripts/mp/outlands_squads.gsc", "storage/t6/scripts/mp/outlands_contracts.gsc",
                  "storage/t6/scripts/mp/outlands_chat.gsc", "storage/t6/bots.txt"}
 PUBLIC_PATHS = frozenset(ROOT_FILES | STORAGE_FILES
                         | {"hosting/" + name for name in HOST_FILES}

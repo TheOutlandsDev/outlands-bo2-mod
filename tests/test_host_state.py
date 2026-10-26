@@ -91,6 +91,15 @@ class HostStateTests(unittest.TestCase):
                           'set outlands_bot_profiles 1\n'
                           'set outlands_bot_marksman_limit 2\n'
                           'set outlands_bot_patrol_profiles 1\n'
+                          'set outlands_squads 1\n'
+                          'set outlands_squad_attackers 4\n'
+                          'set outlands_squad_defenders 2\n'
+                          'set outlands_squad_reassess_seconds 8\n'
+                          'set outlands_squad_goal_seconds 3\n'
+                          'set outlands_contracts 1\n'
+                          'set outlands_contract_seconds 90\n'
+                          'set outlands_contract_seed 13\n'
+                          'set outlands_contract_goal_scale 100\n'
                           'set outlands_chat_dialogue 1\n'
                           'set outlands_chat_dialogue_delay 14\n'
                           'set outlands_chat_bot_cooldown 60\n'
@@ -98,11 +107,23 @@ class HostStateTests(unittest.TestCase):
         self.cfg.write_text(self.cfg.read_text() +
                             'set outlands_bot_prestige_max 4\n'
                             'set outlands_bot_profiles 0\n')
+        self.cfg.write_text(self.cfg.read_text() +
+                            'set outlands_squads 0\n'
+                            'set outlands_contract_seconds 120\n')
         host.configure_mod(None)
         self.assertEqual(self.value("outlands_bot_prestige_max"), "4")
         self.assertEqual(self.value("outlands_bot_profiles"), "0")
         self.assertEqual(self.value("outlands_bot_prestige_min"), "0")
         self.assertEqual(self.value("outlands_bot_marksman_limit"), "2")
+        self.assertEqual(self.value("outlands_squads"), "0")
+        self.assertEqual(self.value("outlands_squad_attackers"), "4")
+        self.assertEqual(self.value("outlands_squad_defenders"), "2")
+        self.assertEqual(self.value("outlands_squad_reassess_seconds"), "8")
+        self.assertEqual(self.value("outlands_squad_goal_seconds"), "3")
+        self.assertEqual(self.value("outlands_contracts"), "1")
+        self.assertEqual(self.value("outlands_contract_seconds"), "120")
+        self.assertEqual(self.value("outlands_contract_seed"), "13")
+        self.assertEqual(self.value("outlands_contract_goal_scale"), "100")
         self.assertEqual(self.value("outlands_chat_dialogue"), "1")
         self.assertEqual(self.value("outlands_chat_dialogue_delay"), "14")
         self.assertEqual(self.value("outlands_chat_bot_cooldown"), "60")

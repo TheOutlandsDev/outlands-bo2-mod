@@ -1,6 +1,13 @@
 # Changelog
 
-## Unreleased — persistent rivals, custom AI and Windows setup
+## Unreleased — objective squads, contracts and persistent rivals
+
+- Add optional coordinated native-bot objective squads and rotating team match
+  contracts, with independent off switches and preserved host configuration.
+- Track contract goals from real native counters, awarding match-local Outlands
+  commendations without changing human XP, unlocks or saved progression.
+- Extend isolated native verification with squad goal acknowledgements,
+  contract completion, off-switch, unsupported-mode and restart checks.
 
 - Add private, roster-only persistent bot careers with idempotent native-score
   snapshots, guarded cosmetic restores and independent chat/career switches.

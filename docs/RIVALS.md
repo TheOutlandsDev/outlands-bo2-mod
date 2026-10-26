@@ -114,8 +114,9 @@ retention still require later client playtests.
 
 ## Further distinctive features
 
-The next bounded additions are coordinated objective squads, tag reservations,
-custom match rules and curated events. Persistent player-strategy imitation,
+The working source includes [objective squads and match contracts](SQUADS-CONTRACTS.md).
+Further additions include tag reservations, custom match rules and curated events.
+Persistent player-strategy imitation,
 route learning, a Zombies integration and complete DLC compatibility need
 separate implementation and acceptance. Supplying original assets is separate
 from shipping original mod code.

@@ -34,7 +34,8 @@ contact a model or prove a working Tailscale game connection.
 4. For custom engine probes, use disposable smoke storage only. Verify native
    test-client identities, role assignment, class-pool and patrol-hook execution,
    bounded level/prestige ranges and a native map restart. Probe scripts must
-   not enter the public package or live server state.
+   remain outside the live mod payload and live server state. Original probe
+   source is included for reproducible disposable verification.
 5. Stop the isolated server. Promote only the intended source payload, preserving
    private access settings and operator-selected configuration.
 
@@ -135,6 +136,17 @@ handling, roster restrictions, current-context freshness and delivery ACKs.
 No-human runs keep production chat's human-presence guard intact. Synthetic
 chat fixtures and a native function call are separate from a full human-chat
 interaction acceptance result.
+
+## Squads and contracts
+
+Follow the [squad and contract guide](SQUADS-CONTRACTS.md) for configuration and
+isolated native checks. Require actual native objective-goal acknowledgements,
+valid role caps, real counter progress and completed contracts. Metadata or
+nonzero counters carried from an earlier round are insufficient. Exercise off
+switches, unsupported modes and round/server restarts independently.
+
+Later, verify human-facing notifications, tactical balance and normal earned
+progression with real clients. An all-bot backend run cannot establish those.
 
 ## Scope limits
 

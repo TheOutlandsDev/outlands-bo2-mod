@@ -24,6 +24,12 @@ FAILURE = re.compile(r"(?:terminal\s+)?script(?:\s+(?:compile|runtime))?\s+error
 ANSI = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 SCORE_LIMITS = {"tdm": 200, "dm": 60, "conf": 150, "ctf": 6, "dem": 4, "dom": 200, "hq": 500, "koth": 500}
 FIELDS = ("stage", "bots", "humans", "alive", "playing", "identities", "roles", "careers", "kills", "deaths", "score", "moved", "prematch", "invalid", "pools", "patrols", "scorelimit")
+OBJECTIVE_MODES = frozenset(("ctf", "dem", "dom", "koth", "hq"))
+CONTRACT_MODES = MODES - {"dm"}
+# V1 is retained for private evidence from earlier versions. Feature acceptance
+# requires V2, which binds the extra observations to the same native sample.
+FEATURE_FIELDS = ("sequence", "squads_enabled", "squad_assigned", "squad_attack", "squad_defend", "squad_support", "squad_targeted", "squad_goal_calls", "squad_goal_distinct", "squad_invalid", "contracts_enabled", "contract_active", "contract_completed", "contract_commendations", "contract_kill_progress", "contract_score_progress", "contract_objective_progress", "contract_invalid", "allies_bots", "axis_bots")
+COUNT_FIELDS = frozenset(("bots", "humans", "alive", "playing", "identities", "roles", "careers", "moved", "invalid", "pools", "patrols", "squad_assigned", "squad_attack", "squad_defend", "squad_support", "squad_targeted", "contract_active", "allies_bots", "axis_bots"))
 
 
 @dataclass(frozen=True)
@@ -44,22 +50,33 @@ def parse_samples(text: str) -> list[dict]:
     for line in text.splitlines():
         line = ANSI.sub("", line).strip()
         # Never match player/chat text that happens to contain the marker.
-        if not line.startswith("OUTLANDS_VERIFY_V1|"):
+        if not line.startswith(("OUTLANDS_VERIFY_V1|", "OUTLANDS_VERIFY_V2|")):
             continue
         fields = line.split("|")
-        if len(fields) != 21 or fields[1] not in ("sample", "complete"):
+        names = FIELDS + FEATURE_FIELDS if fields[0] == "OUTLANDS_VERIFY_V2" else FIELDS
+        if len(fields) != 4 + len(names) or fields[1] not in ("sample", "complete"):
             continue
         if not re.fullmatch(r"mp_[a-z0-9_]{1,40}", fields[2]) or fields[3] not in MODES:
             continue
         if not all(re.fullmatch(r"-?[0-9]{1,9}", value) for value in fields[4:]):
             continue
         record = {"kind": fields[1], "map": fields[2], "mode": fields[3]}
-        record.update(zip(FIELDS, map(int, fields[4:])))
+        record.update(zip(names, map(int, fields[4:])))
+        record["version"] = int(fields[0][-1])
+        if any(not 0 <= record[name] <= 16 for name in COUNT_FIELDS if name in record):
+            continue
+        if record["stage"] not in (0, 1) or record["prematch"] not in (-1, 0, 1):
+            continue
+        if record["kills"] < 0 or record["deaths"] < 0 or record["scorelimit"] < 0:
+            continue
+        if record["version"] == 2 and (record["sequence"] < 1 or any(record[name] not in (0, 1) for name in ("squads_enabled", "contracts_enabled")) or any(record[name] < 0 for name in FEATURE_FIELDS)):
+            continue
         samples.append(record)
     return samples
 
 
-def assess(samples: list[dict], case: Case, restart: bool, careers: bool = False) -> dict:
+def assess(samples: list[dict], case: Case, restart: bool, careers: bool = False,
+           squads: bool = False, contracts: bool = False) -> dict:
     expected = (0, 1) if restart else (0,)
     reasons = []
     matching = [s for s in samples if (s["map"], s["mode"]) == (case.map_name, case.mode)]
@@ -89,7 +106,60 @@ def assess(samples: list[dict], case: Case, restart: bool, careers: bool = False
             reasons.append(f"stage {stage}: cosmetic level outside native range")
         if careers and final["careers"] != 16:
             reasons.append(f"stage {stage}: career restore incomplete")
+        reasons.extend(assess_features(stage_samples, final, stage, case, squads, contracts))
     return {"case": asdict(case), "passed": not reasons, "reasons": reasons, "samples": matching}
+
+
+def assess_features(samples, final, stage, case, squads, contracts):
+    reasons = []
+    extended = [sample for sample in samples if sample.get("version") == 2]
+    if not extended:
+        return [f"stage {stage}: feature acceptance requires V2 native metadata"] if squads or contracts else []
+    if len(extended) != len(samples) or any(later["sequence"] <= earlier["sequence"] for earlier, later in zip(extended, extended[1:])):
+        return [f"stage {stage}: mixed, duplicate or reordered native feature samples"]
+    if case.mode in CONTRACT_MODES and (final["allies_bots"], final["axis_bots"]) != (8, 8):
+        reasons.append(f"stage {stage}: native teams did not contain eight bots each")
+    expected_squads = squads and case.mode in OBJECTIVE_MODES
+    if any(sample["squads_enabled"] != int(expected_squads) for sample in extended):
+        reasons.append(f"stage {stage}: squad enabled state differs from the isolated feature configuration")
+    squad_fields = ("squad_assigned", "squad_attack", "squad_defend", "squad_support", "squad_targeted", "squad_goal_calls", "squad_goal_distinct", "squad_invalid")
+    if not expected_squads:
+        if any(sample[name] for sample in extended for name in squad_fields):
+            reasons.append(f"stage {stage}: disabled or unsupported squad mode mutated metadata")
+    else:
+        if final["squad_assigned"] != 16 or sum(final[name] for name in ("squad_attack", "squad_defend", "squad_support")) != 16 or not 1 <= final["squad_attack"] <= 8 or not 0 <= final["squad_defend"] <= 4 or final["squad_support"] < 4:
+            reasons.append(f"stage {stage}: eight-player teams did not receive bounded attack/defend/support allocation")
+        if max(sample["squad_targeted"] for sample in extended) < 1 or any(sample["squad_targeted"] > sample["squad_attack"] + sample["squad_defend"] for sample in extended):
+            reasons.append(f"stage {stage}: squad targets were absent or exceeded eligible roles")
+        if final["squad_goal_calls"] < 1 or final["squad_goal_distinct"] < (2 if case.mode == "dom" else 1):
+            reasons.append(f"stage {stage}: distinct acknowledged native objective goals were not observed")
+        if not any(later["squad_goal_calls"] > earlier["squad_goal_calls"] for earlier, later in zip(extended, extended[1:])) or any(later[name] < earlier[name] for name in ("squad_goal_calls", "squad_goal_distinct") for earlier, later in zip(extended, extended[1:])):
+            reasons.append(f"stage {stage}: native squad goal evidence did not increase monotonically within this stage")
+        if any(sample["squad_invalid"] for sample in extended):
+            reasons.append(f"stage {stage}: invalid native squad target or goal metadata")
+    expected_contracts = contracts and case.mode in CONTRACT_MODES
+    if any(sample["contracts_enabled"] != int(expected_contracts) for sample in extended):
+        reasons.append(f"stage {stage}: contract enabled state differs from the isolated feature configuration")
+    contract_fields = ("contract_active", "contract_completed", "contract_commendations", "contract_kill_progress", "contract_score_progress", "contract_objective_progress", "contract_invalid")
+    if not expected_contracts:
+        if any(sample[name] for sample in extended for name in contract_fields):
+            reasons.append(f"stage {stage}: disabled contracts mutated metadata")
+    else:
+        if final["contract_active"] != 2 or final["contract_completed"] < 1:
+            reasons.append(f"stage {stage}: native team contract boards did not complete a contract")
+        if final["contract_commendations"] != final["contract_completed"]:
+            reasons.append(f"stage {stage}: duplicate or missing match-local contract commendation")
+        if not any(later["contract_completed"] > earlier["contract_completed"] for earlier, later in zip(extended, extended[1:])):
+            reasons.append(f"stage {stage}: contract completion did not increase inside the observation window")
+        if final["contract_kill_progress"] < 1 or final["contract_score_progress"] < 1:
+            reasons.append(f"stage {stage}: contract progress did not consume native combat counter changes")
+        for name in ("contract_completed", "contract_commendations", "contract_kill_progress", "contract_score_progress", "contract_objective_progress"):
+            if any(later[name] < earlier[name] for earlier, later in zip(extended, extended[1:])):
+                reasons.append(f"stage {stage}: cumulative contract evidence decreased within one native stage")
+                break
+        if any(sample["contract_invalid"] for sample in extended):
+            reasons.append(f"stage {stage}: invalid contract source or progress metadata")
+    return reasons
 
 
 class Docker:
@@ -97,20 +167,60 @@ class Docker:
         self.wrapper = wrapper
 
     def call(self, *args: str, input_text: str | None = None, check: bool = True) -> str:
+        log_stream = bool(args and args[0] == "logs")
         result = subprocess.run([str(self.wrapper), *args], input=input_text, text=True,
-                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT if log_stream else subprocess.PIPE)
         if check and result.returncode:
             # Raw diagnostics could contain a private path or credentials.
             raise RuntimeError("Docker operation failed; inspect the private verification log")
+        if log_stream:
+            # Docker routes the container's stderr to the caller's stderr.
+            # Include it for private diagnostics, without contaminating JSON
+            # returned by inspect or ordinary exec operations.
+            # Merge while reading, rather than concatenating two streams after
+            # exit: restart evidence relies on the historical log prefix.
+            return result.stdout
         return result.stdout.strip()
 
 
-def config_for(case: Case, seconds: int, restart: bool, careers: bool) -> str:
+def assess_switches(text):
+    """Require a real pause/resume, including native goals and frozen accounting."""
+    fields = ("kills", "roles", "owned_goals", "active", "contract_kills", "contract_score", "completed", "goal_calls")
+    records = []
+    for line in ANSI.sub("", text).splitlines():
+        parts = line.strip().split("|")
+        if len(parts) != 10 or parts[0] != "OUTLANDS_SWITCH_V1" or not all(re.fullmatch(r"[0-9]{1,9}", x) for x in parts[2:]):
+            continue
+        records.append(dict(phase=parts[1], **dict(zip(fields, map(int, parts[2:])))))
+    reasons = []
+    if [x["phase"] for x in records] != ["disabled_start", "disabled_end", "resumed"]:
+        return {"passed": False, "reasons": ["missing, duplicate or reordered native switch observations"], "samples": records}
+    first, last, resumed = records
+    if any(x["roles"] or x["owned_goals"] or x["active"] for x in (first, last)):
+        reasons.append("disabled modules retained assignments, owned native goals or an active contract")
+    if any(first[k] != last[k] for k in ("contract_kills", "contract_score", "completed", "goal_calls")):
+        reasons.append("disabled modules continued accounting or native goal submissions")
+    if last["kills"] <= first["kills"]:
+        reasons.append("native combat did not continue while modules were disabled")
+    if resumed["roles"] != 16 or resumed["active"] != 1 or resumed["goal_calls"] <= last["goal_calls"]:
+        reasons.append("squads and contracts did not resume with new native goals")
+    return {"passed": not reasons, "reasons": reasons, "samples": records}
+
+
+def config_for(case: Case, seconds: int, restart: bool, careers: bool,
+               squads: bool = False, contracts: bool = False, switches: bool = False) -> str:
     cfg = (ROOT / "storage/t6/outlands_t6.cfg").read_text()
     cfg = re.sub(r'^sv_maprotation .*$', f'sv_maprotation "gametype {case.mode} execgts outlands_{case.mode}.cfg map {case.map_name}"', cfg, flags=re.M)
     return cfg + (f'\nset outlands_backend_verification 1\nset outlands_verify_seconds {seconds}\n'
                   f'set outlands_verify_restart {int(restart)}\nset outlands_verify_restarted 0\n'
-                  f'set outlands_bot_careers {int(careers)}\n')
+                  f'set outlands_bot_careers {int(careers)}\n'
+                  f'set outlands_squads {int(squads)}\nset outlands_squad_attackers 4\nset outlands_squad_defenders 2\n'
+                  f'set outlands_contracts {int(contracts)}\n' +
+                  # Short thresholds are confined to disposable verification
+                  # state; the probe never fabricates events, humans or XP.
+                  ('set outlands_contract_seconds 30\nset outlands_contract_seed 0\nset outlands_contract_goal_scale 25\n' if contracts else '') +
+                  ('set outlands_verify_switches 1\n' if switches else ''))
 
 
 def career_summary(docker: Docker, worker: str) -> dict:
@@ -123,7 +233,7 @@ def career_summary(docker: Docker, worker: str) -> dict:
 
 def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool, directory: Path,
              careers: bool = False, worker_image: str = "outlands-bo2-chat:rivals-dev",
-             process_restart: bool = False) -> dict:
+             process_restart: bool = False, squads: bool = False, contracts: bool = False, switches: bool = False) -> dict:
     resource = "outlands-backend-" + uuid.uuid4().hex
     volume = resource + "-state"
     container = ""
@@ -143,7 +253,7 @@ def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool
                 "x=json.load(sys.stdin);(p/'scripts/mp').mkdir(parents=True,exist_ok=True)\n"
                 "(p/'outlands_t6.cfg').write_text(x['cfg'])\n"
                 "(p/'scripts/mp/outlands_backend_verification.gsc').write_text(x['gsc'])\n")
-        payload = json.dumps({"cfg": config_for(case, seconds, restart, careers),
+        payload = json.dumps({"cfg": config_for(case, seconds, restart, careers, squads, contracts, switches),
                               "gsc": (ROOT / "hosting/verification.gsc").read_text()})
         docker.call("run", "--rm", "-i", "--network", "none", "--cap-drop", "ALL",
                     "--security-opt", "no-new-privileges:true", "-v", volume + ":/data",
@@ -186,7 +296,15 @@ def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool
             if state in ("exited", "dead"):
                 break
             time.sleep(2)
-        report = assess(parse_samples(all_logs), case, restart, careers)
+        samples = parse_samples(all_logs)
+        if switches:
+            samples = [s for s in samples if s.get("squads_enabled") and s.get("contracts_enabled")]
+        report = assess(samples, case, restart, careers, squads, contracts)
+        if switches:
+            report["runtime_switches"] = assess_switches(all_logs)
+            if not report["runtime_switches"]["passed"]:
+                report["passed"] = False
+                report["reasons"].extend(report["runtime_switches"]["reasons"])
         report.update({"elapsed_seconds": round(time.monotonic() - started, 2),
                        "observation_completed": observed, "script_error": bool(FAILURE.search(all_logs)),
                        "network_mode": "none", "published_ports": False})
@@ -219,7 +337,7 @@ def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool
                     if docker.call("inspect", "--format", "{{.State.Status}}", container) in ("exited", "dead"):
                         break
                     time.sleep(2)
-                process_result = assess(parse_samples(current), case, False, True)
+                process_result = assess(parse_samples(current), case, False, True, squads, contracts)
                 after_process = career_summary(docker, worker)
                 process_preserved = all(after_process["xp"].get(name, -1) >= xp for name, xp in after["xp"].items())
                 report["server_process_restart"] = {"passed": process_result["passed"] and process_preserved and not FAILURE.search(current),
@@ -277,6 +395,9 @@ def main(argv=None) -> int:
     parser.add_argument("--seconds", type=int, default=60)
     parser.add_argument("--restart", action="store_true")
     parser.add_argument("--careers", action="store_true", help="verify private career worker/restore and worker restart")
+    parser.add_argument("--squads", action="store_true", help="verify native coordinated squad roles/goals; unsupported modes must remain native")
+    parser.add_argument("--contracts", action="store_true", help="verify team contracts from native counters using disposable short thresholds")
+    parser.add_argument("--switches", action="store_true", help="also disable and resume both modules during one isolated objective match")
     parser.add_argument("--worker-image", default="outlands-bo2-chat:rivals-dev")
     parser.add_argument("--process-restart", action="store_true", help="also restart the actual game/worker containers with their same disposable volumes")
     parser.add_argument("--report-dir", type=Path)
@@ -291,8 +412,10 @@ def main(argv=None) -> int:
             raise ValueError("Expected a local Docker worker image name")
         if args.process_restart and not args.careers:
             raise ValueError("Process restart acceptance requires --careers")
-        plan = {"server_process_restart": args.process_restart, "careers": args.careers, "cases": [asdict(case) for case in cases], "seconds": args.seconds,
-                "native_restart": args.restart, "network_mode": "none", "published_ports": False,
+        if args.switches and (not args.squads or not args.contracts or len(cases) != 1 or cases[0].mode not in OBJECTIVE_MODES or args.seconds < 90 or args.restart or args.process_restart):
+            raise ValueError("Switch acceptance requires both modules, one objective case, at least 90 seconds and no restart flags")
+        plan = {"server_process_restart": args.process_restart, "careers": args.careers, "squads": args.squads, "contracts": args.contracts, "contract_test_thresholds": args.contracts, "cases": [asdict(case) for case in cases], "seconds": args.seconds,
+                "native_restart": args.restart, "runtime_switches": args.switches, "network_mode": "none", "published_ports": False,
                 "human_clients": False, "live_state": False}
         if not args.run:
             print(json.dumps(plan, indent=2))
@@ -305,7 +428,7 @@ def main(argv=None) -> int:
         docker = Docker(ROOT / "hosting/docker.sh")
         reports = []
         for case in cases:
-            report = run_case(docker, args.image, case, args.seconds, args.restart, directory, args.careers, args.worker_image, args.process_restart)
+            report = run_case(docker, args.image, case, args.seconds, args.restart, directory, args.careers, args.worker_image, args.process_restart, args.squads, args.contracts, args.switches)
             reports.append(report)
             (directory / "report.json").write_text(json.dumps({"plan": plan, "results": reports}, indent=2) + "\n")
             print(f"{'PASS' if report['passed'] else 'FAIL'}: {case.map_name}/{case.mode}", flush=True)

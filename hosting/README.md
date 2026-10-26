@@ -158,6 +158,15 @@ changes low-priority patrol cadence while preserving native objective, combat,
 pathfinding and recovery behavior. Configure the profile switches and ranges in
 `storage/t6/outlands_t6.cfg`; enabling hooks requires fresh map initialization.
 
+The optional [objective squads and contracts](../docs/SQUADS-CONTRACTS.md) use
+independent `outlands_squads` and `outlands_contracts` switches. Source defaults
+enable both; updates introduce these defaults only when the host has no existing
+value. Configure bot role caps and contract duration/scale in the private host
+CFG. The first contract rewards are match-local commendations and team notices,
+with no native XP, unlock or saved-profile writes. Neither module needs Ollama
+or a writable persistent ledger. Test in disposable state before promotion;
+preserve full game storage, rival-state and a rollback image when updating.
+
 ## Map and mode rotation
 
 The source rotation uses 15 maps: the 14 base multiplayer maps plus Nuketown
