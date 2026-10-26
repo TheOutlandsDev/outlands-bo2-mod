@@ -3,7 +3,7 @@
 Outlands extends native Plutonium T6 LAN multiplayer with original GSC modules,
 client setup tools and an optional local chat worker. The design preserves
 normal earned human progression and native bot control while adding configurable
-population, appearance, class roles and conversation.
+population, appearance, class roles, objective squads, contracts and conversation.
 
 ## Components and ownership
 
@@ -16,6 +16,8 @@ population, appearance, class roles and conversation.
 | `outlands_bot_identity.gsc` | Apply bot-only cosmetic level and prestige display |
 | `outlands_bot_profiles.gsc` | Filter native class choices and adjust optional patrol cadence |
 | `outlands_bot_careers.gsc` / `ai/careers.py` | Persist fictional-bot native-score deltas and restore guarded cosmetic careers |
+| `outlands_squads.gsc` | Allocate bot-only attack/defend/support duties through guarded native objective hooks |
+| `outlands_contracts.gsc` | Observe native team/player deltas for timed match-local contracts and commendations |
 | `outlands_chat.gsc` | Schedule bounded events and validate responses before native speech |
 | `ai/bridge.py` and Ollama | Generate or select short chat lines through a fixed local response mailbox |
 | `tools/build_release.py` | Audit and package an explicit source-only allowlist |
@@ -84,6 +86,26 @@ Optional patrol timing varies low-priority patrol refresh intervals by role.
 Native goal selection, pathfinding, objective logic, combat and stuck recovery
 remain in control. This changes cadence; it does not implement learned routes,
 opponent imitation or an adaptive combat model.
+
+## Objective coordination and contracts
+
+The optional [squad layer](SQUADS-CONTRACTS.md) allocates bounded duties per team
+and reassesses actual native objectives. It uses only the current gametype's
+helpers, checks detour ownership and falls back to stock behavior when a hook,
+target or path is unavailable. Low-priority perimeter duties cancel only their
+own goal on disable or reassignment. Combat, carrier interactions and emergency
+recovery retain native priority; the model never chooses movement commands.
+
+Contracts measure adjacent native kill, individual-score or team-score deltas.
+New occupants and team switches establish fresh baselines. Counter decreases
+rebase independently; implausible jumps give no credit. A strict deadline and
+one completion transition prevent late or duplicate commendations. Rewards are
+match-local announcements/counters, with no native progression or save writes.
+
+The disposable runner checks both modules against real engine counters, including
+initial disable, unsupported modes, mid-match disable/resume and restarts. Native
+goal acknowledgements establish that calls were accepted; they do not establish
+which goal wins priority, smarter route choice or better human-perceived balance.
 
 ## Local conversation pipeline
 

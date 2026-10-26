@@ -73,7 +73,7 @@ baselines and commendations reset with a new map/server process.
 Preview contract settings without launching the game:
 
 ```sh
-python3 -B tools/contract_rules.py --help
+python3 -B tools/contract_rules.py --mode dom --seed 13 --seconds 90 --goal-scale 100
 ```
 
 ## Backend verification
@@ -85,6 +85,7 @@ Run from the project root after privately building the current images:
 ```sh
 python3 -B hosting/backend_verify.py --squads --contracts --careers --restart --process-restart
 python3 -B hosting/backend_verify.py --run --image outlands-t6:squads-dev --worker-image outlands-bo2-chat:rivals-dev --squads --contracts --careers --restart --process-restart --case mp_raid:dom --seconds 90
+python3 -B hosting/backend_verify.py --run --image outlands-t6:squads-dev --squads --contracts --switches --case mp_raid:dom --seconds 90
 ```
 
 The probe observes actual native bot population, combat, score, squad assignment,
@@ -94,8 +95,19 @@ runs check off switches and nonobjective fallback. Restart runs must show new
 native activity and fresh match-local contract state while retaining independent
 fictional-bot careers.
 
+The separate `--switches` check disables both modules inside a real objective
+match, observes cleared assignments and module-owned goals, confirms contract
+accounting stays frozen while native combat continues, then resumes both
+modules and requires new native goal submissions. Its controls exist only in
+the disposable probe. It requires one objective case, at least 90 seconds and
+no restart flags.
+
 Keep raw console logs, runtime state, addresses, profile data and private image
 contents outside GitHub. Publish source, methodology and aggregate outcomes.
 Backend evidence cannot establish better human-perceived movement, readable HUD
 notifications, balance or human save retention. Those require later client
 playtests, with contracts/squads enabled and disabled for comparison.
+
+Native interfaces were checked against [Plutonium's objective bot scripts](https://github.com/plutoniummod/t6-scripts/tree/main/MP/Core/maps/mp/bots)
+and [team scoring implementation](https://github.com/plutoniummod/t6-scripts/blob/main/MP/Core/maps/mp/gametypes/_globallogic_score.gsc).
+The shipped modules contain original coordination and accounting code.

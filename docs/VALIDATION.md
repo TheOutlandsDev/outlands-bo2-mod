@@ -34,7 +34,8 @@ contact a model or prove a working Tailscale game connection.
 4. For custom engine probes, use disposable smoke storage only. Verify native
    test-client identities, role assignment, class-pool and patrol-hook execution,
    bounded level/prestige ranges and a native map restart. Probe scripts must
-   not enter the public package or live server state.
+   remain outside the live mod payload and live server state. Original probe
+   source is included for reproducible disposable verification.
 5. Stop the isolated server. Promote only the intended source payload, preserving
    private access settings and operator-selected configuration.
 
