@@ -1,6 +1,13 @@
 # Changelog
 
-## Unreleased — objective squads, contracts and persistent rivals
+## Unreleased — grounded task chat, objective squads, contracts and persistent rivals
+
+- Ground occasional squad/order, objective and contract banter in each selected
+  bot's current native task, with short model replies and matching fallbacks.
+- Keep second turns on the same team, reject changed or expired task context,
+  preserve shared chat limits and add an independent task-context off switch.
+- Verify typed native snapshots, zero-human refusal and the speech primitive
+  separately; benchmark local model output without posting it to a game.
 
 - Add optional coordinated native-bot objective squads and rotating team match
   contracts, with independent off switches and preserved host configuration.
