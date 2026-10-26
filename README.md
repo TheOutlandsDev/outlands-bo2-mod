@@ -11,8 +11,9 @@ full client/server restart. Isolated checks also verified custom aliases,
 varied native weapons/classes and cosmetic-level API calls. The complete live
 Ollama request, generation, local RCON and native bot speech path has now passed
 with a human playing. The player also confirmed the scoreboard's blank clan
-tags and different cosmetic levels look correct. Windows joining still needs
-acceptance. See
+tags and different cosmetic levels look correct. Windows joining, spawning
+and bot combat have since been confirmed; Windows quit/relaunch progression
+retention remains pending. See
 [validation status](docs/VALIDATION.md).
 
 This repository contains original mod source and setup tools. Supply your own
@@ -81,7 +82,7 @@ presence and input validation; it does not launch BO2 or verify a server join.
 An explicit `--plutonium-dir` is useful when a terminal or automation environment
 redirects `LOCALAPPDATA` away from the installed runtime.
 
-The v0.1.1 Windows setup and saved-join validator require a nonempty password.
+The setup and saved-join validator still require a nonempty password.
 For a host that deliberately uses no game password, start the LAN client
 directly through the existing runtime. This bypasses the saved-join helper and
 needs no private invite file:
@@ -115,7 +116,7 @@ Before a playtest, back up the active runtime's `storage\t6` tree and verify the
 copied files against their source hashes. Keep profiles, connection CFGs,
 machine-specific launchers, invites, addresses and raw logs private. The
 [Windows validation record](docs/VALIDATION.md#windows-preparation-2026-10-25)
-separates the completed preparation checks from the remaining gameplay tests.
+records preparation, subsequent joining/combat results and remaining progression tests.
 
 ## Host a game
 
@@ -142,11 +143,20 @@ progress also depends on that client's saved profile.
 
 ## Bots and optional chat
 
-The original fill controller waits for a human, targets 12 total players and
-adds native test clients at bounded intervals. It removes only verified bots
-when reducing the population. Native BO2 movement, combat and difficulty logic
-remain in control; the mod does not disguise bots as human connections or
-fabricate latency.
+The current configuration has 16 player slots and targets 16 total players
+(8v8 in team modes), with native Hard difficulty. The original fill controller
+waits for a human, then polls throughout the match to refill vacant connection
+slots and adds native test clients at bounded intervals. Dead players still
+occupy slots and respawn through native rules. After three consecutive failed
+adds, the controller waits 10 seconds, then 20 and at most 30 seconds between
+retry batches. It keeps polling every two seconds during cooldown and resets
+the retry sequence when the human count or target changes. It removes only
+verified bots when reducing the population. Native BO2 movement, combat and
+difficulty logic remain in control; the mod does not disguise bots as human
+connections or fabricate latency. Live checks on Raid / Domination verified
+eight assigned players per team, a mid-match 16 → 15 → 16 vacancy/refill, and
+Windows staying connected. Full rotation and prolonged failed-add recovery
+acceptance remain pending.
 
 `storage/t6/bots.txt` defines fictional aliases with empty clan-tag fields, with
 random native roster selection enabled. Custom alias assignment has passed a
@@ -168,8 +178,9 @@ Customize bots in `storage/t6/outlands_t6.cfg` and the alias roster:
 
 | Setting | Purpose |
 | --- | --- |
-| `outlands_bot_fill` | Total humans plus bots, capped by server capacity |
-| `outlands_bot_difficulty` | 0 easy, 1 normal, 2 hard or 3 veteran |
+| `sv_maxclients` | Server capacity; currently 16 |
+| `outlands_bot_fill` | Total humans plus bots, capped by server capacity; currently 16 |
+| `outlands_bot_difficulty` | 0 easy, 1 normal, 2 hard or 3 veteran; currently 2 (Hard) |
 | `sv_randomizeBotNames` | Native random roster order; default 1 |
 | `outlands_bot_levels` | Enable cosmetic bot levels; 0 keeps native display |
 | `outlands_bot_level_min` / `outlands_bot_level_max` | Inclusive cosmetic level range, bounded to 1–55 |
@@ -182,6 +193,39 @@ loadouts with different attachments and secondaries. The mod keeps the native
 validity rules. Humans use the normal Create-a-Class menu and earned unlocks;
 this source does not grant human equipment or levels.
 
+## Map and mode rotation
+
+The configured rotation now covers the 15 multiplayer maps installed for the
+host baseline: 14 base maps plus Nuketown 2025. Clients need the owned files for
+each selected map; this does not include every separately released DLC map.
+
+Eight modes use native bot support: Free-for-All (`dm`), Team Deathmatch (`tdm`),
+Capture the Flag (`ctf`), Demolition (`dem`), Domination (`dom`), Hardpoint
+(`koth`), Headquarters (`hq`) and Kill Confirmed (`conf`). Each has its own
+gamesettings wrapper. Edit `sv_maprotation` in `storage/t6/outlands_t6.cfg` to
+choose the order. Difficulty changes take effect through fresh map
+initialization, including native combat tuning.
+
+All eight wrappers double the baseline time and score targets:
+
+| Mode | Time limit (minutes) | Score limit |
+| --- | ---: | ---: |
+| Team Deathmatch (`tdm`) | 20 | 200 |
+| Free-for-All (`dm`) | 20 | 60 |
+| Kill Confirmed (`conf`) | 20 | 150 |
+| Capture the Flag (`ctf`) | 10 | 6 |
+| Demolition (`dem`) | 5 | 4 |
+| Domination (`dom`) | 10 | 200 |
+| Headquarters (`hq`) | 30 | 500 |
+| Hardpoint (`koth`) | 20 | 500 |
+
+These limits follow each mode's native timer and round structure. CTF overtime
+and Demolition bomb/round rules can end rounds independently of the score cap.
+The Hard/16-player/expanded-rotation update, doubled limits and revised filling
+are configured and loaded. Raid / Domination fill and team allocation passed;
+full gameplay acceptance across the rotation remains pending. They add no
+persistent learning or bot careers.
+
 The MW2 reference is
 [iw4x-bot-warfare-extras](https://github.com/TheOutlandsDev/iw4x-bot-warfare-extras).
 Full movement/personality parity, learning heuristics and individual bot careers
@@ -190,7 +234,7 @@ Bot Warfare adapter.
 
 ## CI and development releases
 
-Version 0.1.1 is a development preview. The configured GitHub Actions pipeline
+Version 0.1.2 is a development preview. The configured GitHub Actions pipeline
 checks Linux setup/hosting/chat code, Bash syntax, and Windows PowerShell parsing
 with synthetic client fixtures. Packaging waits for both platform jobs, then
 produces an allowlisted source ZIP and `SHA256SUMS`. Version-matching `v*` tags

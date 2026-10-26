@@ -1,15 +1,50 @@
 # Changelog
 
-## Unreleased
+## 0.1.2 — Development preview
 
-- Document Windows v0.1.1 preparation, PowerShell commands, explicit runtime
-  paths and direct LAN/console joining for hosts without a game password.
-- Record passing file/preflight and profile-backup checks separately from the
-  unresolved client disconnect and pending Windows gameplay/progression tests.
-- Publish sanitized instructions and outcomes while keeping private connection
-  settings, machine-specific launchers, profiles and raw logs outside the repo.
+- Preserve the Windows setup/preflight, profile backup and direct LAN joining
+  guidance added after v0.1.1, with subsequent successful joining/bot-combat
+  results separated from the pending Windows progression restart check.
 
-This documentation update leaves the v0.1.1 release assets and runtime code unchanged.
+This update expands native bot sessions and keeps filling active after transient
+spawn failures. These are implemented settings and controller changes; full
+gameplay acceptance across the expanded rotation remains pending.
+
+- Native difficulty is now Hard, with 16 player slots and a target of 16 total
+  humans plus bots, allowing 8v8 in team modes.
+- The controller polls throughout the match to refill vacant connection slots.
+  After three failed native adds it retries in batches with 10-, 20- and then
+  at most 30-second cooldowns. Two-second polling continues during cooldown,
+  and human-count or target changes reset the retry sequence. Dead players
+  retain their slots and use native respawning.
+- Rotation covers the 15 multiplayer maps installed for the host baseline:
+  14 base maps plus Nuketown 2025. Clients need their owned files for each
+  selected map; separately released DLC maps are not included.
+- Eight modes have individual wrappers that reset native defaults before
+  applying their settings: Team Deathmatch, Free-for-All, Kill Confirmed,
+  Capture the Flag, Demolition, Domination, Headquarters and Hardpoint.
+- Time and score targets are doubled from the previous baseline:
+
+| Mode | Time limit (minutes) | Score limit |
+| --- | ---: | ---: |
+| Team Deathmatch (`tdm`) | 20 | 200 |
+| Free-for-All (`dm`) | 20 | 60 |
+| Kill Confirmed (`conf`) | 20 | 150 |
+| Capture the Flag (`ctf`) | 10 | 6 |
+| Demolition (`dem`) | 5 | 4 |
+| Domination (`dom`) | 10 | 200 |
+| Headquarters (`hq`) | 30 | 500 |
+| Hardpoint (`koth`) | 20 | 500 |
+
+Native timer and round rules remain in force. CTF overtime and Demolition
+bomb/round rules can end rounds independently of these score caps. Native
+movement, combat, loadout validity and earned human progression remain under
+the game; this update adds no human XP or unlock writes, persistent bot learning
+or bot careers. Live Raid / Domination checks verified 8v8 assignment,
+16 → 15 → 16 mid-match refill, Windows staying connected, and a second human
+replacing a bot. Full rotation, all-mode gameplay and prolonged failed-add
+recovery still need live acceptance. Earlier baseline results remain documented in
+[validation status](docs/VALIDATION.md).
 
 ## 0.1.1 — Development preview
 
