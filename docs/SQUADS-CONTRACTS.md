@@ -76,6 +76,15 @@ Preview contract settings without launching the game:
 python3 -B tools/contract_rules.py --mode dom --seed 13 --seconds 90 --goal-scale 100
 ```
 
+## Chat about current tasks
+
+Optional bot chat can describe a selected bot's current squad intent, objective
+state and team contract through validated ephemeral snapshots. It does not make
+movement decisions or award progress. Two-bot replies stay on the same team and
+stop when their context changes. Set `outlands_chat_tactical 0` to retain general
+banter without task context. The [AI guide](../ai/README.md) describes the wire
+format, expiry, shared chat budgets and model/fallback verification.
+
 ## Backend verification
 
 The isolated runner stages its probe only into labelled disposable storage,
@@ -87,6 +96,11 @@ python3 -B hosting/backend_verify.py --squads --contracts --careers --restart --
 python3 -B hosting/backend_verify.py --run --image outlands-t6:squads-dev --worker-image outlands-bo2-chat:rivals-dev --squads --contracts --careers --restart --process-restart --case mp_raid:dom --seconds 90
 python3 -B hosting/backend_verify.py --run --image outlands-t6:squads-dev --squads --contracts --switches --case mp_raid:dom --seconds 90
 ```
+
+Add `--chat-context` to observe native task snapshots and separately verify the
+no-human refusal, context off switch and direct native speech primitive. Offline
+model benchmarking can consume these snapshots without posting chat. A human
+client is still needed to accept the complete production conversation path.
 
 The probe observes actual native bot population, combat, score, squad assignment,
 accepted objective-goal calls, contract progress and completion. Low contract

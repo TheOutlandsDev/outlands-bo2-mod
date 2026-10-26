@@ -187,7 +187,76 @@ sample( kind )
     if ( isdefined( level.inprematchperiod ) )
         prematch = level.inprematchperiod;
     level.outlands_verify_sequence++;
+    if ( getdvarint( "outlands_verify_chat_context" ) )
+        sample_chat_context( players );
     println( "OUTLANDS_VERIFY_V2|" + kind + "|" + getdvar( "mapname" ) + "|" + getdvar( "g_gametype" ) + "|" + getdvarint( "outlands_verify_restarted" ) + "|" + bots + "|" + humans + "|" + alive + "|" + playing + "|" + identities + "|" + roles + "|" + careers + "|" + kills + "|" + deaths + "|" + score + "|" + moved + "|" + prematch + "|" + invalid + "|" + pools + "|" + patrols + "|" + getgametypesetting( "scorelimit" ) + "|" + feature_fields( players ) );
+}
+
+sample_chat_context( players )
+{
+    context_function = getfunction( "scripts/mp/outlands_chat", "task_context" );
+    request_function = getfunction( "scripts/mp/outlands_chat", "request_chat" );
+    team_function = getfunction( "scripts/mp/outlands_chat", "chat_team" );
+    if ( !isdefined( context_function ) || !isdefined( request_function ) )
+        return;
+    seen = [];
+    count = 0;
+    foreach ( bot in players )
+    {
+        if ( !isdefined( bot ) || !isplayer( bot ) || !bot istestclient() || !isdefined( bot.name ) || !isdefined( bot.sessionstate ) || bot.sessionstate != "playing" )
+            continue;
+        foreach ( topic in array( "squad", "objective", "contract" ) )
+        {
+            context = [[ context_function ]]( bot, topic );
+            role = "none";
+            if ( isdefined( bot.outlands_squad_role ) )
+                role = bot.outlands_squad_role;
+            key = context.team + "_" + context.topic + "_" + role;
+            if ( context.topic == "none" || isdefined( seen[key] ) || count >= 12 )
+                continue;
+            seen[key] = 1;
+            count++;
+            println( "OUTLANDS_CONTEXT_V1|" + ( bot getentitynumber() ) + "|" + bot.name + "|" + getdvar( "mapname" ) + "|" + getdvar( "g_gametype" ) + "|" + context.wire );
+        }
+        if ( !isdefined( level.outlands_context_primitive ) )
+        {
+            // Exercise the production zero-human refusal without a fake client.
+            accepted = [[ request_function ]]( "banter", "match", "A current team task.", "", "contract" );
+            if ( accepted || isdefined( level.outlands_chat_pending ) )
+                println( "OUTLANDS_CHAT_GUARD_V1|failed" );
+            else
+                println( "OUTLANDS_CHAT_GUARD_V1|rejected" );
+            setting = getdvarint( "outlands_chat_tactical" );
+            setdvar( "outlands_chat_tactical", 0 );
+            disabled = [[ context_function ]]( bot, "contract" );
+            disabled_team = [[ team_function ]]( bot );
+            if ( disabled_team == bot.pers["team"] && disabled_team != "none" )
+                println( "OUTLANDS_CHAT_GUARD_V1|team_binding" );
+            setdvar( "outlands_chat_tactical", setting );
+            if ( disabled.wire == "none|none|none|-1|none|none|0|0|0|0|0" )
+                println( "OUTLANDS_CHAT_GUARD_V1|context_disabled" );
+            valid = getfunction( "scripts/mp/outlands_squads", "assignment_valid" );
+            if ( isdefined( level.outlands_squads_started ) && isdefined( bot.outlands_squad_team ) && isdefined( valid ) )
+            {
+                // Same-frame rejected metadata fixture, with no native team,
+                // score, goal, human-presence or progression mutation.
+                original_team = bot.outlands_squad_team;
+                bot.outlands_squad_team = "outlands_verification_stale";
+                stale_valid = bot [[ valid ]]();
+                stale_context = [[ context_function ]]( bot, "squad" );
+                bot.outlands_squad_team = original_team;
+                if ( !stale_valid && stale_context.topic == "none" )
+                    println( "OUTLANDS_CHAT_GUARD_V1|stale_assignment" );
+                else
+                    println( "OUTLANDS_CHAT_GUARD_V1|failed" );
+            }
+            // A direct native primitive test is separate from production chat.
+            // This probe exists only in network-isolated disposable storage.
+            bot sayall( "Checking our next contract." );
+            println( "OUTLANDS_CHAT_PRIMITIVE_V1|sayall" );
+            level.outlands_context_primitive = 1;
+        }
+    }
 }
 
 feature_fields( players )
@@ -232,6 +301,18 @@ feature_fields( players )
         }
         if ( !isdefined( bot.outlands_squad_role ) || bot.outlands_squad_role == "" )
             continue;
+        // Native team changes can precede the next squad reassessment. A rejected
+        // stale record is not an effective assignment. Retaining our own steering
+        // goal or accepting that record is still a failure; final coverage must
+        // recover to all sixteen current assignments.
+        if ( !isdefined( bot.outlands_squad_team ) || !isdefined( bot.team ) || bot.outlands_squad_team != bot.team )
+        {
+            if ( !isdefined( valid_assignment ) || bot [[ valid_assignment ]]() || bot hasgoal( "outlands_squad" ) )
+                squad_invalid++;
+            else
+                println( "OUTLANDS_SQUAD_REFRESH_V1|rejected_stale_team" );
+            continue;
+        }
         assigned++;
         role = bot.outlands_squad_role;
         if ( role == "attack" )
@@ -249,8 +330,6 @@ feature_fields( players )
         else if ( role == "support" )
             support++;
         else
-            squad_invalid++;
-        if ( !isdefined( bot.outlands_squad_team ) || !isdefined( bot.team ) || bot.outlands_squad_team != bot.team )
             squad_invalid++;
         // Official objectives can be structs as well as entities. The module
         // validates live native collection membership before getgoal is used.

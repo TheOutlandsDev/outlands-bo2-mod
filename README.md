@@ -205,7 +205,9 @@ careers independently of the chat switch, using a separate private volume.
 ## Map and mode rotation
 
 The working source also includes optional [objective squads and team
-contracts](docs/SQUADS-CONTRACTS.md). Squads divide native bots between objective
+contracts](docs/SQUADS-CONTRACTS.md). Optional [grounded task chat](ai/README.md#grounded-squad-objective-and-contract-chat)
+lets bots discuss their current assignment and contract through short model
+responses or matching fallbacks, with same-team replies and stale-context checks. Squads divide native bots between objective
 assignments in five objective modes. Timed team contracts use actual native
 kills or scoreboard deltas and grant match-local commendations. Both modules
 have independent off switches; normal XP, unlocks and saved progression remain

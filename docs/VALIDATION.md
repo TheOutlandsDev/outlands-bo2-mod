@@ -155,3 +155,24 @@ from the optional fictional-bot career ledger. Persistent learning, player-strat
 custom route training and MW2 feature parity are future work. Evaluate new
 presentation, movement and dialogue changes in human gameplay before describing
 them as accepted.
+
+## Grounded task chat
+
+Unit checks validate V2 context, objective-state enums, task-specific fallback
+wording, conflicting orders, unsupported proximity/completion claims, same-team
+and contract-phase reply pairing, legacy V1 input, shared rate limits and human
+reply priority. Host migration tests retain an explicit task-context off switch.
+
+The native runner's `--chat-context` option captures each real bot's current
+assignment and team board through the production formatter. Its map preflight
+requires a nonempty main fastfile before creating test state; supporting assets
+still need actual engine loading. Require valid squad/objective/contract topics
+where supported, the zero-human request refusal, the context off switch and no
+production speech acknowledgements. A direct native speech primitive in the
+isolated probe is a separate check, not full production-chat acceptance.
+
+Feed those private snapshots to the model benchmark without RCON or a game
+connection. Report accepted model versus fallback lines and bounded output.
+Human client acceptance remains necessary for visible dialogue, naturalness,
+frequency, same-team exchanges and stale task rejection during actual play.
+Do not publish raw snapshots, generated chat logs or runtime diagnostics.

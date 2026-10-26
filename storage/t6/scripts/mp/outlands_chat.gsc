@@ -1,6 +1,6 @@
 // Original local chat bridge for The Outlands BO2 Mod.
 // Native AI movement/combat and all human stats remain under the stock game.
-// Python reads OUTLANDS_CHAT_V1 lines from the private console log and returns
+// Python reads OUTLANDS_CHAT_V2 lines from the private console log and returns
 // one fixed-format response dvar through loopback-restricted RCON.
 #include common_scripts\utility;
 
@@ -10,6 +10,8 @@ main()
         setdvar( "outlands_chat_enabled", 0 );
     if ( getdvar( "outlands_chat_dialogue" ) == "" )
         setdvar( "outlands_chat_dialogue", 1 );
+    if ( getdvar( "outlands_chat_tactical" ) == "" )
+        setdvar( "outlands_chat_tactical", 1 );
 }
 
 init()
@@ -22,6 +24,7 @@ init()
     level.outlands_chat_started = 1;
     level.outlands_chat_epoch = "m" + randomint( 1000000000 ) + "_" + gettime();
     level.outlands_chat_sequence = 0;
+    level.outlands_chat_topic = 0;
     level.outlands_chat_pending = undefined;
     level.outlands_chat_human_pending = undefined;
     level.outlands_chat_dialogue_pending = undefined;
@@ -114,7 +117,18 @@ chat_population()
     return population;
 }
 
-request_chat( kind, speaker, text, parent_id )
+// Native conversation team stays available when task context is off or in FFA.
+chat_team( bot )
+{
+    if ( !isdefined( bot ) || !isplayer( bot ) || !bot istestclient() || !isdefined( bot.pers["team"] ) )
+        return "none";
+    team = bot.pers["team"];
+    if ( team == "allies" || team == "axis" || team == "free" )
+        return team;
+    return "none";
+}
+
+request_chat( kind, speaker, text, parent_id, topic )
 {
     if ( !getdvarint( "outlands_chat_enabled" ) || isdefined( level.outlands_chat_pending ) )
         return false;
@@ -131,15 +145,27 @@ request_chat( kind, speaker, text, parent_id )
     if ( population.humans < 1 || population.bots.size < 1 )
         return false;
     eligible = [];
+    preferred = [];
     for ( index = 0; index < population.bots.size; index++ )
     {
         candidate = population.bots[index];
         if ( kind == "bot_reply" && candidate.name == speaker )
             continue;
+        if ( kind == "bot_reply" && ( !isdefined( level.outlands_chat_dialogue_pending ) || chat_team( candidate ) != level.outlands_chat_dialogue_pending.team ) )
+            continue;
         if ( isdefined( candidate.outlands_chat_next_request ) && gettime() < candidate.outlands_chat_next_request )
             continue;
+        candidate_context = task_context( candidate, topic );
+        if ( kind == "bot_reply" && candidate_context.topic != topic )
+            continue;
+        if ( kind == "bot_reply" && topic == "contract" && candidate_context.key != level.outlands_chat_dialogue_pending.context_key )
+            continue;
         eligible[eligible.size] = candidate;
+        if ( topic != "none" && candidate_context.topic == topic )
+            preferred[preferred.size] = candidate;
     }
+    if ( preferred.size > 0 )
+        eligible = preferred;
     if ( eligible.size < 1 )
         return false;
     recent = [];
@@ -163,6 +189,10 @@ request_chat( kind, speaker, text, parent_id )
     request.slot = bot getentitynumber();
     request.name = bot.name;
     request.created = gettime();
+    context = task_context( bot, topic );
+    request.context_key = context.key;
+    request.topic = context.topic;
+    request.team = chat_team( bot );
     level.outlands_chat_pending = request;
     cooldown = bounded_seconds( "outlands_chat_cooldown", 12, 10, 120 );
     level.outlands_chat_next_request = gettime() + cooldown * 1000;
@@ -170,7 +200,7 @@ request_chat( kind, speaker, text, parent_id )
     bot.outlands_chat_next_request = gettime() + bot_cooldown * 1000;
     level.outlands_chat_request_times[level.outlands_chat_request_times.size] = gettime();
 
-    println( "OUTLANDS_CHAT_V1|" + request.id + "|" + request.slot + "|" + request.name + "|" + kind + "|" + safe_field( getdvar( "mapname" ), 32 ) + "|" + safe_field( getdvar( "g_gametype" ), 16 ) + "|" + safe_field( speaker, 24 ) + "|" + safe_field( text, 240 ) );
+    println( "OUTLANDS_CHAT_V2|" + request.id + "|" + request.slot + "|" + request.name + "|" + kind + "|" + safe_field( getdvar( "mapname" ), 32 ) + "|" + safe_field( getdvar( "g_gametype" ), 16 ) + "|" + safe_field( speaker, 24 ) + "|" + safe_field( text, 240 ) + "|" + context.wire );
     return true;
 }
 
@@ -200,7 +230,7 @@ dispatch_queued_chat()
             level.outlands_chat_human_pending = undefined;
         else if ( ( player getentitynumber() ) != queued.slot || player.name != queued.name )
             level.outlands_chat_human_pending = undefined;
-        else if ( request_chat( "reply", queued.name, queued.text, "" ) )
+        else if ( request_chat( "reply", queued.name, queued.text, "", "none" ) )
             level.outlands_chat_human_pending = undefined;
         return;
     }
@@ -218,7 +248,13 @@ dispatch_queued_chat()
         level.outlands_chat_dialogue_pending = undefined;
         return;
     }
-    if ( gettime() >= dialogue.ready && request_chat( "bot_reply", dialogue.name, dialogue.text, dialogue.parent_id ) )
+    context = task_context( speaker, dialogue.topic );
+    if ( context.key != dialogue.context_key || chat_team( speaker ) != dialogue.team )
+    {
+        level.outlands_chat_dialogue_pending = undefined;
+        return;
+    }
+    if ( gettime() >= dialogue.ready && request_chat( "bot_reply", dialogue.name, dialogue.text, dialogue.parent_id, dialogue.topic ) )
         level.outlands_chat_dialogue_pending = undefined;
 }
 
@@ -257,7 +293,12 @@ periodic_banter()
         interval = bounded_seconds( "outlands_chat_interval", 60, 30, 600 );
         wait interval;
         if ( getdvarint( "outlands_chat_enabled" ) )
-            request_chat( "banter", "match", "A short friendly match comment or light teamwork question for another AI teammate.", "" );
+        {
+            topics = array( "squad", "objective", "contract", "none" );
+            topic = topics[level.outlands_chat_topic % topics.size];
+            level.outlands_chat_topic++;
+            request_chat( "banter", "match", "A short natural team comment about your current task.", "", topic );
+        }
     }
 }
 
@@ -323,6 +364,11 @@ accept_response( response )
         return;
     if ( !safe_reply( fields[3] ) )
         return;
+    context = task_context( bot, request.topic );
+    if ( !isdefined( request.context_key ) || context.key != request.context_key )
+        return;
+    if ( request.topic != "none" && gettime() - request.created > 15000 )
+        return;
     population = chat_population();
     if ( population.humans < 1 )
         return;
@@ -341,9 +387,84 @@ accept_response( response )
         dialogue.name = request.name;
         dialogue.text = fields[3];
         dialogue.parent_id = request.id;
+        dialogue.topic = request.topic;
+        dialogue.team = request.team;
+        dialogue.context_key = request.context_key;
         delay = bounded_seconds( "outlands_chat_dialogue_delay", 14, 12, 30 );
         dialogue.ready = gettime() + delay * 1000;
         dialogue.expires = dialogue.ready + 20000;
         level.outlands_chat_dialogue_pending = dialogue;
     }
+}
+
+// Typed snapshot of this verified bot's current assignment and team board.
+// No human identity, enemy scan, coordinates or assumed A/B/C labels enter it.
+task_context( bot, topic )
+{
+    result = spawnstruct();
+    result.topic = "none";
+    result.team = "none";
+    role = "none";
+    target = -1;
+    state = "none";
+    kind = "none";
+    phase = 0;
+    progress = 0;
+    goal = 0;
+    complete = 0;
+    remaining = 0;
+    if ( isdefined( bot ) && isplayer( bot ) && bot istestclient() && getdvarint( "outlands_chat_tactical" ) && isdefined( bot.pers["team"] ) && ( bot.pers["team"] == "allies" || bot.pers["team"] == "axis" ) )
+    {
+        result.team = bot.pers["team"];
+        valid = getfunction( "scripts/mp/outlands_squads", "assignment_valid" );
+        if ( getdvarint( "outlands_squads" ) && isdefined( level.outlands_squads_started ) && isdefined( valid ) && bot [[ valid ]]() )
+        {
+            role = bot.outlands_squad_role;
+            target = bot.outlands_squad_target_id;
+            state = "active";
+            mode = getdvar( "g_gametype" );
+            if ( mode == "dom" && isdefined( level.outlands_squad_owner ) )
+            {
+                owner = bot.outlands_squad_target [[ level.outlands_squad_owner ]]();
+                state = "neutral";
+                if ( owner == result.team )
+                    state = "friendly";
+                else if ( owner == "allies" || owner == "axis" )
+                    state = "enemy";
+            }
+            if ( mode == "ctf" && isdefined( level.outlands_squad_home ) )
+            {
+                state = "away";
+                if ( bot.outlands_squad_target [[ level.outlands_squad_home ]]() )
+                    state = "home";
+            }
+        }
+        if ( getdvarint( "outlands_contracts" ) && isdefined( level.outlands_contracts_active ) && level.outlands_contracts_active && isdefined( level.outlands_contracts_records[result.team] ) && gettime() < level.outlands_contracts_deadline )
+        {
+            record = level.outlands_contracts_records[result.team];
+            if ( record.kind == "team_eliminations" || record.kind == "combined_score" || record.kind == "team_points" )
+            {
+                kind = record.kind;
+                phase = level.outlands_contracts_phase;
+                progress = record.progress;
+                goal = record.goal;
+                complete = record.complete;
+                remaining = int( ( level.outlands_contracts_deadline - gettime() ) / 1000 );
+                if ( remaining < 1 )
+                    remaining = 1;
+            }
+        }
+        if ( ( topic == "squad" || topic == "objective" ) && ( role == "attack" || role == "defend" ) )
+            result.topic = topic;
+        if ( topic == "contract" && kind != "none" )
+            result.topic = topic;
+    }
+    result.wire = result.topic + "|" + result.team + "|" + role + "|" + target + "|" + state + "|" + kind + "|" + phase + "|" + progress + "|" + goal + "|" + complete + "|" + remaining;
+    if ( result.topic == "contract" )
+        result.key = result.topic + "|" + result.team + "|" + kind + "|" + phase + "|" + complete;
+    else if ( result.topic == "squad" || result.topic == "objective" )
+        result.key = result.topic + "|" + result.team + "|" + role + "|" + target + "|" + state;
+    else
+        result.key = result.topic + "|" + result.team + "|" + role + "|" + target + "|" + state + "|" + kind + "|" + phase + "|" + complete;
+    return result;
 }
