@@ -37,7 +37,10 @@ watch_native_personas()
     for (;;)
     {
         if ( !getdvarint( "outlands_native_bots" ) )
-            return;
+        {
+            wait 2;
+            continue;
+        }
 
         players = get_players();
         for ( index = 0; index < players.size; index++ )
@@ -223,6 +226,10 @@ population()
     counts = spawnstruct();
     counts.humans = 0;
     counts.bots = [];
+    counts.allies = 0;
+    counts.axis = 0;
+    counts.spectators = 0;
+    counts.unassigned = 0;
     players = get_players();
     for ( index = 0; index < players.size; index++ )
     {
@@ -233,13 +240,26 @@ population()
             counts.bots[counts.bots.size] = player;
         else
             counts.humans++;
+
+        // Count team assignment independently of alive/dead state. Native
+        // respawning owns dead players; they still occupy their team slots.
+        if ( !isdefined( player.sessionteam ) )
+            counts.unassigned++;
+        else if ( player.sessionteam == "allies" )
+            counts.allies++;
+        else if ( player.sessionteam == "axis" )
+            counts.axis++;
+        else if ( player.sessionteam == "spectator" )
+            counts.spectators++;
+        else
+            counts.unassigned++;
     }
     return counts;
 }
 
 fill_target()
 {
-    target = 12;
+    target = 16;
     if ( getdvar( "outlands_bot_fill" ) != "" )
         target = getdvarint( "outlands_bot_fill" );
     maximum = getdvarint( "sv_maxclients" );
@@ -255,21 +275,53 @@ fill_native_bots()
     level endon( "game_ended" );
     wait 1;
     failures = 0;
+    retry_delay = 10;
+    cooldown = 0;
+    last_humans = -1;
+    last_target = -1;
+    last_population = "";
 
     for (;;)
     {
         if ( !getdvarint( "outlands_native_bots" ) )
-            return;
-
-        counts = population();
-        if ( counts.humans < 1 )
         {
             failures = 0;
+            cooldown = 0;
+            retry_delay = 10;
             wait 2;
             continue;
         }
 
+        counts = population();
         target = fill_target();
+        if ( getdvarint( "outlands_status" ) )
+        {
+            snapshot = counts.humans + ":" + counts.bots.size + ":" + target + ":" + counts.allies + ":" + counts.axis + ":" + counts.spectators + ":" + counts.unassigned;
+            if ( snapshot != last_population )
+            {
+                println( "Outlands native bots population: humans=" + counts.humans + " bots=" + counts.bots.size + " target=" + target + " allies=" + counts.allies + " axis=" + counts.axis + " spectators=" + counts.spectators + " unassigned=" + counts.unassigned + " mode=" + getdvar( "g_gametype" ) + " scorelimit=" + getgametypesetting( "scorelimit" ) );
+                last_population = snapshot;
+            }
+        }
+        // Human replacement and operator target changes invalidate earlier
+        // failed-add observations. Recount before every native add/removal.
+        if ( counts.humans != last_humans || target != last_target )
+        {
+            failures = 0;
+            cooldown = 0;
+            retry_delay = 10;
+        }
+        last_humans = counts.humans;
+        last_target = target;
+        if ( counts.humans < 1 )
+        {
+            failures = 0;
+            cooldown = 0;
+            retry_delay = 10;
+            wait 2;
+            continue;
+        }
+
         total = counts.humans + counts.bots.size;
         if ( total > target && counts.bots.size > 0 )
         {
@@ -282,6 +334,16 @@ fill_native_bots()
         if ( total >= target )
         {
             failures = 0;
+            cooldown = 0;
+            retry_delay = 10;
+            wait 2;
+            continue;
+        }
+        // Poll throughout cooldown so a joining human or target change can
+        // resume filling promptly, without a second competing controller.
+        if ( cooldown > 0 )
+        {
+            cooldown -= 2;
             wait 2;
             continue;
         }
@@ -290,16 +352,23 @@ fill_native_bots()
         cmdexec( "spawnbot 1" );
         wait 2;
         after = population();
-        if ( after.bots.size > before )
+        if ( after.bots.size > before || after.humans != counts.humans || after.humans + after.bots.size >= fill_target() )
+        {
             failures = 0;
+            retry_delay = 10;
+        }
         else
         {
             failures++;
             println( "Outlands native bots: native add did not increase test-client count, attempt " + failures + "/3." );
             if ( failures >= 3 )
             {
-                println( "Outlands native bots: stopped after three failed native adds." );
-                return;
+                cooldown = retry_delay;
+                println( "Outlands native bots: native add retry in " + cooldown + " seconds; controller remains active." );
+                retry_delay += 10;
+                if ( retry_delay > 30 )
+                    retry_delay = 30;
+                failures = 0;
             }
         }
     }
