@@ -50,6 +50,8 @@ MOD_PAYLOADS = (
     Path("scripts/mp/outlands_bot_identity.gsc"),
     Path("scripts/mp/outlands_bot_profiles.gsc"),
     Path("scripts/mp/outlands_bot_careers.gsc"),
+    Path("scripts/mp/outlands_squads.gsc"),
+    Path("scripts/mp/outlands_contracts.gsc"),
 )
 
 
@@ -257,6 +259,9 @@ def configure_mod(name: str | None) -> tuple[str, str]:
                     "outlands_bot_level_max", "outlands_bot_prestige_min", "outlands_bot_prestige_max",
                     "outlands_bot_profiles", "outlands_bot_marksman_limit", "outlands_bot_patrol_profiles",
                     "outlands_bot_career_snapshot_seconds", "outlands_bot_career_restore_seconds",
+                    "outlands_squads", "outlands_squad_reassess_seconds", "outlands_squad_attackers",
+                    "outlands_squad_defenders", "outlands_squad_goal_seconds", "outlands_contracts",
+                    "outlands_contract_seconds", "outlands_contract_seed", "outlands_contract_goal_scale",
                     "outlands_chat_cooldown", "outlands_chat_interval", "outlands_chat_timeout",
                     "outlands_chat_dialogue", "outlands_chat_dialogue_delay", "outlands_chat_bot_cooldown",
                     "outlands_chat_max_per_minute"):
