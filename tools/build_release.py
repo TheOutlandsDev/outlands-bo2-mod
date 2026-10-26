@@ -28,7 +28,7 @@ TOOL_FILES = {"build_release.py", "client_settings.py", "install_files.py", "pla
               "preflight.py", "setup_client.py", "windows_client.ps1"}
 TEST_FILES = {"test_client_setup.py", "test_host_setup.py", "test_host_state.py", "test_release.py",
               "test_windows_client.ps1"}
-DOC_FILES = {"VALIDATION.md", "RELEASING.md"}
+DOC_FILES = {"VALIDATION.md", "RELEASING.md", "METHODOLOGY.md"}
 WORKFLOW_FILES = {"ci.yml", "release.yml"}
 STORAGE_FILES = {"storage/t6/outlands_t6.cfg", "storage/t6/gamesettings/outlands_tdm.cfg",
                  "storage/t6/gamesettings/outlands_dm.cfg", "storage/t6/gamesettings/outlands_ctf.cfg",
@@ -36,6 +36,7 @@ STORAGE_FILES = {"storage/t6/outlands_t6.cfg", "storage/t6/gamesettings/outlands
                  "storage/t6/gamesettings/outlands_koth.cfg", "storage/t6/gamesettings/outlands_hq.cfg",
                  "storage/t6/gamesettings/outlands_conf.cfg",
                  "storage/t6/scripts/mp/outlands_status.gsc", "storage/t6/scripts/mp/outlands_native_bots.gsc",
+                 "storage/t6/scripts/mp/outlands_bot_identity.gsc", "storage/t6/scripts/mp/outlands_bot_profiles.gsc",
                  "storage/t6/scripts/mp/outlands_chat.gsc", "storage/t6/bots.txt"}
 PUBLIC_PATHS = frozenset(ROOT_FILES | STORAGE_FILES
                         | {"hosting/" + name for name in HOST_FILES}
