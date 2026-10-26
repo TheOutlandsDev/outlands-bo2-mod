@@ -204,6 +204,13 @@ careers independently of the chat switch, using a separate private volume.
 
 ## Map and mode rotation
 
+The working source also includes optional [objective squads and team
+contracts](docs/SQUADS-CONTRACTS.md). Squads divide native bots between objective
+assignments in five objective modes. Timed team contracts use actual native
+kills or scoreboard deltas and grant match-local commendations. Both modules
+have independent off switches; normal XP, unlocks and saved progression remain
+native. Evaluate tactical quality and notifications later with human clients.
+
 Use `python3 -B tools/content_inventory.py --game-dir /path/to/owned/BO2 --strict`
 to check source rotation assets before hosting. The inventory distinguishes paid
 DLC and separately discovered Zombies files without distributing either.
