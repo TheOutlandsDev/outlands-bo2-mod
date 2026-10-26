@@ -136,6 +136,17 @@ No-human runs keep production chat's human-presence guard intact. Synthetic
 chat fixtures and a native function call are separate from a full human-chat
 interaction acceptance result.
 
+## Squads and contracts
+
+Follow the [squad and contract guide](SQUADS-CONTRACTS.md) for configuration and
+isolated native checks. Require actual native objective-goal acknowledgements,
+valid role caps, real counter progress and completed contracts. Metadata or
+nonzero counters carried from an earlier round are insufficient. Exercise off
+switches, unsupported modes and round/server restarts independently.
+
+Later, verify human-facing notifications, tactical balance and normal earned
+progression with real clients. An all-bot backend run cannot establish those.
+
 ## Scope limits
 
 Native pathfinding and combat remain authoritative. Random cosmetic ranks are separate
