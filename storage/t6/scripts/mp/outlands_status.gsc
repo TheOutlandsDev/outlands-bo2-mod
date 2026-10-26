@@ -1,6 +1,5 @@
 // Original diagnostic source. Reads live rank XP; never changes player stats.
-// Loaded and init() executed on Raid in Proton and isolated Docker smoke tests.
-// Gameplay and progression persistence remain untested.
+// Optional read-only probe for in-session XP; verify persistence after a restart.
 
 init()
 {
