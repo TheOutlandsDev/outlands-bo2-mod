@@ -204,3 +204,23 @@ longer than the gate. Private script-entity fixtures exercise classification,
 actual engine timing, interleaved targets, participation extremes, stock override
 and native-ignore precedence; they do not establish real aircraft lifetime or
 human-perceived balance. Those remain a gameplay test with earned streaks.
+
+## Responsive casual chat
+
+Ambient openers default to thirty seconds and a second bot may answer after
+twelve seconds. Both turns and public human replies share a six-request minute
+budget, a ten-second global gap and a forty-five-second per-bot cooldown. Failed
+requests consume that budget too. An exchange remains bounded to two bots.
+
+The worker classifies only the recipient bot's fresh own public scoreboard,
+separately from fictional career totals. General prompts and fallback lines can
+acknowledge a rough match, favorable personal score or trades without inventing
+streaks, team results or enemy positions. Public-message replies address their
+input first; task prompts continue to exclude unrelated career/performance data.
+Snapshots expire after sixty seconds and never become current merely by loading
+the private career ledger. The model cannot change gameplay through this path.
+
+A host can apply these numeric chat dvars live and recreate only the worker to
+load generator changes. Preserve other host settings and the rival ledger;
+read back live dvars and require new native delivery ACKs. Game restarts are not
+required when the installed GSC protocol remains unchanged.
