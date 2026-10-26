@@ -465,12 +465,17 @@ verify_lobby_balance()
         return;
     }
     // Count-only fixtures do not create or relabel human connections.
+    capacity = getfunction( "scripts/mp/outlands_native_bots", "party_capacity" );
     policy = [[ side ]]( "allies", 0, 0, 8 ) == "allies";
     policy = policy && [[ side ]]( "allies", 2, 0, 8 ) == "allies";
     policy = policy && [[ side ]]( "axis", 0, 2, 8 ) == "axis";
     policy = policy && [[ side ]]( "allies", 7, 0, 8 ) == "allies";
     policy = policy && [[ side ]]( "allies", 8, 0, 8 ) == "axis";
     policy = policy && [[ side ]]( "axis", 0, 8, 8 ) == "allies";
+    policy = policy && [[ capacity ]]( 16, 0 ) == 8;
+    policy = policy && [[ capacity ]]( 16, 1 ) == 7;
+    policy = policy && [[ capacity ]]( 8, 0 ) == 4;
+    policy = policy && [[ capacity ]]( 16, -1 ) == 8;
     if ( !policy )
     {
         println( "OUTLANDS_PARTY_POLICY_V1|failed" );
