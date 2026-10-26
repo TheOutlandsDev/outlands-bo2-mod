@@ -52,6 +52,57 @@ class ConfigTests(unittest.TestCase):
                     bridge.Config.load(path)
 
 
+class SocialContextTests(unittest.TestCase):
+    def test_score_focus_uses_only_bounded_own_match_data(self):
+        for kills, deaths, expected in ((0,0,'opening'),(1,5,'reset'),(7,1,'momentum'),(3,4,'trading'),(1,0,None)):
+            self.assertEqual(bridge.scoreboard_focus({'own_public_scoreboard':{'kills':kills,'deaths':deaths,'score':500}}),expected)
+        for context in ({'career_kills':90,'career_deaths':2}, None,
+                        {'own_public_scoreboard':{'kills':True,'deaths':0,'score':0}},
+                        {'own_public_scoreboard':{'kills':1,'deaths':-1,'score':0}},
+                        {'own_public_scoreboard':{'kills':1,'deaths':0,'score':0,'peer':4}}):
+            self.assertIsNone(bridge.scoreboard_focus(context))
+
+    def test_fallback_reacts_to_peer_input_before_own_performance(self):
+        generator = bridge.Generator(bridge.Config(mode='fallback'),bridge.Personalities(BASE/'personalities.json'))
+        context = {'own_public_scoreboard':{'kills':10,'deaths':1,'score':1200}}
+        peer = replace(event(name='MossCircuit'), kind='bot_reply', request_id='social_r', text='These deaths are getting rough.')
+        history=[]
+        for _ in range(4):
+            line, source=generator.generate(peer,history,context)
+            self.assertEqual(source,'fallback')
+            self.assertNotIn(line,history)
+            self.assertNotIn('scoreboard',line)
+            self.assertFalse(bridge.is_final_question(line))
+            self.assertLessEqual(len(bridge.words(line)),12)
+            history.append(line)
+        opening=replace(peer,kind='banter')
+        line,_=generator.generate(opening,[],context)
+        self.assertIn(line,('Feeling pretty good about these fights.', "My scoreboard's treating me alright.", 'Getting a bit of momentum here.', 'Anyone else finding their rhythm?'))
+        human=replace(peer,kind='reply',text='nice, thanks')
+        line,_=generator.generate(human,[],context)
+        self.assertIn(line,("Cheers, let's keep it going.", 'Appreciate it.', 'Good stuff.', 'Yeah, good games.'))
+
+    def test_reply_prompt_prioritizes_input_over_own_score_focus(self):
+        generator=bridge.Generator(bridge.Config(),bridge.Personalities(BASE/'personalities.json'))
+        class Opener:
+            def open(inner,request,timeout):
+                context=json.loads(json.loads(request.data)['messages'][1]['content'])
+                self.assertNotIn('current_match_focus',context)
+                self.assertIn('compliment',context['current_response_focus'])
+                self.assertEqual(context['message_text'],'nice, thanks')
+                return io.BytesIO(b'{"message":{"content":"Cheers, appreciate it."}}')
+        generator.opener=Opener()
+        current=replace(event(name='MossCircuit'),text='nice, thanks')
+        self.assertEqual(generator.generate(current,[],{'own_public_scoreboard':{'kills':1,'deaths':6,'score':100}}),('Cheers, appreciate it.','ollama'))
+
+    def test_updated_default_budget_is_six_shared_lines_without_bursts(self):
+        limiter=bridge.Limiter(bridge.Config())
+        for index in range(6):
+            self.assertTrue(limiter.reserve(event(name='Bot'+str(index)),100+index*10))
+        self.assertFalse(limiter.reserve(event(name='Other'),155))
+        self.assertTrue(limiter.reserve(event(name='Other'),160))
+
+
 class BoundaryTests(unittest.TestCase):
     def test_event_requires_exact_marker_fields_and_bot_identity(self):
         valid = event()
@@ -298,7 +349,7 @@ class DialogueTests(unittest.TestCase):
             message, source = generator.generate(self.followup, [])
         self.assertEqual(source, "fallback")
         self.assertEqual(bridge.sanitize_reply(message), message)
-        limiter = bridge.Limiter(bridge.Config())
+        limiter = bridge.Limiter(bridge.Config(max_per_minute=4, bot_cooldown_seconds=60))
         for index, now in enumerate((100, 110, 120, 130)):
             self.assertTrue(limiter.reserve(replace(self.followup, bot_name=f"Bot{index}"), now))
         self.assertFalse(limiter.reserve(replace(self.followup, bot_name="Bot4"), 140))
