@@ -163,3 +163,10 @@ versus fallback use. Unit checks cover conflicting orders, false completion,
 stale conversation context, team/phase matching and existing rate/queue guards.
 These checks do not establish human-visible timing or naturalness; retain that
 as a separate client acceptance test. Publish code and aggregate outcomes only.
+
+Native team changes may leave a rejected squad record until reassessment. Count
+only assignments for the bot's current team, require the production validator to
+reject stale records, and fail if a rejected record retains an Outlands movement
+goal. Final observations still require complete role allocation. An isolated
+same-frame metadata fixture can check steering/context rejection without changing
+native teams, goals, human presence, scores or progression.
