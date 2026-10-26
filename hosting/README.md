@@ -34,6 +34,12 @@ default prefix. Without `--apply`, preparation validates existing inputs without
 writes, downloads or containers. `--apply` stages the verified runtime in
 `hosting/package/` and saves private game build paths in
 `hosting/compose.local.json`. The source checkout can be outside the game folder.
+Source rotation/core content preflight runs before staging or downloads. For an
+existing host with a customized private rotation, run the inventory separately
+with `--config /private/outlands_t6.cfg --strict`; setup does not inspect that
+private CFG. Supply missing owned assets or remove unavailable maps from the
+selected rotation.
+
 It also enables the hosting shell helpers, so the `./manage.sh` commands below
 work after setup even when a downloaded source archive lacks executable bits.
 
@@ -87,6 +93,7 @@ The project name is `outlands-t6`. Its volumes are:
 | `outlands-t6_t6-state` | Server Wine prefix, Plutonium storage, private host CFG and optional local chat credential |
 | `outlands-t6_tailscale-state` | Hosting node's Tailscale identity |
 | `outlands-t6_ollama-models` | Optional separately downloaded model weights |
+| `outlands-t6_rival-state` | Optional private fictional-bot career ledger; include in backups |
 
 The join password is generated in
 `/data/plutonium/storage/t6/outlands_t6.cfg`. Prefer private invite export over
@@ -246,3 +253,12 @@ References: [Plutonium server setup](https://plutonium.pw/docs/server/t6/setting
 [LAN dedicated hosting](https://forum.plutonium.pw/topic/38120/t6-lan-server-not-authenticated-to-plutonium),
 [Tailscale containers](https://tailscale.com/docs/features/containers/docker/docker-params),
 [Docker port publishing](https://docs.docker.com/engine/network/port-publishing/).
+
+## Persistent rivals and backend tests
+
+The AI stack enables independent chat and career worker features, with server
+state read-only for the worker and a separate private career volume. See the
+[rival guide](../docs/RIVALS.md) for career semantics, backup boundaries, owned
+content inventory and the network-isolated all-bot verification runner. The
+runner installs its probe only into disposable state; the live image payload
+contains no backend verification GSC.

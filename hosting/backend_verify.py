@@ -1,0 +1,319 @@
+#!/usr/bin/env python3
+"""Run native all-bot integration checks in disposable, network-isolated Docker state.
+
+Default mode prints the test plan. --run creates only tool-labelled resources;
+no live container, game profile, tailnet or published port is used. Reports and
+raw logs remain private under hosting/logs unless an explicit destination is set.
+"""
+from __future__ import annotations
+
+import argparse
+from dataclasses import dataclass, asdict
+import json
+from pathlib import Path
+import re
+import subprocess
+import time
+import uuid
+
+ROOT = Path(__file__).resolve().parents[1]
+LABEL = "org.outlands.backend-verification"
+MODES = frozenset(("dm", "tdm", "ctf", "dem", "dom", "koth", "hq", "conf"))
+CASE = re.compile(r"(mp_[a-z0-9_]{1,40}):(dm|tdm|ctf|dem|dom|koth|hq|conf)\Z")
+FAILURE = re.compile(r"(?:terminal\s+)?script(?:\s+(?:compile|runtime))?\s+error|could not resolve function|unresolved external|unknown function|error compiling", re.I)
+ANSI = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+SCORE_LIMITS = {"tdm": 200, "dm": 60, "conf": 150, "ctf": 6, "dem": 4, "dom": 200, "hq": 500, "koth": 500}
+FIELDS = ("stage", "bots", "humans", "alive", "playing", "identities", "roles", "careers", "kills", "deaths", "score", "moved", "prematch", "invalid", "pools", "patrols", "scorelimit")
+
+
+@dataclass(frozen=True)
+class Case:
+    map_name: str
+    mode: str
+
+    @classmethod
+    def parse(cls, text: str) -> "Case":
+        match = CASE.fullmatch(text)
+        if not match:
+            raise ValueError("Case must be a safe mp_map:native_mode pair")
+        return cls(*match.groups())
+
+
+def parse_samples(text: str) -> list[dict]:
+    samples = []
+    for line in text.splitlines():
+        line = ANSI.sub("", line).strip()
+        # Never match player/chat text that happens to contain the marker.
+        if not line.startswith("OUTLANDS_VERIFY_V1|"):
+            continue
+        fields = line.split("|")
+        if len(fields) != 21 or fields[1] not in ("sample", "complete"):
+            continue
+        if not re.fullmatch(r"mp_[a-z0-9_]{1,40}", fields[2]) or fields[3] not in MODES:
+            continue
+        if not all(re.fullmatch(r"-?[0-9]{1,9}", value) for value in fields[4:]):
+            continue
+        record = {"kind": fields[1], "map": fields[2], "mode": fields[3]}
+        record.update(zip(FIELDS, map(int, fields[4:])))
+        samples.append(record)
+    return samples
+
+
+def assess(samples: list[dict], case: Case, restart: bool, careers: bool = False) -> dict:
+    expected = (0, 1) if restart else (0,)
+    reasons = []
+    matching = [s for s in samples if (s["map"], s["mode"]) == (case.map_name, case.mode)]
+    for stage in expected:
+        stage_samples = [s for s in matching if s["stage"] == stage]
+        complete = [s for s in stage_samples if s["kind"] == "complete"]
+        if not complete:
+            reasons.append(f"stage {stage}: no completed native match observation")
+            continue
+        final = complete[-1]
+        if any(s["humans"] != 0 for s in stage_samples):
+            reasons.append(f"stage {stage}: unexpected human connection")
+        if final["bots"] != 16 or final["identities"] != 16 or final["roles"] != 16:
+            reasons.append(f"stage {stage}: bot population/identity/role incomplete")
+        if final["scorelimit"] != SCORE_LIMITS[case.mode]:
+            reasons.append(f"stage {stage}: native score limit differs from the shipped mode wrapper")
+        if final["prematch"] != 0:
+            reasons.append(f"stage {stage}: native match remained in prematch")
+        pairs = list(zip(stage_samples, stage_samples[1:]))
+        if not any(later["kills"] > earlier["kills"] for earlier, later in pairs) or not any(later["score"] > earlier["score"] for earlier, later in pairs):
+            reasons.append(f"stage {stage}: native combat counters did not increase within this stage")
+        if max(s["pools"] for s in stage_samples) < 1 or max(s["patrols"] for s in stage_samples) < 1:
+            reasons.append(f"stage {stage}: class/patrol hooks were not observed")
+        if max(s["moved"] for s in stage_samples) < 8:
+            reasons.append(f"stage {stage}: too few bots changed position")
+        if any(s["invalid"] != 0 for s in stage_samples):
+            reasons.append(f"stage {stage}: cosmetic level outside native range")
+        if careers and final["careers"] != 16:
+            reasons.append(f"stage {stage}: career restore incomplete")
+    return {"case": asdict(case), "passed": not reasons, "reasons": reasons, "samples": matching}
+
+
+class Docker:
+    def __init__(self, wrapper: Path):
+        self.wrapper = wrapper
+
+    def call(self, *args: str, input_text: str | None = None, check: bool = True) -> str:
+        result = subprocess.run([str(self.wrapper), *args], input=input_text, text=True,
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if check and result.returncode:
+            # Raw diagnostics could contain a private path or credentials.
+            raise RuntimeError("Docker operation failed; inspect the private verification log")
+        return result.stdout.strip()
+
+
+def config_for(case: Case, seconds: int, restart: bool, careers: bool) -> str:
+    cfg = (ROOT / "storage/t6/outlands_t6.cfg").read_text()
+    cfg = re.sub(r'^sv_maprotation .*$', f'sv_maprotation "gametype {case.mode} execgts outlands_{case.mode}.cfg map {case.map_name}"', cfg, flags=re.M)
+    return cfg + (f'\nset outlands_backend_verification 1\nset outlands_verify_seconds {seconds}\n'
+                  f'set outlands_verify_restart {int(restart)}\nset outlands_verify_restarted 0\n'
+                  f'set outlands_bot_careers {int(careers)}\n')
+
+
+def career_summary(docker: Docker, worker: str) -> dict:
+    script = ("import json,pathlib; p=pathlib.Path('/rivals/careers.json'); "
+              "d=json.loads(p.read_text()); c=d['careers']; "
+              "print(json.dumps({'bots':len(c),'earned_xp':sum(x['earned_xp'] for x in c.values()),"
+              "'kills':sum(x['kills'] for x in c.values()),'xp':{k:v['xp'] for k,v in c.items()}}))")
+    return json.loads(docker.call("exec", worker, "python3", "-c", script))
+
+
+def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool, directory: Path,
+             careers: bool = False, worker_image: str = "outlands-bo2-chat:rivals-dev",
+             process_restart: bool = False) -> dict:
+    resource = "outlands-backend-" + uuid.uuid4().hex
+    volume = resource + "-state"
+    container = ""
+    worker = ""
+    rivals_volume = resource + "-rivals"
+    rivals_created = False
+    worker_restarted = False
+    ledger_before = None
+    created = False
+    all_logs = ""
+    started = time.monotonic()
+    try:
+        docker.call("volume", "create", "--label", LABEL + "=1", volume)
+        created = True
+        seed = ("import json,pathlib,sys\n"
+                "p=pathlib.Path('/data/plutonium/storage/t6');p.mkdir(parents=True,exist_ok=True)\n"
+                "x=json.load(sys.stdin);(p/'scripts/mp').mkdir(parents=True,exist_ok=True)\n"
+                "(p/'outlands_t6.cfg').write_text(x['cfg'])\n"
+                "(p/'scripts/mp/outlands_backend_verification.gsc').write_text(x['gsc'])\n")
+        payload = json.dumps({"cfg": config_for(case, seconds, restart, careers),
+                              "gsc": (ROOT / "hosting/verification.gsc").read_text()})
+        docker.call("run", "--rm", "-i", "--network", "none", "--cap-drop", "ALL",
+                    "--security-opt", "no-new-privileges:true", "-v", volume + ":/data",
+                    "--entrypoint", "python3", image, "-c", seed, input_text=payload)
+        container = docker.call("run", "-d", "--name", resource, "--label", LABEL + "=1",
+                                "--network", "none", "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true",
+                                "-e", "T6_MODE=lan", "-e", "T6_BIND_IP=127.0.0.1", "-e", "T6_PORT=14977",
+                                "-e", "T6_CHAT_ENABLED=0", "-e", "T6_CAREERS_ENABLED=" + str(int(careers)), "-v", volume + ":/data", image)
+        if not re.fullmatch(r"[a-f0-9]{64}", container):
+            raise RuntimeError("Docker did not return an expected verification container ID")
+        details = json.loads(docker.call("inspect", container))[0]
+        if details["HostConfig"]["NetworkMode"] != "none" or details["HostConfig"].get("PortBindings"):
+            raise RuntimeError("Verification container isolation did not match its required configuration")
+        if careers:
+            docker.call("volume", "create", "--label", LABEL + "=1", rivals_volume)
+            rivals_created = True
+            worker = docker.call("run", "-d", "--name", resource + "-worker", "--label", LABEL + "=1",
+                                 "--network", "container:" + container, "--read-only", "--cap-drop", "ALL",
+                                 "--security-opt", "no-new-privileges:true", "-e", "T6_CHAT_ENABLED=0",
+                                 "-e", "T6_CAREERS_ENABLED=1", "-e", "T6_CHAT_RCON_PORT=14977",
+                                 "-v", volume + ":/data:ro", "-v", rivals_volume + ":/rivals", worker_image)
+            if not re.fullmatch(r"[a-f0-9]{64}", worker):
+                raise RuntimeError("Docker did not return an expected verification worker ID")
+        timeout = 180 + seconds * (2 if restart else 1)
+        observed = False
+        while time.monotonic() - started < timeout:
+            all_logs = docker.call("logs", container, check=False)
+            samples = parse_samples(all_logs)
+            if FAILURE.search(all_logs):
+                break
+            stages = {s["stage"] for s in samples if s["kind"] == "complete"}
+            if careers and 0 in stages and not worker_restarted:
+                ledger_before = career_summary(docker, worker)
+                docker.call("restart", "-t", "5", worker)
+                worker_restarted = True
+            if (1 if restart else 0) in stages:
+                observed = True
+                break
+            state = docker.call("inspect", "--format", "{{.State.Status}}", container)
+            if state in ("exited", "dead"):
+                break
+            time.sleep(2)
+        report = assess(parse_samples(all_logs), case, restart, careers)
+        report.update({"elapsed_seconds": round(time.monotonic() - started, 2),
+                       "observation_completed": observed, "script_error": bool(FAILURE.search(all_logs)),
+                       "network_mode": "none", "published_ports": False})
+        if careers:
+            after = career_summary(docker, worker)
+            preserved = ledger_before is not None and all(after["xp"].get(name, -1) >= xp for name, xp in ledger_before["xp"].items())
+            if process_restart:
+                # Restart the actual server process with its same disposable state.
+                # Keep the worker alive while the game shuts down to consume final events.
+                docker.call("stop", "-t", "15", container)
+                docker.call("stop", "-t", "5", worker)
+                previous = docker.call("logs", container, check=False)
+                update = ("from pathlib import Path; import re; p=Path('/data/plutonium/storage/t6/outlands_t6.cfg'); "
+                          "s=p.read_text(); p.write_text(re.sub(r'(?m)^set outlands_verify_restart [01]$', "
+                          "'set outlands_verify_restart 0', s))")
+                docker.call("run", "--rm", "--network", "none", "--cap-drop", "ALL",
+                            "--security-opt", "no-new-privileges:true", "-v", volume + ":/data",
+                            "--entrypoint", "python3", image, "-c", update)
+                docker.call("start", container)
+                docker.call("start", worker)
+                phase_started = time.monotonic()
+                current = ""
+                while time.monotonic() - phase_started < 180 + seconds:
+                    all_logs = docker.call("logs", container, check=False)
+                    if not all_logs.startswith(previous):
+                        raise RuntimeError("Verification log prefix changed across process restart")
+                    current = all_logs[len(previous):]
+                    if FAILURE.search(current) or any(x["kind"] == "complete" for x in parse_samples(current)):
+                        break
+                    if docker.call("inspect", "--format", "{{.State.Status}}", container) in ("exited", "dead"):
+                        break
+                    time.sleep(2)
+                process_result = assess(parse_samples(current), case, False, True)
+                after_process = career_summary(docker, worker)
+                process_preserved = all(after_process["xp"].get(name, -1) >= xp for name, xp in after["xp"].items())
+                report["server_process_restart"] = {"passed": process_result["passed"] and process_preserved and not FAILURE.search(current),
+                                                     "aggregate_preserved": process_preserved, "samples": process_result["samples"],
+                                                     "reasons": process_result["reasons"]}
+                if not report["server_process_restart"]["passed"]:
+                    report["passed"] = False
+                    report["reasons"].append("server process restart did not preserve career state or native gameplay")
+                after = after_process
+            report["career_state"] = {"worker_restarted": worker_restarted, "aggregate_preserved": preserved,
+                                      "bots": after["bots"], "earned_xp": after["earned_xp"], "kills": after["kills"]}
+            if not preserved or after["earned_xp"] < 1:
+                report["passed"] = False
+                report["reasons"].append("career aggregate did not survive worker restart or earn native score deltas")
+        if report["script_error"]:
+            report["passed"] = False
+            report["reasons"].append("native script error detected")
+        report["elapsed_seconds"] = round(time.monotonic() - started, 2)
+        return report
+    finally:
+        volumes = ([rivals_volume] if rivals_created else []) + ([volume] if created else [])
+        cleanup_resources(docker, case, directory, all_logs, container, worker, volumes)
+
+
+def cleanup_resources(docker, case, directory, all_logs, container, worker, volumes):
+    # Log IO must never prevent attempts to stop every created resource.
+    cleanup_errors = []
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory / f"{case.map_name}-{case.mode}.log").write_text(all_logs)
+        if worker and re.fullmatch(r"[a-f0-9]{64}", worker):
+            (directory / f"{case.map_name}-{case.mode}-worker.log").write_text(docker.call("logs", worker, check=False))
+    except (OSError, RuntimeError):
+        cleanup_errors.append("private log write")
+    operations = []
+    if worker and re.fullmatch(r"[a-f0-9]{64}", worker):
+        operations += [("stop", "-t", "5", worker), ("rm", worker)]
+    if container and re.fullmatch(r"[a-f0-9]{64}", container):
+        operations += [("stop", "-t", "15", container), ("rm", container)]
+    for volume in volumes:
+        operations.append(("volume", "rm", volume))
+    for operation in operations:
+        try:
+            docker.call(*operation)
+        except (OSError, RuntimeError):
+            cleanup_errors.append("resource " + operation[0])
+    if cleanup_errors:
+        raise RuntimeError("Verification cleanup incomplete: " + ", ".join(cleanup_errors))
+
+def main(argv=None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--run", action="store_true")
+    parser.add_argument("--image", default="outlands-t6:local")
+    parser.add_argument("--case", action="append", default=[])
+    parser.add_argument("--seconds", type=int, default=60)
+    parser.add_argument("--restart", action="store_true")
+    parser.add_argument("--careers", action="store_true", help="verify private career worker/restore and worker restart")
+    parser.add_argument("--worker-image", default="outlands-bo2-chat:rivals-dev")
+    parser.add_argument("--process-restart", action="store_true", help="also restart the actual game/worker containers with their same disposable volumes")
+    parser.add_argument("--report-dir", type=Path)
+    args = parser.parse_args(argv)
+    try:
+        cases = [Case.parse(text) for text in args.case] or [Case("mp_raid", "dom"), Case("mp_slums", "conf")]
+        if not 30 <= args.seconds <= 300:
+            raise ValueError("Observation seconds must be between 30 and 300")
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_./:-]{0,180}", args.image):
+            raise ValueError("Expected a local Docker image name")
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_./:-]{0,180}", args.worker_image):
+            raise ValueError("Expected a local Docker worker image name")
+        if args.process_restart and not args.careers:
+            raise ValueError("Process restart acceptance requires --careers")
+        plan = {"server_process_restart": args.process_restart, "careers": args.careers, "cases": [asdict(case) for case in cases], "seconds": args.seconds,
+                "native_restart": args.restart, "network_mode": "none", "published_ports": False,
+                "human_clients": False, "live_state": False}
+        if not args.run:
+            print(json.dumps(plan, indent=2))
+            return 0
+        directory = args.report_dir or ROOT / "hosting/logs" / ("backend-" + uuid.uuid4().hex)
+        directory = directory.absolute()
+        if directory.exists() or any(p.is_symlink() for p in [directory, *directory.parents]):
+            raise ValueError("Choose a fresh report directory without symlink parents")
+        directory.mkdir(parents=True, mode=0o700)
+        docker = Docker(ROOT / "hosting/docker.sh")
+        reports = []
+        for case in cases:
+            report = run_case(docker, args.image, case, args.seconds, args.restart, directory, args.careers, args.worker_image, args.process_restart)
+            reports.append(report)
+            (directory / "report.json").write_text(json.dumps({"plan": plan, "results": reports}, indent=2) + "\n")
+            print(f"{'PASS' if report['passed'] else 'FAIL'}: {case.map_name}/{case.mode}", flush=True)
+        return 0 if all(x["passed"] for x in reports) else 1
+    except (OSError, ValueError, RuntimeError) as error:
+        print("Backend verification failed: " + str(error))
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

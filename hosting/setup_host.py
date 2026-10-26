@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Prepare a private host build from owned BO2 files and an official runtime."""
+"""Prepare a private host build from owned BO2 files and an official runtime.
+
+Content preflight covers the public source rotation only. A persistent private
+host CFG may differ and is never inspected or replaced by this preflight.
+"""
 from __future__ import annotations
 
 import argparse
@@ -14,6 +18,11 @@ from urllib.request import urlopen
 
 HOSTING = Path(__file__).resolve().parent
 PROJECT = HOSTING.parent
+# Import only the fixed public helper, without creating a cache on read-only runs.
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(PROJECT / "tools"))
+import content_inventory
+
 MANIFEST_URL = "https://cdn.plutoniummod.com/updater/prod/info.json"
 REQUIRED_GAME = (
     "t6mp.exe", "t6sp.exe", "binkw32.dll", "steam_api.dll", "localization.txt",
@@ -72,6 +81,18 @@ def validate_game(path: Path) -> Path:
     return path
 
 
+def validate_source_content(game: Path) -> None:
+    """Fail before staging/downloads when the public source rotation is uncovered."""
+    try:
+        rotation, mode, count = content_inventory.configured_rotation(
+            PROJECT / "storage/t6/outlands_t6.cfg")
+        report = content_inventory.build_inventory(game, rotation, mode, count)
+    except (OSError, ValueError):
+        raise ValueError("Source rotation content preflight failed. Run tools/content_inventory.py locally for details.") from None
+    if not report["rotation"]["inventory_ready"]:
+        raise ValueError("Owned game content does not cover the source rotation and native bot modes. Run tools/content_inventory.py locally for details.")
+
+
 def download_manifest(path: Path) -> None:
     # This downloads metadata only, never game files or an executable.
     with urlopen(MANIFEST_URL, timeout=30) as response:
@@ -109,6 +130,7 @@ def main() -> int:
         if game is None:
             parser.error("Pass --game-dir with the owned BO2 folder, or run client setup first")
         game = validate_game(Path(game))
+        validate_source_content(game)
         plut = Path(options.plutonium_dir or host_settings.get("plutonium_dir") or settings.get("plutonium_dir") or (
             PROJECT / "runtime/compatdata/pfx/drive_c/users/steamuser/AppData/Local/Plutonium")).expanduser().resolve(strict=True)
         manifest = Path(options.manifest or host_settings.get("manifest") or (
@@ -131,9 +153,11 @@ def main() -> int:
             atomic_json(host_settings_path, {"plutonium_dir": str(plut), "manifest": str(manifest)})
             for script in scripts:
                 script.chmod(0o755)
+            print("Source rotation content verified. The existing private host CFG was not inspected.")
             print("Private build paths saved. Run ./manage.sh smoke, then ./manage.sh up.")
         else:
-            print("Host inputs verified. No writes, downloads or containers started. Add --apply to prepare.")
+            print("Host inputs and source rotation content verified. The existing private host CFG was not inspected.")
+            print("No writes, downloads or containers started. Add --apply to prepare.")
         return 0
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
         print(f"Host preparation failed: {error}", file=sys.stderr)

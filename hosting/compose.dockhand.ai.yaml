@@ -48,6 +48,7 @@ services:
       T6_PORT: ${T6_PORT:-4977}
       T6_NAME: ${T6_NAME:-Outlands BO2}
       T6_CHAT_ENABLED: '1'
+      T6_CAREERS_ENABLED: '1'
       T6_SERVER_KEY_FILE: /data/private/plutonium_server_key
     volumes:
     - t6-state:/data
@@ -95,11 +96,13 @@ services:
         condition: service_healthy
     environment:
       T6_CHAT_ENABLED: '1'
+      T6_CAREERS_ENABLED: '1'
       OLLAMA_URL: http://ollama:11434
       OLLAMA_MODEL: outlands-bo2-chat
       T6_CHAT_RCON_PORT: ${T6_PORT:-4977}
     volumes:
     - t6-state:/data:ro
+    - rival-state:/rivals
     user: 10001:10001
     read_only: true
     cap_drop:
@@ -120,3 +123,4 @@ volumes:
   tailscale-state: null
   t6-state: null
   ollama-models: null
+  rival-state: null

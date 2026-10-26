@@ -49,6 +49,7 @@ MOD_PAYLOADS = (
     Path("gamesettings/outlands_conf.cfg"),
     Path("scripts/mp/outlands_bot_identity.gsc"),
     Path("scripts/mp/outlands_bot_profiles.gsc"),
+    Path("scripts/mp/outlands_bot_careers.gsc"),
 )
 
 
@@ -108,8 +109,9 @@ def read_settings() -> tuple[str, str, int, str | None]:
     mode = os.environ.get("T6_MODE", "lan").strip().lower()
     if mode not in ("online", "lan"):
         raise StartupError("T6_MODE must be online or lan")
-    if os.environ.get("T6_CHAT_ENABLED", "0") not in ("0", "1"):
-        raise StartupError("T6_CHAT_ENABLED must be 0 or 1")
+    for flag in ("T6_CHAT_ENABLED", "T6_CAREERS_ENABLED"):
+        if os.environ.get(flag, "0") not in ("0", "1"):
+            raise StartupError(flag + " must be 0 or 1")
     bind_ip = os.environ.get("T6_BIND_IP", "0.0.0.0").strip()
     try:
         bind_ip = str(ipaddress.IPv4Address(bind_ip))
@@ -254,6 +256,7 @@ def configure_mod(name: str | None) -> tuple[str, str]:
     for setting in ("sv_randomizeBotNames", "outlands_bot_levels", "outlands_bot_level_min",
                     "outlands_bot_level_max", "outlands_bot_prestige_min", "outlands_bot_prestige_max",
                     "outlands_bot_profiles", "outlands_bot_marksman_limit", "outlands_bot_patrol_profiles",
+                    "outlands_bot_career_snapshot_seconds", "outlands_bot_career_restore_seconds",
                     "outlands_chat_cooldown", "outlands_chat_interval", "outlands_chat_timeout",
                     "outlands_chat_dialogue", "outlands_chat_dialogue_delay", "outlands_chat_bot_cooldown",
                     "outlands_chat_max_per_minute"):
@@ -283,8 +286,12 @@ def configure_mod(name: str | None) -> tuple[str, str]:
     enabled = os.environ.get("T6_CHAT_ENABLED", "0")
     if enabled not in ("0", "1"):
         raise StartupError("T6_CHAT_ENABLED must be 0 or 1")
+    careers_enabled = os.environ.get("T6_CAREERS_ENABLED", "0")
+    if careers_enabled not in ("0", "1"):
+        raise StartupError("T6_CAREERS_ENABLED must be 0 or 1")
+    control_enabled = enabled == "1" or careers_enabled == "1"
     control_secret = ""
-    if enabled == "1":
+    if control_enabled:
         secret_path = DATA / "private/outlands_rcon_password"
         if not secret_path.exists() and not secret_path.is_symlink():
             atomic_write(secret_path, secrets.token_urlsafe(32).encode("ascii"))
@@ -295,13 +302,14 @@ def configure_mod(name: str | None) -> tuple[str, str]:
         control_secret = secret_path.read_text(encoding="ascii").strip()
         if not re.fullmatch(r"[A-Za-z0-9_-]{32,128}", control_secret):
             raise StartupError("Local chat control secret is invalid")
-    # RCON is only for the optional local chat worker. Its fixed command is a
-    # response mailbox; the model never supplies a console command.
-    for command, value in (("outlands_chat_enabled", enabled), ("rcon_password", control_secret)):
+    # RCON serves only the optional local worker's fixed chat/career mailboxes.
+    # The model never supplies a console command or controls human progression.
+    for command, value in (("outlands_chat_enabled", enabled), ("outlands_bot_careers", careers_enabled),
+                           ("rcon_password", control_secret)):
         content = assignment_pattern(command).sub("", content)
         content += f'\nset {command} "{value}"\n'
     content = re.sub(r"^[ \t]*rconWhitelistAdd[^\r\n]*$", "", content, flags=re.MULTILINE | re.IGNORECASE)
-    if enabled == "1":
+    if control_enabled:
         content += "rconWhitelistAdd 127.0.0.1\n"
     atomic_write(cfg, content.encode("utf-8"))
     return password, control_secret
