@@ -1,6 +1,6 @@
 // Original local chat bridge for The Outlands BO2 Mod.
 // Native AI movement/combat and all human stats remain under the stock game.
-// Python reads OUTLANDS_CHAT_V1 lines from the private console log and returns
+// Python reads OUTLANDS_CHAT_V2 lines from the private console log and returns
 // one fixed-format response dvar through loopback-restricted RCON.
 #include common_scripts\utility;
 
@@ -117,6 +117,17 @@ chat_population()
     return population;
 }
 
+// Native conversation team stays available when task context is off or in FFA.
+chat_team( bot )
+{
+    if ( !isdefined( bot ) || !isplayer( bot ) || !bot istestclient() || !isdefined( bot.pers["team"] ) )
+        return "none";
+    team = bot.pers["team"];
+    if ( team == "allies" || team == "axis" || team == "free" )
+        return team;
+    return "none";
+}
+
 request_chat( kind, speaker, text, parent_id, topic )
 {
     if ( !getdvarint( "outlands_chat_enabled" ) || isdefined( level.outlands_chat_pending ) )
@@ -140,7 +151,7 @@ request_chat( kind, speaker, text, parent_id, topic )
         candidate = population.bots[index];
         if ( kind == "bot_reply" && candidate.name == speaker )
             continue;
-        if ( kind == "bot_reply" && ( !isdefined( level.outlands_chat_dialogue_pending ) || !isdefined( candidate.pers["team"] ) || candidate.pers["team"] != level.outlands_chat_dialogue_pending.team ) )
+        if ( kind == "bot_reply" && ( !isdefined( level.outlands_chat_dialogue_pending ) || chat_team( candidate ) != level.outlands_chat_dialogue_pending.team ) )
             continue;
         if ( isdefined( candidate.outlands_chat_next_request ) && gettime() < candidate.outlands_chat_next_request )
             continue;
@@ -181,7 +192,7 @@ request_chat( kind, speaker, text, parent_id, topic )
     context = task_context( bot, topic );
     request.context_key = context.key;
     request.topic = context.topic;
-    request.team = context.team;
+    request.team = chat_team( bot );
     level.outlands_chat_pending = request;
     cooldown = bounded_seconds( "outlands_chat_cooldown", 12, 10, 120 );
     level.outlands_chat_next_request = gettime() + cooldown * 1000;
@@ -238,7 +249,7 @@ dispatch_queued_chat()
         return;
     }
     context = task_context( speaker, dialogue.topic );
-    if ( context.key != dialogue.context_key || context.team != dialogue.team )
+    if ( context.key != dialogue.context_key || chat_team( speaker ) != dialogue.team )
     {
         level.outlands_chat_dialogue_pending = undefined;
         return;
