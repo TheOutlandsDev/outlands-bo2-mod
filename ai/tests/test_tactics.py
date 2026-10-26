@@ -40,6 +40,11 @@ class TacticalTests(unittest.TestCase):
                 self.assertEqual(bridge.sanitize_reply(line),line)
                 self.assertLessEqual(len(bridge.words(line)),12)
                 history.append(line)
+        contract=fixture(topic='contract').tactical
+        opener='Still working on that kill contract.'
+        for _ in range(8):
+            line=fallback(contract,'dom',final=True,history=[opener])
+            self.assertNotEqual(line.removeprefix('Yeah, ').casefold(),opener.casefold())
         completed=fixture(topic='contract',progress='1000',complete='1').tactical
         with patch('tactics.random.choice',side_effect=lambda choices:choices[0]):
             self.assertEqual(fallback(completed,'dom'),'Nice, that contract is done.')
@@ -55,6 +60,12 @@ class TacticalTests(unittest.TestCase):
         self.assertFalse(usable(contract,'dom','Got that contract, nice.'))
         self.assertFalse(usable(contract,'dom','Nice, gg.'))
         self.assertTrue(usable(contract,'dom','Still working on that contract.'))
+        self.assertFalse(usable(contract,'dom','Working on the contract still two to go.'))
+        completed=replace(contract,progress=1000,complete=1)
+        self.assertFalse(usable(completed,'dom','Contract done! Time to enjoy the victory.'))
+        self.assertFalse(usable(attack,'dom','Pushing toward the hill.'))
+        self.assertFalse(usable(replace(defend,state='home'),'ctf',"I'll watch the enemy flag."))
+
 
     def test_benchmark_consumes_only_typed_native_snapshots(self):
         from benchmark import native_events
