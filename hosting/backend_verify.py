@@ -167,21 +167,49 @@ class Docker:
         self.wrapper = wrapper
 
     def call(self, *args: str, input_text: str | None = None, check: bool = True) -> str:
+        log_stream = bool(args and args[0] == "logs")
         result = subprocess.run([str(self.wrapper), *args], input=input_text, text=True,
-                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT if log_stream else subprocess.PIPE)
         if check and result.returncode:
             # Raw diagnostics could contain a private path or credentials.
             raise RuntimeError("Docker operation failed; inspect the private verification log")
-        if args and args[0] == "logs":
+        if log_stream:
             # Docker routes the container's stderr to the caller's stderr.
             # Include it for private diagnostics, without contaminating JSON
             # returned by inspect or ordinary exec operations.
-            return result.stdout + result.stderr
+            # Merge while reading, rather than concatenating two streams after
+            # exit: restart evidence relies on the historical log prefix.
+            return result.stdout
         return result.stdout.strip()
 
 
+def assess_switches(text):
+    """Require a real pause/resume, including native goals and frozen accounting."""
+    fields = ("kills", "roles", "owned_goals", "active", "contract_kills", "contract_score", "completed", "goal_calls")
+    records = []
+    for line in ANSI.sub("", text).splitlines():
+        parts = line.strip().split("|")
+        if len(parts) != 10 or parts[0] != "OUTLANDS_SWITCH_V1" or not all(re.fullmatch(r"[0-9]{1,9}", x) for x in parts[2:]):
+            continue
+        records.append(dict(phase=parts[1], **dict(zip(fields, map(int, parts[2:])))))
+    reasons = []
+    if [x["phase"] for x in records] != ["disabled_start", "disabled_end", "resumed"]:
+        return {"passed": False, "reasons": ["missing, duplicate or reordered native switch observations"], "samples": records}
+    first, last, resumed = records
+    if any(x["roles"] or x["owned_goals"] or x["active"] for x in (first, last)):
+        reasons.append("disabled modules retained assignments, owned native goals or an active contract")
+    if any(first[k] != last[k] for k in ("contract_kills", "contract_score", "completed", "goal_calls")):
+        reasons.append("disabled modules continued accounting or native goal submissions")
+    if last["kills"] <= first["kills"]:
+        reasons.append("native combat did not continue while modules were disabled")
+    if resumed["roles"] != 16 or resumed["active"] != 1 or resumed["goal_calls"] <= last["goal_calls"]:
+        reasons.append("squads and contracts did not resume with new native goals")
+    return {"passed": not reasons, "reasons": reasons, "samples": records}
+
+
 def config_for(case: Case, seconds: int, restart: bool, careers: bool,
-               squads: bool = False, contracts: bool = False) -> str:
+               squads: bool = False, contracts: bool = False, switches: bool = False) -> str:
     cfg = (ROOT / "storage/t6/outlands_t6.cfg").read_text()
     cfg = re.sub(r'^sv_maprotation .*$', f'sv_maprotation "gametype {case.mode} execgts outlands_{case.mode}.cfg map {case.map_name}"', cfg, flags=re.M)
     return cfg + (f'\nset outlands_backend_verification 1\nset outlands_verify_seconds {seconds}\n'
@@ -191,7 +219,8 @@ def config_for(case: Case, seconds: int, restart: bool, careers: bool,
                   f'set outlands_contracts {int(contracts)}\n' +
                   # Short thresholds are confined to disposable verification
                   # state; the probe never fabricates events, humans or XP.
-                  ('set outlands_contract_seconds 30\nset outlands_contract_seed 0\nset outlands_contract_goal_scale 25\n' if contracts else ''))
+                  ('set outlands_contract_seconds 30\nset outlands_contract_seed 0\nset outlands_contract_goal_scale 25\n' if contracts else '') +
+                  ('set outlands_verify_switches 1\n' if switches else ''))
 
 
 def career_summary(docker: Docker, worker: str) -> dict:
@@ -204,7 +233,7 @@ def career_summary(docker: Docker, worker: str) -> dict:
 
 def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool, directory: Path,
              careers: bool = False, worker_image: str = "outlands-bo2-chat:rivals-dev",
-             process_restart: bool = False, squads: bool = False, contracts: bool = False) -> dict:
+             process_restart: bool = False, squads: bool = False, contracts: bool = False, switches: bool = False) -> dict:
     resource = "outlands-backend-" + uuid.uuid4().hex
     volume = resource + "-state"
     container = ""
@@ -224,7 +253,7 @@ def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool
                 "x=json.load(sys.stdin);(p/'scripts/mp').mkdir(parents=True,exist_ok=True)\n"
                 "(p/'outlands_t6.cfg').write_text(x['cfg'])\n"
                 "(p/'scripts/mp/outlands_backend_verification.gsc').write_text(x['gsc'])\n")
-        payload = json.dumps({"cfg": config_for(case, seconds, restart, careers, squads, contracts),
+        payload = json.dumps({"cfg": config_for(case, seconds, restart, careers, squads, contracts, switches),
                               "gsc": (ROOT / "hosting/verification.gsc").read_text()})
         docker.call("run", "--rm", "-i", "--network", "none", "--cap-drop", "ALL",
                     "--security-opt", "no-new-privileges:true", "-v", volume + ":/data",
@@ -267,7 +296,15 @@ def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool
             if state in ("exited", "dead"):
                 break
             time.sleep(2)
-        report = assess(parse_samples(all_logs), case, restart, careers, squads, contracts)
+        samples = parse_samples(all_logs)
+        if switches:
+            samples = [s for s in samples if s.get("squads_enabled") and s.get("contracts_enabled")]
+        report = assess(samples, case, restart, careers, squads, contracts)
+        if switches:
+            report["runtime_switches"] = assess_switches(all_logs)
+            if not report["runtime_switches"]["passed"]:
+                report["passed"] = False
+                report["reasons"].extend(report["runtime_switches"]["reasons"])
         report.update({"elapsed_seconds": round(time.monotonic() - started, 2),
                        "observation_completed": observed, "script_error": bool(FAILURE.search(all_logs)),
                        "network_mode": "none", "published_ports": False})
@@ -360,6 +397,7 @@ def main(argv=None) -> int:
     parser.add_argument("--careers", action="store_true", help="verify private career worker/restore and worker restart")
     parser.add_argument("--squads", action="store_true", help="verify native coordinated squad roles/goals; unsupported modes must remain native")
     parser.add_argument("--contracts", action="store_true", help="verify team contracts from native counters using disposable short thresholds")
+    parser.add_argument("--switches", action="store_true", help="also disable and resume both modules during one isolated objective match")
     parser.add_argument("--worker-image", default="outlands-bo2-chat:rivals-dev")
     parser.add_argument("--process-restart", action="store_true", help="also restart the actual game/worker containers with their same disposable volumes")
     parser.add_argument("--report-dir", type=Path)
@@ -374,8 +412,10 @@ def main(argv=None) -> int:
             raise ValueError("Expected a local Docker worker image name")
         if args.process_restart and not args.careers:
             raise ValueError("Process restart acceptance requires --careers")
+        if args.switches and (not args.squads or not args.contracts or len(cases) != 1 or cases[0].mode not in OBJECTIVE_MODES or args.seconds < 90 or args.restart or args.process_restart):
+            raise ValueError("Switch acceptance requires both modules, one objective case, at least 90 seconds and no restart flags")
         plan = {"server_process_restart": args.process_restart, "careers": args.careers, "squads": args.squads, "contracts": args.contracts, "contract_test_thresholds": args.contracts, "cases": [asdict(case) for case in cases], "seconds": args.seconds,
-                "native_restart": args.restart, "network_mode": "none", "published_ports": False,
+                "native_restart": args.restart, "runtime_switches": args.switches, "network_mode": "none", "published_ports": False,
                 "human_clients": False, "live_state": False}
         if not args.run:
             print(json.dumps(plan, indent=2))
@@ -388,7 +428,7 @@ def main(argv=None) -> int:
         docker = Docker(ROOT / "hosting/docker.sh")
         reports = []
         for case in cases:
-            report = run_case(docker, args.image, case, args.seconds, args.restart, directory, args.careers, args.worker_image, args.process_restart, args.squads, args.contracts)
+            report = run_case(docker, args.image, case, args.seconds, args.restart, directory, args.careers, args.worker_image, args.process_restart, args.squads, args.contracts, args.switches)
             reports.append(report)
             (directory / "report.json").write_text(json.dumps({"plan": plan, "results": reports}, indent=2) + "\n")
             print(f"{'PASS' if report['passed'] else 'FAIL'}: {case.map_name}/{case.mode}", flush=True)

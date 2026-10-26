@@ -50,11 +50,58 @@ verify_native_match()
     {
         wait 10;
         elapsed += 10;
+        if ( getdvarint( "outlands_verify_switches" ) )
+        {
+            if ( elapsed == 30 )
+            {
+                setdvar( "outlands_squads", 0 );
+                setdvar( "outlands_contracts", 0 );
+            }
+            if ( elapsed == 40 )
+                switch_sample( "disabled_start" );
+            if ( elapsed == 50 )
+                switch_sample( "disabled_end" );
+            if ( elapsed == 60 )
+            {
+                setdvar( "outlands_squads", 1 );
+                setdvar( "outlands_contracts", 1 );
+            }
+            if ( elapsed == 80 )
+                switch_sample( "resumed" );
+        }
         sample( "sample" );
     }
     level.outlands_verify_completed = 1;
     sample( "complete" );
     request_restart();
+}
+
+switch_sample( phase )
+{
+    kills = 0;
+    roles = 0;
+    owned_goals = 0;
+    contract_kills = 0;
+    contract_score = 0;
+    completed = 0;
+    foreach ( bot in get_players() )
+    {
+        if ( !isdefined( bot ) || !isplayer( bot ) || !bot istestclient() )
+            continue;
+        if ( isdefined( bot.kills ) )
+            kills += bot.kills;
+        if ( isdefined( bot.outlands_squad_role ) && bot.outlands_squad_role != "" )
+            roles++;
+        if ( isdefined( bot getgoal( "outlands_squad" ) ) )
+            owned_goals++;
+    }
+    foreach ( team in array( "allies", "axis" ) )
+    {
+        contract_kills += level.outlands_contracts_delta_kills[team];
+        contract_score += level.outlands_contracts_delta_score[team];
+        completed += level.outlands_contracts_completed[team];
+    }
+    println( "OUTLANDS_SWITCH_V1|" + phase + "|" + kills + "|" + roles + "|" + owned_goals + "|" + level.outlands_contracts_active + "|" + contract_kills + "|" + contract_score + "|" + completed + "|" + level.outlands_squad_goal_calls );
 }
 
 observe_native_end()
