@@ -31,6 +31,10 @@ TEST_FILES = {"test_client_setup.py", "test_host_setup.py", "test_host_state.py"
 DOC_FILES = {"VALIDATION.md", "RELEASING.md"}
 WORKFLOW_FILES = {"ci.yml", "release.yml"}
 STORAGE_FILES = {"storage/t6/outlands_t6.cfg", "storage/t6/gamesettings/outlands_tdm.cfg",
+                 "storage/t6/gamesettings/outlands_dm.cfg", "storage/t6/gamesettings/outlands_ctf.cfg",
+                 "storage/t6/gamesettings/outlands_dem.cfg", "storage/t6/gamesettings/outlands_dom.cfg",
+                 "storage/t6/gamesettings/outlands_koth.cfg", "storage/t6/gamesettings/outlands_hq.cfg",
+                 "storage/t6/gamesettings/outlands_conf.cfg",
                  "storage/t6/scripts/mp/outlands_status.gsc", "storage/t6/scripts/mp/outlands_native_bots.gsc",
                  "storage/t6/scripts/mp/outlands_chat.gsc", "storage/t6/bots.txt"}
 PUBLIC_PATHS = frozenset(ROOT_FILES | STORAGE_FILES
