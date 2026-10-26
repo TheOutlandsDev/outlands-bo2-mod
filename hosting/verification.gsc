@@ -187,7 +187,57 @@ sample( kind )
     if ( isdefined( level.inprematchperiod ) )
         prematch = level.inprematchperiod;
     level.outlands_verify_sequence++;
+    if ( getdvarint( "outlands_verify_chat_context" ) )
+        sample_chat_context( players );
     println( "OUTLANDS_VERIFY_V2|" + kind + "|" + getdvar( "mapname" ) + "|" + getdvar( "g_gametype" ) + "|" + getdvarint( "outlands_verify_restarted" ) + "|" + bots + "|" + humans + "|" + alive + "|" + playing + "|" + identities + "|" + roles + "|" + careers + "|" + kills + "|" + deaths + "|" + score + "|" + moved + "|" + prematch + "|" + invalid + "|" + pools + "|" + patrols + "|" + getgametypesetting( "scorelimit" ) + "|" + feature_fields( players ) );
+}
+
+sample_chat_context( players )
+{
+    context_function = getfunction( "scripts/mp/outlands_chat", "task_context" );
+    request_function = getfunction( "scripts/mp/outlands_chat", "request_chat" );
+    if ( !isdefined( context_function ) || !isdefined( request_function ) )
+        return;
+    seen = [];
+    count = 0;
+    foreach ( bot in players )
+    {
+        if ( !isdefined( bot ) || !isplayer( bot ) || !bot istestclient() || !isdefined( bot.name ) || !isdefined( bot.sessionstate ) || bot.sessionstate != "playing" )
+            continue;
+        foreach ( topic in array( "squad", "objective", "contract" ) )
+        {
+            context = [[ context_function ]]( bot, topic );
+            role = "none";
+            if ( isdefined( bot.outlands_squad_role ) )
+                role = bot.outlands_squad_role;
+            key = context.team + "_" + context.topic + "_" + role;
+            if ( context.topic == "none" || isdefined( seen[key] ) || count >= 12 )
+                continue;
+            seen[key] = 1;
+            count++;
+            println( "OUTLANDS_CONTEXT_V1|" + ( bot getentitynumber() ) + "|" + bot.name + "|" + getdvar( "mapname" ) + "|" + getdvar( "g_gametype" ) + "|" + context.wire );
+        }
+        if ( !isdefined( level.outlands_context_primitive ) )
+        {
+            // Exercise the production zero-human refusal without a fake client.
+            accepted = [[ request_function ]]( "banter", "match", "A current team task.", "", "contract" );
+            if ( accepted || isdefined( level.outlands_chat_pending ) )
+                println( "OUTLANDS_CHAT_GUARD_V1|failed" );
+            else
+                println( "OUTLANDS_CHAT_GUARD_V1|rejected" );
+            setting = getdvarint( "outlands_chat_tactical" );
+            setdvar( "outlands_chat_tactical", 0 );
+            disabled = [[ context_function ]]( bot, "contract" );
+            setdvar( "outlands_chat_tactical", setting );
+            if ( disabled.wire == "none|none|none|-1|none|none|0|0|0|0|0" )
+                println( "OUTLANDS_CHAT_GUARD_V1|context_disabled" );
+            // A direct native primitive test is separate from production chat.
+            // This probe exists only in network-isolated disposable storage.
+            bot sayall( "Checking our next contract." );
+            println( "OUTLANDS_CHAT_PRIMITIVE_V1|sayall" );
+            level.outlands_context_primitive = 1;
+        }
+    }
 }
 
 feature_fields( players )

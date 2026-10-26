@@ -263,7 +263,7 @@ def configure_mod(name: str | None) -> tuple[str, str]:
                     "outlands_squad_defenders", "outlands_squad_goal_seconds", "outlands_contracts",
                     "outlands_contract_seconds", "outlands_contract_seed", "outlands_contract_goal_scale",
                     "outlands_chat_cooldown", "outlands_chat_interval", "outlands_chat_timeout",
-                    "outlands_chat_dialogue", "outlands_chat_dialogue_delay", "outlands_chat_bot_cooldown",
+                    "outlands_chat_dialogue", "outlands_chat_tactical", "outlands_chat_dialogue_delay", "outlands_chat_bot_cooldown",
                     "outlands_chat_max_per_minute"):
         if not list(assignment_pattern(setting).finditer(content)):
             source_matches = list(assignment_pattern(setting).finditer(source_cfg))
