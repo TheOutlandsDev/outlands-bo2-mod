@@ -176,3 +176,34 @@ connection. Report accepted model versus fallback lines and bounded output.
 Human client acceptance remains necessary for visible dialogue, naturalness,
 frequency, same-team exchanges and stale task rejection during actual play.
 Do not publish raw snapshots, generated chat logs or runtime diagnostics.
+
+## Cooperative lobby placement and repair
+
+Run the isolated `--lobby-balance` checks described in the squad/contract guide
+for selected team modes. Require ordered native observations of 8v8 baseline,
+15 connected bots after departure, refill to 8v8, 9v7 imbalance, repair, disabled
+9v7 and resumed 8v8. Missing, duplicate or reordered evidence fails acceptance.
+The native count-policy fixtures cover initial side choice, later joins, side
+swaps and overflow at capacity. They are not actual human joins.
+
+With two real clients later, join using auto-assign and explicit opposite-side
+selection. Both should land on the same side with six friendly bots against
+eight opponents after the fill settles. Disconnect/reconnect one client, test
+spectating and a native halftime swap, and confirm no human is kicked by repair.
+Check FFA separately and verify earned player/weapon progression after restart.
+Chat visibility and naturalness still require human client acceptance.
+
+## Mild anti-air tuning
+
+Add `--air-response` to a disposable native run lasting at least 60 seconds,
+without restart flags. The probe uses real native bots and private script-origin
+entities tagged as UAV/counter-UAV to exercise the actual threat-filter detour.
+Require the initial timer to block selection, eventual eligibility, stable
+deadlines across interleaved targets, 0/100 percent participation boundaries,
+stock override and native-ignore precedence. Player and ground classification
+must remain excluded. These are script-entity policy checks, not flight combat.
+
+Later call in an earned UAV, counter-UAV and attack helicopter from real clients.
+Compare time to first bot rocket and streak survival with default tuning versus
+0 ms / 100 percent. Confirm bots still counter aircraft and keep their normal
+ground combat. Adjust these small values based on playtest feedback.

@@ -116,6 +116,16 @@ modules and requires new native goal submissions. Its controls exist only in
 the disposable probe. It requires one objective case, at least 90 seconds and
 no restart flags.
 
+The `--lobby-balance` option (team modes, at least 90 seconds, no restart or
+switch flags) removes a real bot, runs the production planner/executor to refill,
+creates a native 9v7 bot fixture and requires repair to 8v8. It also disables
+placement/balance, requires the imbalance to persist under the disabled planner,
+then resumes and repairs again. The private fixture replaces a bot through native explicit-team creation,
+because ranked team menus reject changes after combat. Production
+fill still refuses to run without humans; the probe invokes the shared planner
+explicitly on real bots. Count-only capacity fixtures are labelled separately
+from human join acceptance. No bot is relabelled as human.
+
 Keep raw console logs, runtime state, addresses, profile data and private image
 contents outside GitHub. Publish source, methodology and aggregate outcomes.
 Backend evidence cannot establish better human-perceived movement, readable HUD

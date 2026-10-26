@@ -56,6 +56,20 @@ failed batches increase this to 20 and at most 30 seconds. Polling continues
 during cooldown. Human-count or target changes reset recovery state. Defaults
 are native Hard difficulty and 16 total players, yielding 8v8 in team modes.
 
+For team modes, cooperative join hooks wrap native auto-assign and explicit
+team selection. Humans follow the current human cohort until that side reaches
+capacity; overflow uses the other side. Existing spectators are not moved. The
+stock automatic team balancer is paused while cooperative placement is active,
+then restored when that feature or the native-bot module is disabled, including
+on a later FFA map. Native class, spawn, team-change and halftime rules still run.
+
+A shared count planner handles both total fill and team quotas. It removes only
+verified bots from an oversized side before adding native bots to the smaller
+side, even when the lobby is already full. Unassigned bots get time to initialize.
+Spectator connections reserve slots; the active budget rounds down to an even
+total to avoid a remove/add loop. The no-human production fill guard remains.
+Both settings default on and migrate only when absent from host configuration.
+
 Each mode wrapper resets native defaults before loading its matching mode and
 applying doubled time/score targets. Native objective, overtime and round rules
 remain authoritative. The default rotation lists the base maps plus Nuketown
@@ -170,3 +184,23 @@ reject stale records, and fail if a rejected record retains an Outlands movement
 goal. Final observations still require complete role allocation. An isolated
 same-frame metadata fixture can check steering/context rejection without changing
 native teams, goals, human presence, scores or progression.
+
+## Air-support reaction tuning
+
+An optional profile hook wraps native `threat_should_ignore`, retaining the
+native result first. Only dedicated-server test clients receive the additional
+gate, and only UAV/counter-UAV or helicopter/plane entities qualify. Players,
+ground equipment, remote mortars and quadrotors retain their native filtering.
+Per-bot state is keyed by target entity, so interleaved aircraft do not restart
+each other's timers. Entity references reject stale entries after destruction.
+The initial 2500 ms delay has up to 50 percent random jitter; a stable 80 percent
+participation roll reduces simultaneous responders. Values are bounded and
+operator settings survive host upgrades. Delay 0 plus chance 100 restores stock
+selection immediately; profile/native-bot off switches bypass the hook.
+
+The implementation changes target eligibility, without rewriting aim, rocket
+lock-on, scorestreak health or damage. Native threat discovery may already take
+longer than the gate. Private script-entity fixtures exercise classification,
+actual engine timing, interleaved targets, participation extremes, stock override
+and native-ignore precedence; they do not establish real aircraft lifetime or
+human-perceived balance. Those remain a gameplay test with earned streaks.
