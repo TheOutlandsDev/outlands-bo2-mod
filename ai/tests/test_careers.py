@@ -117,7 +117,9 @@ class PrivateStoreTests(unittest.TestCase):
         with patch.object(careers.time, "monotonic", return_value=100):
             self.store.apply(sample(seq=2, kind="snapshot", kills=3, score=300))
             self.assertIn("own_public_scoreboard", self.store.context("Trailblazer", "", "mp_raid", "tdm"))
-        with patch.object(careers.time, "monotonic", return_value=281):
+        with patch.object(careers.time, "monotonic", return_value=160):
+            self.assertIn("own_public_scoreboard", self.store.context("Trailblazer", "", "mp_raid", "tdm"))
+        with patch.object(careers.time, "monotonic", return_value=161):
             self.assertNotIn("own_public_scoreboard", self.store.context("Trailblazer", "", "mp_raid", "tdm"))
         self.reload()
         self.store.apply(sample())
