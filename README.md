@@ -166,6 +166,8 @@ Customize bots in `storage/t6/outlands_t6.cfg` and the alias roster:
 | `outlands_bot_profiles` | Enable connection class roles; default 1, enabling requires fresh map initialization |
 | `outlands_bot_marksman_limit` | Maximum marksman roles, default 2; native emergency anti-air selection remains available |
 | `outlands_bot_patrol_profiles` | Enable role-specific low-priority patrol timing; default 1 |
+| `outlands_bot_air_reaction_ms` | Initial bot air-target reaction delay, default 2500 ms plus up to 50 percent jitter; bounded 0–8000 |
+| `outlands_bot_air_response_chance` | Per-bot, per-air-target participation chance, default 80 percent; bounded 0–100 |
 
 Keep stock `bot_friends` and `bot_enemies` at zero so only the Outlands controller
 owns filling. The stock generator builds valid randomized unlocked weapons,
@@ -173,6 +175,14 @@ attachments, perks and equipment, and native class selection varies between
 lives. The mod keeps the native validity rules. Humans use the normal
 Create-a-Class menu and earned unlocks;
 this source does not grant human equipment or levels.
+
+Air-support response is slightly reduced: each native bot waits 2.5–3.75 seconds
+before selecting a new UAV, counter-UAV, helicopter or plane threat, and has an
+80 percent participation chance for that target. The decision stays stable for
+that bot/target, including across respawns. Native threat filtering, launcher
+availability, lock-on, damage and ground combat stay authoritative. Set the delay
+to `0` and chance to `100` to restore stock target selection. This feature uses
+the bot profile module; disabling profiles also bypasses its air-target gate.
 
 ## Custom AI development update
 

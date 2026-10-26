@@ -2,6 +2,10 @@
 
 ## Unreleased — cooperative lobbies, grounded task chat, squads, contracts and rivals
 
+- Slightly stagger bot response to UAVs and other air support: a bounded initial
+  delay and stable per-target 80 percent participation, preserving native ignore,
+  launcher, lock-on and damage rules. Add tuning and stock-selection overrides.
+
 - Keep human joins together up to team capacity through native team menus.
   Balance teams using bot-only removals and native refill, including mid-match
   departures and full uneven lobbies; reserve spectator slots and retain FFA.
