@@ -108,8 +108,10 @@ def fallback(tactical, mode, final=False, history=()):
         choices = [f"Heading for the {name}.", f"Going to push the {name}.", f"I'll make a run at the {name}.", f"Let's pressure the {name}."]
     if final:
         choices = ['Yeah, '+x[0].lower()+x[1:] for x in choices]
-    recent = {x.casefold() for x in history[-4:]}
-    return random.choice([x for x in choices if x.casefold() not in recent] or choices)
+    def normalized(line):
+        return re.sub(r'^yeah,\s*', '', line.casefold())
+    recent = {normalized(x) for x in history[-4:]}
+    return random.choice([x for x in choices if normalized(x) not in recent] or choices)
 
 
 def usable(tactical, mode, reply):
@@ -120,9 +122,16 @@ def usable(tactical, mode, reply):
     # captures, enemy locations or native progression rewards.
     if re.search(r'\d|\b[BC]\b|\b(?:flag|site|point) [ABC]\b', reply):
         return False
+    if re.search(r'\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|dozen|hundred|thousand|victory|win|winning|wins)\b', text):
+        return False
     if re.search(r'\b(?:captured|secured|won|leveled|unlocked|prestiged|xp|enemies|enemy at|enemy behind|enemy near)\b', text):
         return False
     if re.search(r"\b(?:arrived|arriving|secured|capturing|captured)\b|\b(?:close to|closing in|nearly there|in position|made it|i'm at|we're at|we are at|i am at)\b", text):
+        return False
+    expected_noun = {'dom': 'flag', 'ctf': 'flag', 'koth': 'hill', 'hq': 'hq', 'dem': 'site'}.get(mode)
+    if any(re.search(r'\b'+noun+r'\b', text) for noun in ('flag', 'hill', 'hq', 'site') if noun != expected_noun):
+        return False
+    if mode == 'ctf' and ((tactical.role == 'defend' and 'enemy flag' in text) or (tactical.role == 'attack' and 'home flag' in text)):
         return False
     if tactical.topic == 'contract':
         if not re.search(r'\b(?:contract|task)\b', text):
