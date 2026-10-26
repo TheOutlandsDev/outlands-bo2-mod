@@ -11,8 +11,8 @@ chat GSC compilation and local RCON transport have passed isolated checks, as
 have varied native weapons/classes and cosmetic-level API calls. The complete
 Ollama-to-native-speech path has also passed during live human play. The player
 confirmed blank clan tags and different cosmetic levels on the scoreboard.
-Windows joining remains pending.
-See [validation status](../docs/VALIDATION.md).
+See [validation status](../docs/VALIDATION.md) for the current Windows,
+expanded-rotation and recovery checks.
 
 ## Prepare the host
 
@@ -99,17 +99,49 @@ copying it manually. Existing private CFGs survive image updates; source CFG
 changes need deliberate application to an existing host. Preserve the join
 password when changing gameplay settings.
 
+### Migrate an existing host to the current defaults
+
+The entrypoint preserves an existing main `outlands_t6.cfg`; rebuilding an image
+does not replace its gameplay settings. Back up that private file, then merge
+these assignments into `/data/plutonium/storage/t6/outlands_t6.cfg`:
+
+```cfg
+sv_maxclients 16
+bot_friends 0
+bot_enemies 0
+bot_difficulty 2
+set outlands_bot_fill 16
+set outlands_bot_difficulty 2
+```
+
+Replace its `sv_maprotation` assignment with the current source assignment in
+[`storage/t6/outlands_t6.cfg`](../storage/t6/outlands_t6.cfg) to enable all 15 maps
+and eight supported modes. Preserve the existing join password, local RCON
+settings and any private access-policy `exec` lines. Rebuild and redeploy the
+game image through `./manage.sh up` or `./manage.sh ai-up`, as appropriate.
+Startup refreshes the shipped scripts and mode wrappers, including the doubled
+limits; the main CFG still needs the explicit merge above. Native difficulty
+tuning takes effect during fresh map initialization.
+
 Client rank and weapon data also depend on each client's profile. Keep stable,
 unique LAN player names. This host does not set `use_localStats`, copy saves or
 unlock content; a server-volume backup does not replace client-profile backups.
 
-## Native bots and optional Ollama chat
+## Native bots
 
-The controller targets 12 total players after a human joins, with one native
-addition per two seconds and a limit of three failed additions. It removes only
-verified native test clients. Keep `bot_friends 0` and `bot_enemies 0`; configure
-`outlands_bot_fill` and `outlands_bot_difficulty` in the persistent host CFG.
-The source also gives clients a 600-second initial team/class selection window.
+The current defaults are native Hard difficulty (`2`), 16 player slots and a
+16-player fill target: 8v8 in team modes, or individual players in Free-for-All.
+After a human joins, one controller checks the population every two seconds and
+adds at most one native bot per check. Three consecutive unsuccessful additions
+start a 10-second cooldown; repeated failures increase it to 20, then 30 seconds,
+capped at 30. The controller keeps polling during cooldown and retries rather
+than stopping permanently. Human-count or target changes reset that cooldown.
+
+Dead players still occupy connection slots and respawn through native rules.
+The controller removes only verified native test clients when reducing the
+population. Keep `bot_friends 0` and `bot_enemies 0`; configure
+`outlands_bot_fill` and `outlands_bot_difficulty` in the persistent host CFG. The
+source also gives clients a 600-second initial team/class selection window.
 
 The new `bots.txt` roster requests aliases with empty clan tags. Native custom
 alias assignment passed a runtime check, and the player confirmed the default
@@ -121,6 +153,25 @@ unchanged, and no human XP/unlock/stat writes are added. An isolated four-bot
 probe observed varied shotgun, LMG, sniper and SMG classes, attachments and
 secondaries. Cosmetic native `setrank` calls completed without errors, and the
 player confirmed the different rendered levels look correct.
+
+## Map and mode rotation
+
+The source rotation uses 15 maps: the 14 base multiplayer maps plus Nuketown
+2025. Each client needs the owned assets for the selected map. Eight modes have
+native bot support: Free-for-All (`dm`), Team Deathmatch (`tdm`), Capture the Flag
+(`ctf`), Demolition (`dem`), Domination (`dom`), Hardpoint (`koth`), Headquarters
+(`hq`) and Kill Confirmed (`conf`). Other DLC maps are not included in this
+configured baseline.
+
+Each `gamesettings/outlands_*.cfg` wrapper resets native defaults, loads its
+matching mode and applies time/score limits doubled from the earlier Outlands
+baseline. Native round, overtime and objective rules still apply; doubling the
+timer does not guarantee twice the match duration. See the
+[current limits](../README.md#map-and-mode-rotation) and
+[validation boundaries](../docs/VALIDATION.md) before treating every mode or
+failure-recovery path as playtested.
+
+## Optional Ollama chat
 
 For the optional contained chat setup:
 

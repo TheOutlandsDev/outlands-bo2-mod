@@ -40,6 +40,13 @@ MOD_PAYLOADS = (
     Path("scripts/mp/outlands_native_bots.gsc"),
     Path("scripts/mp/outlands_chat.gsc"),
     Path("bots.txt"),
+    Path("gamesettings/outlands_dm.cfg"),
+    Path("gamesettings/outlands_ctf.cfg"),
+    Path("gamesettings/outlands_dem.cfg"),
+    Path("gamesettings/outlands_dom.cfg"),
+    Path("gamesettings/outlands_koth.cfg"),
+    Path("gamesettings/outlands_hq.cfg"),
+    Path("gamesettings/outlands_conf.cfg"),
 )
 
 
