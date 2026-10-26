@@ -300,7 +300,7 @@ class CareerStore:
         now = time.monotonic()
         matching = [sample for token, sample in self.state["sessions"].items()
                     if sample["alias"] == alias and not sample["closed"] and (sample["map"], sample["mode"]) == (map_name, gametype)
-                    and 0 <= now - self.fresh_samples.get(token, float("-inf")) <= 180]
+                    and 0 <= now - self.fresh_samples.get(token, float("-inf")) <= 60]
         if len(matching) == 1:
             sample = matching[0]
             result["own_public_scoreboard"] = {key: sample[key] for key in ("kills", "deaths", "score")}

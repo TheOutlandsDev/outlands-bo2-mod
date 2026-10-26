@@ -55,13 +55,21 @@ and are excluded from persistent careers. These traits guide short model replies
 the model cannot choose native combat settings or career awards.
 Keep fallback lines short and friendly. Output is capped at 120 characters and
 six requests per minute; cooldowns cannot be shorter than ten seconds globally
-or thirty seconds per bot. Defaults allow four requests per minute,
-ten seconds globally, and sixty seconds per bot. Both turns consume the same
+or thirty seconds per bot. Defaults allow six requests per minute,
+ten seconds globally, and forty-five seconds per bot. Both turns consume the same
 budgets, and failures consume the cooldown too. The game adapter defaults to a
-twelve-second request gap, sixty-second periodic banter, and a fourteen-second
+ten-second request gap, thirty-second periodic banter, and a twelve-second
 pause after accepted banter before a possible second turn. It has matching
 `outlands_chat_max_per_minute` and `outlands_chat_bot_cooldown` controls. These are
 shared limits, not extra budgets for dialogue.
+
+General banter can react to the selected bot's fresh own scoreboard: opening,
+more deaths than kills, favorable kills/deaths, or trading lives. These are
+bounded summaries, not killstreaks, team leads, exact enemy positions or proof of
+an improving trend. Bot replies respond to the preceding line first; human
+public-chat replies keep priority. The fallback path also acknowledges questions,
+rough games and positive comments, avoiding the last four lines when possible.
+Task-specific speech retains its separate assignment and contract validation.
 
 New worker events use a two-item queue and expire after fifteen seconds. Human
 replies take priority over ambient chatter. The game keeps at most one latest
@@ -228,7 +236,7 @@ stale, altered or duplicate acknowledgments do nothing.
 Prompt context can include the recipient bot's latest own scoreboard sample for
 the current map/mode, its cosmetic career and a known bot peer's exchange count.
 Scoreboard context requires a new snapshot observed by this worker process in
-the last 180 seconds; persisted counters and original-hello retries cannot make
+the last 60 seconds; persisted counters and original-hello retries cannot make
 old match evidence appear current after restart. Human reply
 contexts never acquire persistent human memory.
 
