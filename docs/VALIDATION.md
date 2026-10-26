@@ -1,7 +1,7 @@
 # Validation status
 
-Last updated: 2026-10-25. The Linux gameplay acceptance runtime is Plutonium T6 r5369.
-The Windows preparation below does not establish a matching game runtime revision.
+Last updated: 2026-10-25. The Linux host runtime is Plutonium T6 r5369.
+The Windows preparation record does not independently establish its runtime revision.
 These results describe the private development acceptance tests; they are not a
 claim that every OS, runtime update, map or progression challenge has passed.
 Raw logs, private receipts, join details and profile backups stay outside the
@@ -54,7 +54,8 @@ the successfully compiled and invoked native `sayall` method.
 ## Windows preparation, 2026-10-25
 
 The following checks were performed on a Windows client using the v0.1.1
-source release. This is a sanitized preparation record; local identities,
+source release before the later successful joining test. The table records that
+earlier preparation snapshot; local identities,
 network addresses, connection settings, profiles and raw logs remain private.
 
 | Check | Result |
@@ -68,13 +69,15 @@ network addresses, connection settings, profiles and raw logs remain private.
 | Tailscale | Local service running; the hosting peer replied through a relay, without establishing a direct path |
 | Game UDP query | `getinfo` and `getstatus` probes received no reply within the bounded check; this does not prove the game port reachable or the cause of a timeout |
 | Client log review | A bounded review found `PLATFORM_DISCONNECTED_FROM_SERVER`; cause remains unresolved |
-| Joining, team/class selection and spawning | Pending Windows acceptance |
-| Bot combat and completed match | Pending Windows acceptance |
+| Joining, team/class selection and spawning | Pending at preparation; subsequently confirmed by the player and host |
+| Bot combat and completed match | Bot combat subsequently confirmed; completed-match progression results remain pending |
 | Rank/weapon results and quit/relaunch retention | Pending Windows acceptance |
 
 The no-password path uses a local CFG that clears `password` before `connect`.
 It was prepared for a host-requested password change; that host change and a
-successful passwordless connection were not independently verified here.
+successful passwordless connection were not independently verified in the
+preparation session. Subsequent host checks verified empty runtime game-password
+configuration and a successful Windows join with native bot combat.
 v0.1.1's stock Windows setup/join validator still requires a nonempty password;
 the [Windows joining instructions](../README.md#windows-checks-and-direct-joining)
 describe the direct LAN launch and console alternative.
@@ -86,13 +89,56 @@ client restart. Server restart persistence is a separate check.
 
 ## Implemented, awaiting acceptance
 
-- Windows setup apply, actual joining/spawning over Tailscale, completed-match
-  rank/weapon results and quit/relaunch retention. Preparation preflight passed
-  as recorded above.
+The maintenance update configures native Hard difficulty (`bot_difficulty 2`
+and `outlands_bot_difficulty 2`), 16 slots with a 16-player fill target, and a
+15-installed-map rotation across eight native bot modes. Team modes are
+configured for 8v8; Free-for-All uses individual players. The game container
+has been restarted for this configuration. Live checks on Raid / Domination
+confirmed native Hard tuning (reaction 400–700 ms, FOV 100, fire timing
+400–600 ms), both difficulty values at 2, capacity/fill at 16, and two humans
+plus 14 native bots with increasing scores. The Windows client rejoined.
+The game, Tailscale and Ollama services were healthy and the chat worker was
+running, with no published host ports. The verified 12-player baseline above
+remains the earlier evidence.
+
+The follow-up update replaces permanent shutdown after three unsuccessful
+native additions with bounded retry batches and 10/20/30-second cooldowns.
+The same controller continues polling and resets its retry state when the
+human count or fill target changes. Disabling the controller pauses it, so
+reenabling it can resume without creating a second population manager.
+Read-only population diagnostics distinguish connected players from assigned
+teams; dead players retain their slots and native respawning.
+
+On Raid / Domination, live diagnostics confirmed one human plus 15 bots with
+eight players assigned to each team and no spectators or unassigned players.
+During ongoing combat, temporarily reducing the target to 15 removed only a
+verified test client. Restoring 16 produced a replacement bot: the observed
+population went 16 → 15 → 16 while the Windows player remained connected and
+combat scores increased. A second human subsequently joined; the roster
+settled at two humans plus 14 bots, still eight assigned players per team.
+No new script compile/runtime errors were observed. The prolonged failed-add
+cooldown path has not been deliberately fault-injected on the live server.
+
+All eight deployed gamesettings wrappers match the image payload and use twice
+the earlier time and score limits, including TDM and Free-for-All. Raid's
+authoritative `getgametypesetting("scorelimit")` readback was 200. Other native
+round rules remain in effect; doubled score limits alone do not override CTF
+overtime or Demolition bomb/round endings. The README lists each configured
+time and score value. Full gameplay acceptance across all eight modes remains
+pending.
+
+Pending maintenance checks are the player's assessment of harder behavior,
+team allocation across later maps/rounds, client assets for every selected map, and
+objective behavior/rotation in `dm`, `tdm`, `ctf`, `dem`, `dom`, `koth`, `hq` and
+`conf`. No new progression or persistent-learning result is inferred.
+
+- Windows rank/weapon progression retention after a normal client restart.
+  Windows joining, spawning and bot combat were confirmed by the player and
+  the server; anonymous server XP lines alone do not identify Windows gains.
 - Longer-term loadout variation across respawns. The isolated native
   weapon/class variety check has passed.
-- Multiple-human bot replacement, map-change retention and longer-session
-  stability across the configured maps.
+- Bot replacement over repeated human joins/leaves, map-change retention and
+  longer-session stability across the configured maps.
 - Individual earned rank unlock, attachment and camo challenge checks.
 
 The native fill controller already passed live combat acceptance. The new

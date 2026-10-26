@@ -1,7 +1,7 @@
 # Development releases
 
-`VERSION` is the source version. The current version is `0.1.1`; its intended
-tag is `v0.1.1`. The configured workflow publishes development prereleases and
+`VERSION` is the source version. The current version is `0.1.2`; its intended
+tag is `v0.1.2`. The configured workflow publishes development prereleases and
 does not mark them as the latest release. This document describes configuration
 and maintainer steps, not evidence that a particular workflow has passed.
 
@@ -17,13 +17,14 @@ manual dispatch and calls from the release workflow.
 | Package | Waits for both platform jobs, builds the source ZIP and verifies its SHA-256 manifest |
 
 The CI artifact is `outlands-bo2-mod-dev-preview`, retained for 14 days. Its
-files are `outlands-bo2-mod-v0.1.1-dev-preview.zip` and `SHA256SUMS`, with the
+files are `outlands-bo2-mod-v0.1.2-dev-preview.zip` and `SHA256SUMS`, with the
 version taken from `VERSION` for subsequent releases.
 
 Synthetic tests use temporary fixture files, not real BO2 assets or profiles.
 They do not launch a game, run a native dedicated server, download a runtime or
 model, or establish Tailscale reachability. Passing Windows checks verifies the
-tested setup logic; **Windows joining/gameplay remains pending**. Native GSC,
+tested setup logic. Windows joining/spawning and bot combat were separately
+confirmed during live play; Windows progression retention remains pending. Native GSC,
 bot combat, progression saves and visible presentation need the separate
 [gameplay acceptance record](VALIDATION.md).
 
@@ -50,7 +51,7 @@ python3 -B tools/build_release.py
 To create a fresh versioned preview and verify it:
 
 ```sh
-python3 -B tools/build_release.py --output dist/outlands-bo2-mod-v0.1.1-dev-preview.zip
+python3 -B tools/build_release.py --output dist/outlands-bo2-mod-v0.1.2-dev-preview.zip
 (cd dist && sha256sum --check SHA256SUMS)
 ```
 
@@ -66,7 +67,7 @@ These commands prepare source artifacts only and do not start the host/game.
 3. Open the **Publish dev preview** workflow in GitHub Actions, choose **Run
    workflow** and select `main`. The workflow validates `VERSION` and runs the
    shared checks. Only after they pass does the publishing job create
-   `v0.1.1` at the tested `GITHUB_SHA` and publish. No local GitHub credential is
+   `v0.1.2` at the tested `GITHUB_SHA` and publish. No local GitHub credential is
    needed; the job uses GitHub's built-in workflow token.
 4. Alternatively, create and push an exact version-matching tag or manually
    dispatch on an existing matching tag. The tag name must be `v` followed by
