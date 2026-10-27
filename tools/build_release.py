@@ -22,14 +22,14 @@ HOST_FILES = {"README.md", ".gitignore", ".env.example", "Dockerfile", "Dockerfi
               "compose.smoke.yaml", "compose.ai.yaml", "compose.dockhand.yaml",
               "compose.dockhand.ai.yaml", "manage.sh", "docker.sh", "entrypoint.py",
               "healthcheck.py", "store_key.py", "prepare_package.py", "setup_host.py", "export_invite.py",
-              "backend_verify.py", "verification.gsc", "rotation.py", "rotation_verify.py", "compose.portal.yaml"}
+              "backend_verify.py", "verification.gsc", "rotation.py", "rotation_verify.py", "compose.portal.yaml", "compose.accounts.yaml"}
 AI_FILES = {"README.md", "Dockerfile", "Modelfile", "bridge.py", "tests/test_bridge.py", "armory.py", "tests/test_armory.py", "armory_native.py", "tests/test_armory_native.py",
             "config.example.json", "personalities.json", "careers.py", "tests/test_careers.py", "benchmark.py", "tactics.py", "tests/test_tactics.py", "operations.py", "conversation_benchmark.py", "tests/test_operations.py", "tests/test_dialogue_v3.py"}
 TOOL_FILES = {"build_release.py", "client_settings.py", "install_files.py", "play_lan_windows.ps1",
               "preflight.py", "setup_client.py", "windows_client.ps1", "content_inventory.py", "contract_rules.py", "validate_system.py"}
 TEST_FILES = {"test_client_setup.py", "test_host_setup.py", "test_host_state.py", "test_release.py",
-              "test_windows_client.ps1", "test_backend_verify.py", "test_content_inventory.py", "test_contract_rules.py", "test_system_validation.py", "test_rotation.py", "test_portal.py"}
-DOC_FILES = {"VALIDATION.md", "RELEASING.md", "WINDOWS.md", "METHODOLOGY.md", "RIVALS.md", "SQUADS-CONTRACTS.md", "OPERATIONS.md", "UI-VALIDATION.md", "UI.md", "ARMORY.md", "ROTATION.md", "COMMANDS.md", "PORTAL.md"}
+              "test_windows_client.ps1", "test_backend_verify.py", "test_content_inventory.py", "test_contract_rules.py", "test_system_validation.py", "test_rotation.py", "test_portal.py", "test_accounts.py", "test_account_service.py", "test_account_agent.py", "test_google_login.py"}
+DOC_FILES = {"VALIDATION.md", "RELEASING.md", "WINDOWS.md", "METHODOLOGY.md", "RIVALS.md", "SQUADS-CONTRACTS.md", "OPERATIONS.md", "UI-VALIDATION.md", "UI.md", "ARMORY.md", "ROTATION.md", "COMMANDS.md", "PORTAL.md", "ACCOUNTS.md"}
 WORKFLOW_FILES = {"ci.yml", "release.yml"}
 STORAGE_FILES = {"storage/t6/outlands_t6.cfg", "storage/t6/gamesettings/outlands_tdm.cfg",
                  "storage/t6/gamesettings/outlands_dm.cfg", "storage/t6/gamesettings/outlands_ctf.cfg",
@@ -44,7 +44,10 @@ STORAGE_FILES = {"storage/t6/outlands_t6.cfg", "storage/t6/gamesettings/outlands
 STORAGE_FILES |= {"storage/t6/scripts/mp/outlands_armory_ui.gsc", "storage/t6/outlands_armory_keys.cfg"}
 STORAGE_FILES |= {"storage/t6/scripts/mp/outlands_rotation.gsc", "storage/t6/outlands_rotation.json"}
 PORTAL_FILES = {"portal.py", "Dockerfile", "Dockerfile.dockerignore", "web/index.html", "web/app.css", "web/app.js"}
+STORAGE_FILES |= {"storage/t6/scripts/mp/outlands_accounts.gsc"}
+ACCOUNT_FILES = {"store.py", "google_login.py", "service.py", "agent.py", "admin.py", "requirements.txt", "Dockerfile", "Dockerfile.dockerignore", "web/index.html", "web/account.js", "web/app.css"}
 PUBLIC_PATHS = frozenset(ROOT_FILES | STORAGE_FILES
+                        | {"accounts/" + name for name in ACCOUNT_FILES}
                         | {"portal/" + name for name in PORTAL_FILES}
                         | {"hosting/" + name for name in HOST_FILES}
                         | {"ai/" + name for name in AI_FILES}

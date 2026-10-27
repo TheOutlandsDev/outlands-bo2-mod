@@ -1,0 +1,72 @@
+# Optional preview: requires a Google web OAuth client, HTTPS proxy and private
+# bootstrap. Never enable until docs/ACCOUNTS.md acceptance gates are satisfied.
+services:
+  t6:
+    environment:
+      T6_ACCOUNTS_ENABLED: ${T6_ACCOUNTS_ENABLED:-0}
+  accounts:
+    image: outlands-bo2-accounts:local
+    build:
+      context: ..
+      dockerfile: accounts/Dockerfile
+    network_mode: service:tailscale
+    environment:
+      OUTLANDS_ACCOUNT_ORIGIN: ${OUTLANDS_ACCOUNT_ORIGIN:?Configure a private HTTPS account origin}
+    volumes:
+      - accounts-state:/accounts
+      - accounts-secrets:/run/outlands:ro
+    user: "10001:10001"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    cpus: 0.5
+    mem_limit: 192m
+    healthcheck:
+      test: [CMD, python3, -c, "import os,urllib.request,urllib.parse; from accounts.google_login import https_origin; r=urllib.request.Request('http://127.0.0.1:8087/healthz',headers={'Host':urllib.parse.urlsplit(https_origin(os.environ['OUTLANDS_ACCOUNT_ORIGIN'])).netloc}); urllib.request.urlopen(r,timeout=2).close()"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+    depends_on:
+      tailscale:
+        condition: service_healthy
+    restart: unless-stopped
+  account-agent:
+    image: outlands-bo2-accounts:local
+    entrypoint: [python3, -B, /app/accounts/agent.py]
+    network_mode: service:tailscale
+    environment:
+      OUTLANDS_ACCOUNT_API: http://127.0.0.1:8087
+      OUTLANDS_ACCOUNT_ORIGIN: ${OUTLANDS_ACCOUNT_ORIGIN:?Configure a private HTTPS account origin}
+      T6_PORT: ${T6_PORT:-4977}
+    volumes:
+      - t6-state:/data:ro
+      - account-agent-secrets:/run/outlands:ro
+    user: "10001:10001"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    cpus: 0.25
+    mem_limit: 64m
+    depends_on:
+      accounts:
+        condition: service_healthy
+      t6:
+        condition: service_healthy
+    restart: unless-stopped
+  account-admin:
+    profiles: [account-tools]
+    image: outlands-bo2-accounts:local
+    entrypoint: [python3, -B, /app/accounts/admin.py]
+    network_mode: none
+    volumes:
+      - accounts-state:/accounts
+      - accounts-secrets:/run/outlands
+      - account-agent-secrets:/agent-secrets
+    user: "10001:10001"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+volumes:
+  accounts-state:
+  accounts-secrets:
+  account-agent-secrets:

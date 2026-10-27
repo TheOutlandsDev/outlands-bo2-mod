@@ -53,6 +53,8 @@ class ReleaseTests(unittest.TestCase):
                   "hosting/logs/console.log", "hosting/package/info.json", "friend.invite.json",
                   "storage/t6/players/profile.stats", "tools/private_notes.py", "tests/private_test.py",
                   "docs/private.md", ".github/workflows/private.yml")
+        extras += ('accounts/private/accounts.sqlite3','accounts/private/identity.key',
+                   'accounts/google-client.json','accounts/server.credential')
         for name in extras:
             path = self.root / name
             path.parent.mkdir(parents=True, exist_ok=True)
