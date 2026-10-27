@@ -57,6 +57,17 @@ class HostStateTests(unittest.TestCase):
         self.assertEqual(len(matches), 1, name)
         return matches[0].group(1) if matches[0].group(1) is not None else matches[0].group(2)
 
+    def test_operations_can_enable_local_control_without_model_or_bot_careers(self):
+        with patch.dict(os.environ, {"T6_CHAT_ENABLED":"0", "T6_CAREERS_ENABLED":"0", "T6_OPERATIONS_ENABLED":"1"}):
+            host.configure_mod(None)
+            self.assertEqual(self.value("outlands_operations"),"1")
+            self.assertEqual(self.value("outlands_chat_enabled"),"0")
+            self.assertTrue(self.secret.is_file())
+            self.assertIn("rconWhitelistAdd 127.0.0.1",self.cfg.read_text())
+            self.assertEqual(self.stats.read_bytes(),self.original_stats)
+        with patch.dict(os.environ, {"T6_OPERATIONS_ENABLED":"invalid"}):
+            with self.assertRaises(host.StartupError):host.configure_mod(None)
+
     def test_mod_update_preserves_join_password_custom_settings_and_stats(self):
         password, _ = host.configure_mod("Renamed synthetic host")
         self.assertEqual(password, "synthetic-existing-join-password")

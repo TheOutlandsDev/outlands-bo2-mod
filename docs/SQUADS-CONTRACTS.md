@@ -135,3 +135,8 @@ playtests, with contracts/squads enabled and disabled for comparison.
 Native interfaces were checked against [Plutonium's objective bot scripts](https://github.com/plutoniummod/t6-scripts/tree/main/MP/Core/maps/mp/bots)
 and [team scoring implementation](https://github.com/plutoniummod/t6-scripts/blob/main/MP/Core/maps/mp/gametypes/_globallogic_score.gsc).
 The shipped modules contain original coordination and accounting code.
+
+
+The optional [Operations layer](OPERATIONS.md) separately credits eligible humans
+for contributed completions. Contracts themselves still award match-local team
+commendations and never write native rank XP or equipment unlocks.

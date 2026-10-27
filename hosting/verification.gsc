@@ -43,6 +43,8 @@ verify_native_match()
         level thread verify_lobby_balance();
     if ( getdvarint( "outlands_verify_air" ) )
         level thread verify_air_response();
+    if ( getdvarint( "outlands_verify_expansion" ) )
+        level thread verify_expansion();
 
     duration = getdvarint( "outlands_verify_seconds" );
     if ( duration < 30 )
@@ -588,4 +590,79 @@ verify_air_response()
         println( "OUTLANDS_AIR_POLICY_V1|pass" );
     else
         println( "OUTLANDS_AIR_POLICY_V1|failed" );
+}
+
+
+verify_expansion()
+{
+    level endon( "game_ended" );
+    // Native bot connections arrive after spawnbot returns. Require actual
+    // occupants before checking bot exclusion or formatting native context.
+    players = get_players();
+    attempts = 0;
+    while ( players.size < 16 && attempts < 30 )
+    {
+        wait 1;
+        attempts++;
+        players = get_players();
+    }
+    valid = getfunction( "scripts/mp/outlands_operations", "valid_guid" );
+    human = getfunction( "scripts/mp/outlands_operations", "human_ready" );
+    tier = getfunction( "scripts/mp/outlands_operations", "tier" );
+    number = getfunction( "scripts/mp/outlands_operations", "number" );
+    ok = isdefined( level.outlands_operations_started ) && isdefined( valid ) && isdefined( human ) && isdefined( tier ) && isdefined( number );
+    if ( ok )
+    {
+        ok = players.size == 16 && [[ valid ]]( "a12b34" ) && ![[ valid ]]( "0" ) && ![[ valid ]]( "a;quit" );
+        ok = ok && [[ tier ]]( 24, "assault" ) == 0 && [[ tier ]]( 25, "assault" ) == 1 && [[ tier ]]( 100, "assault" ) == 2 && [[ tier ]]( 250, "assault" ) == 3;
+        ok = ok && [[ tier ]]( 3, "objective" ) == 1 && [[ tier ]]( 10, "support" ) == 2;
+        ok = ok && [[ number ]]( "1000000000", 1000000000 ) && ![[ number ]]( "-1", 1000000000 ) && ![[ number ]]( "01", 1000000000 );
+        players = get_players();
+        foreach ( bot in players )
+            if ( isdefined( bot ) && isplayer( bot ) && bot istestclient() && [[ human ]]( bot ) )
+                ok = false;
+        if ( isdefined( level.outlands_operations_pending ) || getarraykeys( level.outlands_operations_records ).size > 0 )
+            ok = false;
+    }
+    formatter = getfunction( "scripts/mp/outlands_chat", "event_line" );
+    context_function = getfunction( "scripts/mp/outlands_chat", "task_context" );
+    if ( !isdefined( formatter ) || !isdefined( context_function ) )
+        ok = false;
+    else
+    {
+        players = get_players();
+        if ( players.size < 1 )
+            ok = false;
+        else
+        {
+            context = [[ context_function ]]( players[0], "contract" );
+            names = array( "NightLedger", "CopperWren", "StaticBloom", "RiftRunner" );
+            for ( turn = 1; turn <= 4; turn++ )
+            {
+                request = spawnstruct();
+                request.id = "nativefixture";
+                request.kind = "banter";
+                speaker = "match";
+                text = "A synthetic scene hint.";
+                if ( turn > 1 )
+                {
+                    request.id = "nativefixture_r" + turn;
+                    request.kind = "bot_reply";
+                    speaker = names[turn - 2];
+                    text = "Fair, same here.";
+                }
+                request.slot = turn;
+                request.name = names[turn - 1];
+                request.turn = turn;
+                request.turn_limit = 4;
+                // Exercise the production formatter without requesting speech,
+                // inventing human connections or entering the worker transport.
+                println( "OUTLANDS_DIALOGUE_FIXTURE_V1|" + [[ formatter ]]( request, speaker, text, context ) );
+            }
+        }
+    }
+    if ( ok )
+        println( "OUTLANDS_EXPANSION_V1|pass" );
+    else
+        println( "OUTLANDS_EXPANSION_V1|failed" );
 }

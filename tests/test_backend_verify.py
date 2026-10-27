@@ -53,6 +53,30 @@ def feature_observed(stage=0, mode='dom', **changes):
     return feature_line('sample', stage, 1, mode, **baseline) + '\n' + feature_line('complete', stage, 2, mode, **changes)
 
 
+class ExpansionReportTests(unittest.TestCase):
+    def test_native_crashes_are_distinct_from_gsc_compile_errors(self):
+        for text in ("A critical exception occured!", "Exception Code: 0xC0000005", "Oops! Plutonium ran into a problem and must be closed."):
+            self.assertIsNotNone(verify.NATIVE_FAILURE.search(text))
+        self.assertIsNone(verify.NATIVE_FAILURE.search("OUTLANDS_EXPANSION_V1|pass"))
+
+    def test_native_formatter_proof_requires_all_four_numbered_turns(self):
+        prefix='OUTLANDS_DIALOGUE_FIXTURE_V1|OUTLANDS_CHAT_V3|'
+        context='contract|allies|none|-1|none|combined_score|1|1000|1000|1|40'
+        lines=['OUTLANDS_EXPANSION_V1|pass']
+        names=('NightLedger','CopperWren','StaticBloom','RiftRunner')
+        for turn,name in enumerate(names,1):
+            request='fixture' if turn==1 else 'fixture_r'+str(turn)
+            speaker='match' if turn==1 else names[turn-2]
+            kind='banter' if turn==1 else 'bot_reply'
+            lines.append(prefix+'|'.join((request,str(turn),name,kind,'mp_raid','dom',speaker,'Fair, same here.',context,str(turn),'4')))
+        good='\n'.join(lines)
+        self.assertTrue(verify.assess_expansion(good)['passed'])
+        self.assertFalse(verify.assess_expansion('\n'.join(lines[:-1]))['passed'])
+        self.assertFalse(verify.assess_expansion(good.replace('fixture_r3','fixture_r4'))['passed'])
+        self.assertFalse(verify.assess_expansion('Player: '+good.replace('\n','\nPlayer: '))['passed'])
+        self.assertFalse(verify.assess_expansion(good+'\nOUTLANDS_EXPANSION_V1|failed')['passed'])
+
+
 class BackendReportTests(unittest.TestCase):
     def test_missing_map_preflight_fails_before_creating_state(self):
         class FakeDocker:

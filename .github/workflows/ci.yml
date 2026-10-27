@@ -30,6 +30,8 @@ jobs:
         run: python -B ai/bridge.py --check
       - name: Check synthetic rival chat without a model or game
         run: python -B ai/benchmark.py --mode fallback
+      - name: Check bounded expansion conversations without a model or game
+        run: python -B ai/conversation_benchmark.py --mode fallback
       - name: Audit distributable source and Bash syntax
         shell: bash
         run: |
