@@ -20,7 +20,7 @@ chat configuration, exercises both synthetic fallback benchmarks, audits the
 public source allowlist and checks Bash syntax on Linux. Windows runs the portable
 validation-harness fixtures, configuration, both benchmarks and source audit;
 POSIX permission/Wine regression suites remain on Linux. PowerShell parsing/setup
-fixtures run separately in the Windows CI job. Reports identify the platform and
+fixtures and portable weighted-rotation rules run separately in the Windows CI job. Reports identify the platform and
 coverage profile. No game, model, credentials or player saves are required by these source
 checks. Timeout, failed startup, a failing check or source changes during the
 run fail validation. Remaining checks still run after an individual failure.

@@ -258,7 +258,9 @@ fill_native_bots()
         }
         last_humans = counts.humans;
         last_target = target;
-        if ( counts.humans < 1 )
+        // Zero preserves the original no-audience controller-off behavior;
+        // existing bots (including manual/admin fixtures) are left alone.
+        if ( counts.humans < 1 && getdvarint( "outlands_bot_idle_fill" ) <= 0 )
         {
             failures = 0;
             cooldown = 0;
@@ -484,6 +486,14 @@ cooperative_menu_team( team )
 population_target( counts )
 {
     target = fill_target();
+    if ( counts.humans < 1 )
+    {
+        idle = getdvarint( "outlands_bot_idle_fill" );
+        if ( idle < 0 )
+            idle = 0;
+        if ( idle < target )
+            target = idle;
+    }
     if ( balanced_teams() )
     {
         active = target - counts.inactive_humans;

@@ -122,8 +122,9 @@ creates a native 9v7 bot fixture and requires repair to 8v8. It also disables
 placement/balance, requires the imbalance to persist under the disabled planner,
 then resumes and repairs again. The private fixture replaces a bot through native explicit-team creation,
 because ranked team menus reject changes after combat. Production
-fill still refuses to run without humans; the probe invokes the shared planner
-explicitly on real bots. Count-only capacity fixtures are labelled separately
+fill can run without humans using `outlands_bot_idle_fill`; the legacy lobby
+probe sets that value to zero and invokes the shared planner explicitly on real bots.
+The separate `--ambient-chat` assay uses the actual idle controller. Count-only capacity fixtures are labelled separately
 from human join acceptance. No bot is relabelled as human.
 
 Keep raw console logs, runtime state, addresses, profile data and private image

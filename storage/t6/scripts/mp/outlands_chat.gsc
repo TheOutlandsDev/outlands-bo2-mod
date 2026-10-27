@@ -145,7 +145,7 @@ request_chat( kind, speaker, text, parent_id, topic )
         return false;
 
     population = chat_population();
-    if ( population.humans < 1 || population.bots.size < 1 )
+    if ( ( population.humans < 1 && !getdvarint( "outlands_chat_without_humans" ) ) || population.bots.size < 1 )
         return false;
     eligible = [];
     preferred = [];
@@ -400,7 +400,7 @@ accept_response( response )
     if ( request.topic != "none" && gettime() - request.created > 15000 )
         return;
     population = chat_population();
-    if ( population.humans < 1 )
+    if ( population.humans < 1 && !getdvarint( "outlands_chat_without_humans" ) )
         return;
 
     level.outlands_chat_pending = undefined;

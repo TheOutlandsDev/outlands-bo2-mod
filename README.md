@@ -123,8 +123,7 @@ progress also depends on that client's saved profile.
 ## Bots and optional chat
 
 The current configuration has 16 player slots and targets 16 total players
-(8v8 in team modes), with native Hard difficulty. The original fill controller
-waits for a human, then polls throughout the match to refill vacant connection
+(8v8 in team modes), with native Hard difficulty. The fill controller maintains an idle AI match and polls throughout the match to refill vacant connection
 slots and adds native test clients at bounded intervals. Dead players still
 occupy slots and respawn through native rules. After three consecutive failed
 adds, the controller waits 10 seconds, then 20 and at most 30 seconds between
@@ -213,7 +212,8 @@ movement quality in gameplay separately from hook execution.
 Chat schedules bounded numbered exchanges after accepted native deliveries.
 Most conversations use two lines; occasional exchanges may use up to four.
 Human public-chat replies take priority. All turns share global/per-bot limits
-and stop when no humans remain. Verified contract completions create fresh chat
+and can continue without humans when `outlands_chat_without_humans 1` is set.
+`outlands_bot_idle_fill 16` keeps the native match populated. Verified contract completions create fresh chat
 opportunities, and followups need not repeat tactical nouns.
 Defaults are a 30-second opener interval, 12-second answer delay and at most
 six requested lines per minute. General replies react to the preceding line and fresh own-scoreboard context;
@@ -253,14 +253,19 @@ Use `python3 -B tools/content_inventory.py --game-dir /path/to/owned/BO2 --stric
 to check source rotation assets before hosting. The inventory distinguishes paid
 DLC and separately discovered Zombies files without distributing either.
 
-The configured rotation covers 15 multiplayer maps: 14 base maps plus Nuketown
-2025. Clients need the owned files for each selected map; this does not include every separately released DLC map.
+The [weighted rotation](docs/ROTATION.md) catalogs all 31 multiplayer maps,
+including all four DLC packs. Container hosting selects only installed maps;
+missing DLC is excluded until its owned files are supplied and the private image
+is rebuilt. Equal map weights give complete shuffled-deck coverage, recent-map
+protection and saved history across restarts. The static fallback covers the
+fourteen base maps plus Nuketown. Clients need the selected content too.
 
 Eight modes use native bot support: Free-for-All (`dm`), Team Deathmatch (`tdm`),
 Capture the Flag (`ctf`), Demolition (`dem`), Domination (`dom`), Hardpoint
 (`koth`), Headquarters (`hq`) and Kill Confirmed (`conf`). Each has its own
-gamesettings wrapper. Edit `sv_maprotation` in `storage/t6/outlands_t6.cfg` to
-choose the order. Difficulty changes take effect through fresh map
+gamesettings wrapper. Adjust map/mode weights in the private
+`outlands_rotation.json` catalog; the host preserves operator weights.
+`sv_maprotation` in the private CFG remains the fallback when the director is off. Difficulty changes take effect through fresh map
 initialization, including native combat tuning.
 
 All eight wrappers double the baseline time and score targets:
