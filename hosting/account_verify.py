@@ -27,7 +27,7 @@ def main():
     checks={}
     failure=False
     def call(*command,check=True):
-        result=subprocess.run([DOCKER,*command],cwd=ROOT,text=True,capture_output=True,timeout=60)
+        result=subprocess.run(["bash",DOCKER,*command],cwd=ROOT,text=True,capture_output=True,timeout=60)
         if check and result.returncode:
             error=args.report_dir/'error.log';error.write_text(result.stderr);error.chmod(0o600)
             raise RuntimeError('Fixture container action failed: '+command[0])
