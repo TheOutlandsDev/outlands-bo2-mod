@@ -317,8 +317,11 @@ def assess_expansion(text):
 def assess_ui(text, restart=False):
     markers = [line.strip() for line in ANSI.sub('', text).splitlines() if line.strip().startswith('OUTLANDS_UI_V1|')]
     expected = ['OUTLANDS_UI_V1|pass|29|6|16|0'] * (2 if restart else 1)
-    passed = markers == expected
-    return {'passed': passed, 'reasons': [] if passed else ['native UI presenter/render/cleanup evidence missing or failed'],
+    ingress = [line.strip() for line in ANSI.sub('', text).splitlines() if line.strip().startswith('OUTLANDS_COMMAND_INGRESS_V1|')]
+    ingress_expected = ['OUTLANDS_COMMAND_INGRESS_V1|pass|19|19|19|19|1|1|0'] * (2 if restart else 1)
+    passed = markers == expected and ingress == ingress_expected
+    return {'passed': passed, 'reasons': [] if passed else ['native UI or command ingress/render/cleanup evidence missing or failed'],
+            'native_sayall_sayteam_command_events': ingress == ingress_expected,
             'actual_human_commands': False, 'actual_client_rendering': False, 'native_bot_hud_fixture': True}
 
 
