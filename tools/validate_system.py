@@ -63,6 +63,9 @@ def pending_acceptance() -> dict:
         "ui_rendering_and_input_linux": {"status": "pending_real_client"},
         "mid_match_loadout_editor": {"status": "native_base_editor_requires_engine_and_real_client_acceptance"},
         "native_progression_after_ui_use": {"status": "pending_real_client"},
+        "google_account_login_https": {"status": "pending_registered_oauth_and_reviewed_https"},
+        "native_account_linking": {"status": "pending_real_human_pairing_and_two_account_acceptance"},
+        "native_save_portability": {"status": "not_implemented"},
     }
 
 
