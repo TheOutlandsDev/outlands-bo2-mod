@@ -45,6 +45,8 @@ verify_native_match()
         level thread verify_air_response();
     if ( getdvarint( "outlands_verify_expansion" ) )
         level thread verify_expansion();
+    if ( getdvarint( "outlands_verify_ui" ) )
+        level thread verify_ui();
 
     duration = getdvarint( "outlands_verify_seconds" );
     if ( duration < 30 )
@@ -665,4 +667,132 @@ verify_expansion()
         println( "OUTLANDS_EXPANSION_V1|pass" );
     else
         println( "OUTLANDS_EXPANSION_V1|failed" );
+}
+
+// Calls production presenters/HUD methods with actual native bots. It never
+// changes their identity/type or inserts a synthetic human career observation.
+verify_ui()
+{
+    level endon( "game_ended" );
+    players = get_players();
+    attempts = 0;
+    while ( players.size < 16 && attempts < 30 )
+    {
+        wait 1;
+        attempts++;
+        players = get_players();
+    }
+    career_fn = getfunction( "scripts/mp/outlands_ui", "career_view" );
+    task_fn = getfunction( "scripts/mp/outlands_ui", "contract_view" );
+    create_fn = getfunction( "scripts/mp/outlands_ui", "create_hud" );
+    draw_fn = getfunction( "scripts/mp/outlands_ui", "draw_view" );
+    destroy_fn = getfunction( "scripts/mp/outlands_ui", "destroy_hud" );
+    eligible_fn = getfunction( "scripts/mp/outlands_ui", "eligible" );
+    page_fn = getfunction( "scripts/mp/outlands_ui", "parse_action" );
+    goal_fn = getfunction( "scripts/mp/outlands_ui", "milestone_goal" );
+    width_fn = getfunction( "scripts/mp/outlands_ui", "bar_width" );
+    queue_fn = getfunction( "scripts/mp/outlands_operations", "queue_command" );
+    ok = isdefined( career_fn ) && isdefined( task_fn ) && isdefined( create_fn ) && isdefined( draw_fn ) && isdefined( destroy_fn ) && isdefined( eligible_fn ) && isdefined( page_fn ) && isdefined( goal_fn ) && isdefined( width_fn ) && isdefined( queue_fn );
+    if ( !ok || players.size != 16 )
+    {
+        println( "OUTLANDS_UI_V1|failed|missing_helpers" );
+        return;
+    }
+    foreach ( bot in players )
+        if ( !bot istestclient() || [[ eligible_fn ]]( bot ) || [[ queue_fn ]]( bot, "select", "assault" ) )
+            ok = false;
+    ok = ok && [[ page_fn ]]( "!outlands" ) == "toggle" && [[ page_fn ]]( "!outlands contracts" ) == "contracts" && [[ page_fn ]]( "!outlands focus" ) == "focus" && [[ page_fn ]]( "!outlands career;quit" ) == "none";
+    ok = ok && [[ goal_fn ]]( 24, "assault" ) == 25 && [[ goal_fn ]]( 25, "assault" ) == 100 && [[ goal_fn ]]( 100, "assault" ) == 250 && [[ goal_fn ]]( 999, "assault" ) == 250 && [[ goal_fn ]]( 3, "support" ) == 10;
+    ok = ok && [[ width_fn ]]( 0, 25 ) == 0 && [[ width_fn ]]( 25, 25 ) == 330 && [[ width_fn ]]( 1000000000, 25 ) == 330 && [[ width_fn ]]( 1, 0 ) == 0;
+    println( "OUTLANDS_UI_CHECK|commands_goals|" + ok );
+    loading = [[ career_fn ]]( undefined, 1000, 1 );
+    disabled = [[ career_fn ]]( undefined, 1000, 0 );
+    ok = ok && !loading.ready && loading.status == "LOADING CAREER" && !disabled.ready && disabled.status == "OPERATIONS DISABLED";
+    println( "OUTLANDS_UI_CHECK|loading|" + ok );
+    record = spawnstruct();
+    record.restored = 1;
+    record.acknowledged = 1000;
+    record.totals = array( 32, 2, 1 );
+    record.selected = "objective";
+    record.command = "none";
+    career = [[ career_fn ]]( record, 1000, 1 );
+    ok = ok && career.ready && career.milestones == 1 && career.selected == "objective";
+    println( "OUTLANDS_UI_CHECK|career|" + ok );
+    stale = [[ career_fn ]]( record, 46001, 1 );
+    future = [[ career_fn ]]( record, 999, 1 );
+    ok = ok && !stale.ready && !future.ready && !isdefined( stale.totals );
+    println( "OUTLANDS_UI_CHECK|freshness|" + ok );
+    record.selected = "injected";
+    invalid = [[ career_fn ]]( record, 1000, 1 );
+    ok = ok && !invalid.ready;
+    record.selected = "support";
+    record.totals = array( 25, 3, 3 );
+    complete = [[ career_fn ]]( record, 1000, 1 );
+    ok = ok && complete.ready && complete.milestones == 3 && complete.status == "BROKEN SIGNAL COMPLETE - FIELD REGULAR";
+    record.command = "select";
+    saving = [[ career_fn ]]( record, 1000, 1 );
+    ok = ok && saving.status == "SAVING FOCUS - WAIT FOR CONFIRMATION" && saving.selected == "support";
+    record.totals = array( -1, 3, 3 );
+    invalid = [[ career_fn ]]( record, 1000, 1 );
+    ok = ok && !invalid.ready;
+    println( "OUTLANDS_UI_CHECK|career_states|" + ok );
+    contract = spawnstruct();
+    contract.kind = "team_points";
+    contract.progress = 7;
+    contract.goal = 12;
+    contract.complete = 0;
+    contract.observed = 1000;
+    task = [[ task_fn ]]( contract, 1000, 31000, 1, 1 );
+    ok = ok && task.ready && task.seconds == 30 && task.progress == 7 && task.goal == 12;
+    println( "OUTLANDS_UI_CHECK|contract|" + ok );
+    stale_task = [[ task_fn ]]( contract, 6001, 31000, 1, 1 );
+    ffa = [[ task_fn ]]( contract, 1000, 31000, 1, 0 );
+    expired = [[ task_fn ]]( contract, 31000, 31000, 1, 1 );
+    ok = ok && !stale_task.ready && !ffa.ready && !expired.ready && !isdefined( expired.progress );
+    contract.complete = 1;
+    invalid_task = [[ task_fn ]]( contract, 1000, 31000, 1, 1 );
+    ok = ok && !invalid_task.ready;
+    contract.progress = 12;
+    completed_task = [[ task_fn ]]( contract, 1000, 31000, 1, 1 );
+    ok = ok && completed_task.ready && completed_task.status == "TEAM CONTRACT COMPLETE";
+    println( "OUTLANDS_UI_CHECK|contract_states|" + ok );
+    for ( cycle = 0; cycle < 6; cycle++ )
+    {
+        state = [[ create_fn ]]( players[0] );
+        println( "OUTLANDS_UI_CHECK|allocation|" + state.elements.size );
+        if ( state.elements.size != 29 || !state.open )
+            ok = false;
+        [[ draw_fn ]]( state, loading, ffa );
+        if ( state.heading.outlands_text != "OUTLANDS / OPERATIONS" || state.status.outlands_text != "LOADING CAREER" )
+            ok = false;
+        if ( state.rows[0].value.alpha != 0 || state.rows[0].empty.alpha != 1 || state.rows[0].bar.alpha != 0 )
+            ok = false;
+        [[ draw_fn ]]( state, disabled, expired );
+        [[ draw_fn ]]( state, stale, stale_task );
+        [[ draw_fn ]]( state, career, task );
+        if ( state.rows[0].value.alpha != 1 || state.rows[0].empty.alpha != 0 || state.rows[0].bar.alpha != 1 )
+            ok = false;
+        [[ draw_fn ]]( state, saving, task );
+        [[ draw_fn ]]( state, complete, completed_task );
+        state.page = "contracts";
+        [[ draw_fn ]]( state, complete, ffa );
+        if ( state.rows[2].empty.alpha != 0 || state.rows[0].value.alpha != 0 )
+            ok = false;
+        [[ draw_fn ]]( state, complete, expired );
+        [[ draw_fn ]]( state, complete, task );
+        [[ draw_fn ]]( state, complete, completed_task );
+        owned = state.elements;
+        [[ destroy_fn ]]( state );
+        [[ destroy_fn ]]( state );
+        foreach ( hud in owned )
+            if ( isdefined( hud ) )
+                ok = false;
+        if ( state.open || state.elements.size != 0 )
+            ok = false;
+        wait 0.05;
+    }
+    if ( ok )
+        println( "OUTLANDS_UI_V1|pass|29|6|0" );
+    else
+        println( "OUTLANDS_UI_V1|failed|presenter_or_cleanup" );
 }
