@@ -63,6 +63,7 @@ bind_editor( player )
         player thread listen_editor( action );
     }
     player thread close_editor_on( "death" );
+    player thread close_editor_on( "damage" );
     player thread close_editor_on( "spawned_player" );
     player waittill( "disconnect" );
 }
@@ -102,14 +103,14 @@ dispatch( player, action )
         scripts\mp\outlands_ui::destroy_hud( state );
         state = undefined;
     }
-    if ( isdefined( state ) && gettime() - state.last_action < 250 )
-        return false;
     if ( action == "close" || ( action == "toggle" && isdefined( state ) && state.open ) )
     {
         if ( isdefined( state ) )
             scripts\mp\outlands_ui::destroy_hud( state );
         return true;
     }
+    if ( isdefined( state ) && gettime() - state.last_action < 250 )
+        return false;
     if ( !isdefined( state ) || !state.open )
     {
         if ( action != "toggle" && action != "stock" )
@@ -120,8 +121,16 @@ dispatch( player, action )
             if ( isdefined( career ) )
                 scripts\mp\outlands_ui::destroy_hud( career );
         }
+        if ( !scripts\mp\outlands_ui::focus_gameplay( player ) )
+            return false;
         state = create_editor( player );
         level.outlands_armory_ui_owners[slot] = state;
+        if ( !scripts\mp\outlands_ui::capture_focus( state ) )
+        {
+            scripts\mp\outlands_ui::destroy_hud( state );
+            return false;
+        }
+        level thread scripts\mp\outlands_ui::focus_input( state );
     }
     state.last_action = gettime();
     state.deadline = gettime() + 40000;
@@ -180,6 +189,7 @@ create_editor( player )
         state.session = record.session;
     state.elements = [];
     state.row = 0;
+    state.domain = "armory";
     state.open = 1;
     state.last_action = -1000;
     state.deadline = gettime() + 40000;
@@ -203,8 +213,8 @@ create_editor( player )
     scripts\mp\outlands_ui::ui_label( state, 240, -155, 1.4, "/", soft );
     state.limit = scripts\mp\outlands_ui::ui_label( state, 260, -155, 1.4, "", soft );
     state.status = scripts\mp\outlands_ui::ui_label( state, -285, 113, 0.85, "LOADING SAVED CLASS", soft );
-    scripts\mp\outlands_ui::ui_label( state, -285, 133, 0.8, "F6 ROW / F7-F8 CHANGE / F9 SAVE / F11 EQUIP (optional binds)", soft );
-    scripts\mp\outlands_ui::ui_label( state, -285, 151, 0.8, "F5 CLOSE / Stock CAC retains attachments, wildcards and special equipment", soft );
+    scripts\mp\outlands_ui::ui_label( state, -285, 133, 0.8, "ADS/FIRE ROW | TACTICAL/LETHAL ITEM | USE SAVE | JUMP EQUIP", soft );
+    scripts\mp\outlands_ui::ui_label( state, -285, 151, 0.8, "MELEE CLOSE | Damage closes menu | Stock CAC keeps advanced equipment", soft );
     return state;
 }
 

@@ -1,5 +1,5 @@
 // Original opt-in Outlands HUD frontend. No client assets, stats or inventory
-// writes. Only private client HUD elements and fixed player-command callbacks.
+// writes. Private client HUD elements, fixed commands and bounded menu input.
 #include common_scripts\utility;
 
 main()
@@ -221,6 +221,7 @@ bind_commands( player )
     player thread listen( "outlands_ui_close", "close" );
     player thread close_on( "spawned_player" );
     player thread close_on( "death" );
+    player thread close_on( "damage" );
     player waittill( "disconnect" );
 }
 
@@ -270,14 +271,14 @@ dispatch( player, action )
         destroy_hud( state );
         state = undefined;
     }
-    if ( isdefined( state ) && gettime() - state.last_action < 250 )
-        return false;
     if ( action == "close" || ( action == "toggle" && isdefined( state ) && state.open ) )
     {
         if ( isdefined( state ) )
             destroy_hud( state );
         return true;
     }
+    if ( isdefined( state ) && gettime() - state.last_action < 250 )
+        return false;
     if ( !isdefined( state ) || !state.open )
     {
         if ( action == "next" || action == "focus" )
@@ -288,8 +289,16 @@ dispatch( player, action )
             if ( isdefined( editor ) )
                 destroy_hud( editor );
         }
+        if ( !focus_gameplay( player ) )
+            return false;
         state = create_hud( player );
         level.outlands_ui_owners[slot] = state;
+        if ( !capture_focus( state ) )
+        {
+            destroy_hud( state );
+            return false;
+        }
+        level thread focus_input( state );
     }
     state.last_action = gettime();
     state.deadline = gettime() + 40000;
@@ -454,6 +463,7 @@ create_hud( player )
     state.elements = [];
     state.open = 1;
     state.page = "career";
+    state.domain = "ui";
     state.previous_page = "career";
     state.last_action = -1000;
     state.saving_until = 0;
@@ -485,7 +495,7 @@ create_hud( player )
     }
     state.detail = ui_label( state, -115, 111, 1.0, "", amber );
     state.status = ui_label( state, -285, 142, 0.85, "", soft );
-    state.footer = ui_label( state, -285, 157, 0.85, "F6 MENU / F7 PAGE / F8 FOCUS / F9 CLOSE (optional bindings)", soft );
+    state.footer = ui_label( state, -285, 157, 0.85, "ADS/FIRE PAGE | USE FOCUS | JUMP ARMORY | MELEE CLOSE", soft );
     return state;
 }
 
@@ -590,6 +600,7 @@ destroy_hud( state )
 {
     if ( !isdefined( state ) )
         return;
+    release_focus( state );
     foreach ( hud in state.elements )
         if ( isdefined( hud ) )
             hud destroy();
@@ -603,4 +614,164 @@ finish()
     for ( slot = 0; slot <= 17; slot++ )
         if ( isdefined( level.outlands_ui_owners[slot] ) )
             destroy_hud( level.outlands_ui_owners[slot] );
+}
+
+
+// A menu owns gameplay focus only during a living, active on-foot session.
+// No binds, god mode, player stats or native pause/menu definitions are changed.
+focus_gameplay( player )
+{
+    if ( !isdefined( player ) || !isplayer( player ) || !isalive( player ) )
+        return false;
+    if ( !isdefined( player.sessionstate ) || player.sessionstate != "playing" || !isdefined( player.pers["team"] ) || player.pers["team"] == "spectator" )
+        return false;
+    if ( !isdefined( game["state"] ) || game["state"] != "playing" || ( isdefined( level.gameended ) && level.gameended ) || ( isdefined( level.inprematchperiod ) && level.inprematchperiod ) )
+        return false;
+    if ( isdefined( level.hostmigrationtimer ) || player isremotecontrolling() )
+        return false;
+    return true;
+}
+
+// Lower-level native control primitive; the dispatchers enforce human-only
+// access. Disposable tests may exercise this primitive with an actual bot.
+capture_focus( state )
+{
+    if ( !isdefined( state ) || !state.open || !focus_gameplay( state.owner ) )
+        return false;
+    player = state.owner;
+    if ( isdefined( player.outlands_menu_focus ) )
+        return player.outlands_menu_focus == state;
+    state.focused = 1;
+    state.focus_team = player.pers["team"];
+    state.input = new_input();
+    player.outlands_menu_focus = state;
+    player freezecontrols( 1 );
+    return true;
+}
+
+release_focus( state )
+{
+    if ( !isdefined( state.focused ) || !state.focused )
+        return;
+    state.focused = 0;
+    player = state.owner;
+    if ( !isdefined( player ) || !isplayer( player ) || !isdefined( player.outlands_menu_focus ) || player.outlands_menu_focus != state )
+        return;
+    player.outlands_menu_focus = undefined;
+    // Native death, prematch, migration and round-end rules retain their freeze.
+    // The next normal spawn/prematch path restores its own controls.
+    if ( focus_gameplay( player ) )
+        player maps\mp\_utility::freezecontrolswrapper( 0 );
+}
+
+new_input()
+{
+    input = spawnstruct();
+    input.armed = 0;
+    input.previous = "none";
+    input.repeat_at = 0;
+    return input;
+}
+
+input_step( input, action, now )
+{
+    // Release held buttons after opening or switching overlays. Save/Equip/Close
+    // are edge-triggered; only row/item/page navigation repeats while held.
+    if ( !input.armed )
+    {
+        if ( action == "none" )
+            input.armed = 1;
+        return "none";
+    }
+    if ( action == "none" )
+    {
+        input.previous = "none";
+        return "none";
+    }
+    if ( input.previous != action )
+    {
+        input.previous = action;
+        input.repeat_at = now + 450;
+        return action;
+    }
+    repeating = action == "up" || action == "down" || action == "prev" || action == "next" || action == "page";
+    if ( repeating && now >= input.repeat_at )
+    {
+        input.repeat_at = now + 300;
+        return action;
+    }
+    return "none";
+}
+
+read_menu_action( player, domain )
+{
+    if ( player meleebuttonpressed() )
+        return "close";
+    if ( player usebuttonpressed() )
+    {
+        if ( domain == "armory" )
+            return "save";
+        return "focus";
+    }
+    if ( player jumpbuttonpressed() )
+    {
+        if ( domain == "armory" )
+            return "equip";
+        return "armory";
+    }
+    if ( player secondaryoffhandbuttonpressed() && !player fragbuttonpressed() )
+    {
+        if ( domain == "armory" )
+            return "prev";
+        return "page";
+    }
+    if ( player fragbuttonpressed() && !player secondaryoffhandbuttonpressed() )
+    {
+        if ( domain == "armory" )
+            return "next";
+        return "page";
+    }
+    if ( player adsbuttonpressed() && !player attackbuttonpressed() )
+    {
+        if ( domain == "armory" )
+            return "up";
+        return "page";
+    }
+    if ( player attackbuttonpressed() && !player adsbuttonpressed() )
+    {
+        if ( domain == "armory" )
+            return "down";
+        return "page";
+    }
+    return "none";
+}
+
+focus_input( state )
+{
+    level endon( "game_ended" );
+    while ( state.open && isdefined( state.focused ) && state.focused )
+    {
+        player = state.owner;
+        if ( !eligible( player ) || !focus_gameplay( player ) || player.pers["team"] != state.focus_team || !isdefined( player.outlands_menu_focus ) || player.outlands_menu_focus != state || gettime() >= state.deadline )
+        {
+            destroy_hud( state );
+            return;
+        }
+        action = input_step( state.input, read_menu_action( player, state.domain ), gettime() );
+        if ( action != "none" )
+        {
+            if ( action == "armory" )
+                accepted = scripts\mp\outlands_armory_ui::dispatch( player, "toggle" );
+            else if ( state.domain == "armory" )
+                accepted = scripts\mp\outlands_armory_ui::dispatch( player, action );
+            else
+            {
+                if ( action == "page" )
+                    action = "next";
+                accepted = dispatch( player, action );
+            }
+            command_result( player, "menu", action, accepted );
+        }
+        wait 0.05;
+    }
 }
