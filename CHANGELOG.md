@@ -2,6 +2,10 @@
 
 ## Unreleased — cooperative lobbies, grounded task chat, squads, contracts and rivals
 
+- Fix offline account bootstrap on runtime-owned mode-700 volumes without
+  adding FOWNER capability. Add a disposable configure/enroll/start/restart
+  container assay to Linux CI, including overwrite refusal, private permissions,
+  anonymous API refusal and fixture cleanup.
 - Add a disabled-by-default personal account preview: Google authorization-code
   login with official signature verification, private browser sessions, one-use
   native linking, server-scoped read-only stat snapshots and a responsive account
