@@ -33,7 +33,7 @@ def observation(**changes):
     attachments = frozenset((weapon, attachment) for weapon, combinations in cat.combinations.items()
                             for combination in combinations for attachment in combination)
     return replace(a.Observation("abcd12", "session_1", "map_1", 4, 10000, cat.revision, 10,
-                                  frozenset(cat.items), attachments), **changes)
+                                  frozenset(cat.items), attachments, True, True, True), **changes)
 
 
 def loadout():
@@ -72,6 +72,10 @@ class ValidatorTests(unittest.TestCase):
         self.rejects("allocation_exceeded", obs=observation(allocation=9))
         for maximum in (True, 0, 11, 10.0, "10"):
             self.rejects("catalog_unavailable", obs=observation(allocation=maximum))
+
+    def test_create_a_class_feature_requires_explicit_native_unlock(self):
+        for value in (False, None, 1, "true"):
+            self.rejects("create_a_class_locked", obs=observation(can_customize=value))
 
     def test_missing_stale_future_and_changed_observation_rejected(self):
         for now in (9999, 15001, -1, True, 1.0):
@@ -310,7 +314,7 @@ class StoreQueueTests(unittest.TestCase):
         self.save()
         for changes in ({"unlocked_items": self.obs.unlocked_items - {"rifle"}},
                         {"unlocked_attachments": frozenset()}, {"allocation": 9},
-                        {"observed_ms": 1}, {"catalog_revision": "changed"}):
+                        {"observed_ms": 1}, {"catalog_revision": "changed"}, {"can_customize": False}):
             self.queue.enqueue(self.obs, 1, 10000)
             with self.assertRaises(a.Rejected):
                 self.queue.claim(replace(self.obs, spawn=5, **changes), 10000)
