@@ -1,0 +1,12 @@
+**
+!portal/
+!portal/portal.py
+!portal/web/
+!portal/web/index.html
+!portal/web/app.css
+!portal/web/app.js
+!ai/
+!ai/personalities.json
+!storage/
+!storage/t6/
+!storage/t6/outlands_rotation.json
