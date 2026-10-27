@@ -15,6 +15,14 @@ SPEC.loader.exec_module(host)
 
 
 class HostStateTests(unittest.TestCase):
+    def test_accounts_default_off_and_enable_without_touching_saves(self):
+        self.assertIn(Path('scripts/mp/outlands_accounts.gsc'),host.MOD_PAYLOADS)
+        host.configure_mod(None)
+        self.assertEqual(self.value('outlands_accounts'),'0')
+        with patch.dict(os.environ,{'T6_ACCOUNTS_ENABLED':'1'}):host.configure_mod(None)
+        self.assertEqual(self.value('outlands_accounts'),'1')
+        self.assertEqual(self.stats.read_bytes(),self.original_stats)
+        with patch.dict(os.environ,{'T6_ACCOUNTS_ENABLED':'invalid'}),self.assertRaises(host.StartupError):host.configure_mod(None)
     def test_rotation_catalog_preserves_private_operator_weights(self):
         target = self.storage / 'outlands_rotation.json'
         target.write_text('synthetic private operator weights')
