@@ -223,7 +223,8 @@ never changes human progression or grants native equipment unlocks.
 A private ledger survives worker/server restarts and deduplicates snapshots.
 Chat can use each bot's own fresh scoreboard context, career and prior bot-to-bot
 familiarity. Familiarity is recorded only after native delivery acknowledgement;
-human identities and chat text are excluded from persistent storage. Native
+human identities and chat text are excluded from bot career storage. The separate
+Operations ledger uses salted identity keys for human milestones. Native
 pathfinding and combat remain authoritative. The AI hosting profile enables
 careers independently of the chat switch, using a separate private volume.
 
