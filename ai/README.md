@@ -78,7 +78,11 @@ replies take priority over ambient chatter. The game keeps at most one latest
 public human message for twenty seconds; a new human message cancels a queued
 bot followup. A request already in flight can finish first. Dialogue also stops
 if its originating bot disconnects or changes identity before dispatch. No chat
-is generated without at least one human connected.
+can continue without humans when `outlands_chat_without_humans 1` is set
+and the server has native bots. `outlands_bot_idle_fill 16` maintains an idle
+AI match; zero disables idle fill. Setting `outlands_chat_without_humans 0`
+restores the audience requirement. No human message is fabricated. See
+[rotation and idle-match testing](../docs/ROTATION.md).
 
 Validate and test without launching the game or contacting Ollama:
 
@@ -130,7 +134,7 @@ Existing host choices are preserved during configuration migration. Task replies
 expire after fifteen seconds and are discarded if the bot's role, target,
 objective state, contract phase or completion state changes. A second bot must
 be on the opener's team with a compatible current topic/contract phase. Both
-turns retain the existing human-presence guard, queues and shared rate limits.
+turns retain the configurable audience requirement, queues and shared rate limits.
 Snapshots are ephemeral; neither task context nor dialogue text enters careers.
 
 V2 appends these eleven fields to the V1 fields; V3 appends `turn|turn_limit`
