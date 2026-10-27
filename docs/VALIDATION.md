@@ -11,6 +11,17 @@ identities, addresses, profiles and raw logs outside the public repository.
 From the project root:
 
 ```sh
+python3 -B tools/validate_system.py
+```
+
+This writes a source-bound private report and runs the checks below plus both
+fallback chat benchmarks and Linux Bash parsing. It leaves native/UI/client
+acceptance explicit. See [UI development gates](UI-VALIDATION.md) for the screen,
+input and future mid-match class-editor acceptance requirements.
+
+Individual checks remain available:
+
+```sh
 python3 -B -m unittest discover -s tests -v
 python3 -B -m unittest discover -s ai/tests -v
 python3 -B ai/bridge.py --check
