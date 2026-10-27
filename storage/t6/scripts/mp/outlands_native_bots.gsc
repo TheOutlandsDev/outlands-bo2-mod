@@ -258,7 +258,9 @@ fill_native_bots()
         }
         last_humans = counts.humans;
         last_target = target;
-        if ( counts.humans < 1 && target < 1 && counts.bots.size < 1 )
+        // Zero preserves the original no-audience controller-off behavior;
+        // existing bots (including manual/admin fixtures) are left alone.
+        if ( counts.humans < 1 && getdvarint( "outlands_bot_idle_fill" ) <= 0 )
         {
             failures = 0;
             cooldown = 0;
