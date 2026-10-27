@@ -40,7 +40,7 @@ not enter the persistent career ledger.
 
 The existing short public-chat context remains ephemeral. Native chat requires
 a human in the match; bot-only backend tests do not bypass that rule. Human
-replies retain priority, conversations end after two lines, and all rate limits,
+replies retain priority, conversations end at their explicit two-to-four-line limit, and all rate limits,
 identity checks and off switches remain active. A model outage uses canned chat.
 The model does not control combat or learn a new pathfinder.
 
@@ -120,3 +120,6 @@ Persistent player-strategy imitation,
 route learning, a Zombies integration and complete DLC compatibility need
 separate implementation and acceptance. Supplying original assets is separate
 from shipping original mod code.
+
+Signal Four is a featured character group described in [Operations](OPERATIONS.md).
+Its personality context does not imply current team membership or new combat AI.

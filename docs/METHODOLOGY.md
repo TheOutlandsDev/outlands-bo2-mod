@@ -134,8 +134,8 @@ character set. Before `sayall`, GSC checks the exact pending ID, native bot stat
 slot/name, current request lifetime and enabled state. Slots reused by humans
 cannot receive bot speech.
 
-Ambient conversation has at most an opener and one answer by another bot.
-Human public-chat replies take priority and cancel queued followups. Both turns
+Ambient conversation uses explicit numbered turns, usually two and at most four.
+Human public-chat replies take priority and cancel queued followups. All turns
 share global, per-bot and per-minute budgets. Context is short-lived, no chat is
 generated without humans, and team/hidden chat is excluded. The worker stores
 no persistent chat text; its short model context stays in memory. Console events
@@ -208,9 +208,9 @@ human-perceived balance. Those remain a gameplay test with earned streaks.
 ## Responsive casual chat
 
 Ambient openers default to thirty seconds and a second bot may answer after
-twelve seconds. Both turns and public human replies share a six-request minute
+twelve seconds. All turns and public human replies share a six-request minute
 budget, a ten-second global gap and a forty-five-second per-bot cooldown. Failed
-requests consume that budget too. An exchange remains bounded to two bots.
+requests consume that budget too. An exchange remains bounded to four delivered lines.
 
 The worker classifies only the recipient bot's fresh own public scoreboard,
 separately from fictional career totals. General prompts and fallback lines can
@@ -224,3 +224,14 @@ A host can apply these numeric chat dvars live and recreate only the worker to
 load generator changes. Preserve other host settings and the rival ledger;
 read back live dvars and require new native delivery ACKs. Game restarts are not
 required when the installed GSC protocol remains unchanged.
+
+
+## Separate challenge careers
+
+[Outlands Operations](OPERATIONS.md) observes human kills and personally
+contributed team-contract completions. A deterministic worker commits milestones
+to a separate salted private ledger before returning a bounded notification
+profile. The model neither sees human identities nor awards rewards. Native XP,
+DDL, equipment and saves remain unchanged. Synthetic restart/retry/atomic-write
+tests and isolated native bot-exclusion checks are separate from later real-client
+identity and command-delivery acceptance.
