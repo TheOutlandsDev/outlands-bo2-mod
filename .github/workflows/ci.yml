@@ -22,27 +22,15 @@ jobs:
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.11'
-      - name: Setup, hosting and release regression tests
-        run: python -B -m unittest discover -s tests -v
-      - name: AI boundary and transport regression tests
-        run: python -B -m unittest discover -s ai/tests -v
-      - name: Validate chat configuration
-        run: python -B ai/bridge.py --check
-      - name: Check synthetic rival chat without a model or game
-        run: python -B ai/benchmark.py --mode fallback
-      - name: Check bounded expansion conversations without a model or game
-        run: python -B ai/conversation_benchmark.py --mode fallback
-      - name: Audit distributable source and Bash syntax
-        shell: bash
-        run: |
-          python -B tools/build_release.py
-          python -B - <<'PY'
-          import subprocess
-          from tools.build_release import public_files
-          for source in public_files():
-              if source.suffix == '.sh':
-                  subprocess.run(['bash', '-n', str(source)], check=True)
-          PY
+      - name: Validate source and record acceptance boundaries
+        run: python -B tools/validate_system.py --report-dir runtime/validation
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: validation-linux
+          path: runtime/validation/report.json
+          if-no-files-found: error
+          retention-days: 14
 
   windows:
     name: Windows PowerShell client checks
@@ -52,9 +40,21 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.11'
       - name: Parse scripts and test synthetic client setup
         shell: powershell
         run: '& ./tests/test_windows_client.ps1'
+      - name: Validate source and record acceptance boundaries
+        run: python -B tools/validate_system.py --report-dir runtime/validation
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: validation-windows
+          path: runtime/validation/report.json
+          if-no-files-found: error
+          retention-days: 14
 
   package:
     name: Build audited dev preview
