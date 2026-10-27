@@ -227,7 +227,7 @@ def model_reply_usable(event: Event, reply: str) -> bool:
         return False
     if event.final_turn and is_final_question(reply):
         return False
-    if re.search(r"\b(?:synergy|synergize|leverage|facilitate|optimize|optimization|collaborate|collaboration|certainly)\b|\b(?:how can i|happy to|here to) (?:assist|help)\b|\b(?:i recommend|fresh mindset|as an ai)\b", reply, re.I):
+    if re.search(r"\b(?:synergy|synergize|leverage|facilitate|optimize|optimization|collaborate|collaboration|certainly)\b|\b(?:how can i|happy to|here to) (?:assist|help)\b|\b(?:i recommend|fresh mindset|as an ai|keep it light|keep things light|light and focused)\b", reply, re.I):
         return False
     if event.kind in ("banter", "round_end"):
         context = words(event.text)
@@ -397,6 +397,8 @@ def scoreboard_reply_usable(event, context, line):
     focus = scoreboard_focus(context)
     if focus != "reset":
         return True
+    if re.search(r"\b(?:your|youve|you've)\b",line,re.I):
+        return False
     return bool(re.search(r"\b(?:rough|deaths?|dying|reset|struggling|feeding|tough|cooked|rethink|regroup|cleaner|stop|breath|aim|fights?)\b|slow down|giving away|not my|not going|not clicking|different approach",line,re.I))
 
 
