@@ -79,7 +79,7 @@ class ExpansionReportTests(unittest.TestCase):
 
 class BackendReportTests(unittest.TestCase):
     def test_ui_requires_exact_native_allocation_cleanup_evidence_per_stage(self):
-        good = 'OUTLANDS_UI_V1|pass|29|6|0'
+        good = 'OUTLANDS_UI_V1|pass|29|6|16|0'
         result = verify.assess_ui(good)
         self.assertTrue(result['passed'])
         self.assertFalse(result['actual_human_commands'])
@@ -96,6 +96,15 @@ class BackendReportTests(unittest.TestCase):
         enabled = verify.config_for(verify.Case('mp_raid','dom'),60,False,False,ui=True)
         self.assertNotIn('set outlands_verify_ui 1',plain)
         self.assertIn('set outlands_ui 1\nset outlands_verify_ui 1',enabled)
+
+    def test_restart_plan_names_full_reload_and_keeps_client_acceptance_separate(self):
+        with patch('builtins.print') as output:
+            self.assertEqual(verify.main(['--restart','--ui','--case','mp_slums:dm']),0)
+        plan = json.loads(output.call_args.args[0])
+        self.assertEqual(plan['native_restart_method'],'same_map_reload')
+        self.assertTrue(plan['ui'])
+        self.assertFalse(plan['human_clients'])
+        self.assertFalse(plan['live_state'])
 
     def test_missing_map_preflight_fails_before_creating_state(self):
         class FakeDocker:
