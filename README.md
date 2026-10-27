@@ -11,8 +11,8 @@ optional local Ollama chat, and client setup helpers. See the
 [validation guide](docs/VALIDATION.md) for reproducible checks.
 
 Developers can run `python -B tools/validate_system.py` for an offline regression
-report tied to the audited source. Planned menu and mid-match class editing
-have separate [UI acceptance gates](docs/UI-VALIDATION.md); source checks do not
+report tied to the audited source. The opt-in [Career/Contracts HUD](docs/UI.md)
+and planned mid-match class editing have separate [UI acceptance gates](docs/UI-VALIDATION.md); source checks do not
 establish a rendered or usable client interface.
 
 This repository contains original mod source and setup tools. Supply your own
