@@ -1,0 +1,172 @@
+{
+  "schema_version": 1,
+  "recent_maps": 5,
+  "recent_modes": 2,
+  "maps": {
+    "mp_la": {
+      "name": "Aftermath",
+      "pack": "base",
+      "weight": 1
+    },
+    "mp_dockside": {
+      "name": "Cargo",
+      "pack": "base",
+      "weight": 1
+    },
+    "mp_carrier": {
+      "name": "Carrier",
+      "pack": "base",
+      "weight": 1
+    },
+    "mp_drone": {
+      "name": "Drone",
+      "pack": "base",
+      "weight": 1
+    },
+    "mp_express": {
+      "name": "Express",
+      "pack": "base",
+      "weight": 1
+    },
+    "mp_hijacked": {
+      "name": "Hijacked",
+      "pack": "base",
+      "weight": 1
+    },
+    "mp_meltdown": {
+      "name": "Meltdown",
+      "pack": "base",
+      "weight": 1
+    },
+    "mp_overflow": {
+      "name": "Overflow",
+      "pack": "base",
+      "weight": 1
+    },
+    "mp_nightclub": {
+      "name": "Plaza",
+      "pack": "base",
+      "weight": 1
+    },
+    "mp_raid": {
+      "name": "Raid",
+      "pack": "base",
+      "weight": 1
+    },
+    "mp_slums": {
+      "name": "Slums",
+      "pack": "base",
+      "weight": 1
+    },
+    "mp_village": {
+      "name": "Standoff",
+      "pack": "base",
+      "weight": 1
+    },
+    "mp_turbine": {
+      "name": "Turbine",
+      "pack": "base",
+      "weight": 1
+    },
+    "mp_socotra": {
+      "name": "Yemen",
+      "pack": "base",
+      "weight": 1
+    },
+    "mp_nuketown_2020": {
+      "name": "Nuketown 2025",
+      "pack": "nuketown_bonus",
+      "weight": 1
+    },
+    "mp_downhill": {
+      "name": "Downhill",
+      "pack": "revolution",
+      "weight": 1
+    },
+    "mp_mirage": {
+      "name": "Mirage",
+      "pack": "revolution",
+      "weight": 1
+    },
+    "mp_hydro": {
+      "name": "Hydro",
+      "pack": "revolution",
+      "weight": 1
+    },
+    "mp_skate": {
+      "name": "Grind",
+      "pack": "revolution",
+      "weight": 1
+    },
+    "mp_concert": {
+      "name": "Encore",
+      "pack": "uprising",
+      "weight": 1
+    },
+    "mp_magma": {
+      "name": "Magma",
+      "pack": "uprising",
+      "weight": 1
+    },
+    "mp_vertigo": {
+      "name": "Vertigo",
+      "pack": "uprising",
+      "weight": 1
+    },
+    "mp_studio": {
+      "name": "Studio",
+      "pack": "uprising",
+      "weight": 1
+    },
+    "mp_uplink": {
+      "name": "Uplink",
+      "pack": "vengeance",
+      "weight": 1
+    },
+    "mp_bridge": {
+      "name": "Detour",
+      "pack": "vengeance",
+      "weight": 1
+    },
+    "mp_castaway": {
+      "name": "Cove",
+      "pack": "vengeance",
+      "weight": 1
+    },
+    "mp_paintball": {
+      "name": "Rush",
+      "pack": "vengeance",
+      "weight": 1
+    },
+    "mp_dig": {
+      "name": "Dig",
+      "pack": "apocalypse",
+      "weight": 1
+    },
+    "mp_frostbite": {
+      "name": "Frost",
+      "pack": "apocalypse",
+      "weight": 1
+    },
+    "mp_pod": {
+      "name": "Pod",
+      "pack": "apocalypse",
+      "weight": 1
+    },
+    "mp_takeoff": {
+      "name": "Takeoff",
+      "pack": "apocalypse",
+      "weight": 1
+    }
+  },
+  "modes": {
+    "dom": 3,
+    "tdm": 3,
+    "conf": 3,
+    "koth": 2,
+    "ctf": 2,
+    "dem": 2,
+    "hq": 1,
+    "dm": 1
+  }
+}
