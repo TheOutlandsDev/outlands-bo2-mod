@@ -54,7 +54,8 @@ Set `outlands_rotation 0` in the private server CFG to use its static rotation.
 `outlands_bot_idle_fill 16` keeps native AI matches running on an empty server.
 It is capped by `outlands_bot_fill` and `sv_maxclients`; joining humans replace
 bots through the existing native policy. Team balance and cooperative human-team
-rules still apply. Set idle fill to zero to drain bots when nobody is connected.
+rules still apply. Set idle fill to zero to stop managing an empty lobby;
+existing bots are left alone, preserving the original no-audience behavior.
 Human XP, unlocks, saves and the separate human Operations ledger are unchanged
 by an all-bot match. Fictional bot careers can continue to progress.
 

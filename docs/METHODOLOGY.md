@@ -68,7 +68,7 @@ verified bots from an oversized side before adding native bots to the smaller
 side, even when the lobby is already full. Unassigned bots get time to initialize.
 Spectator connections reserve slots; the active budget rounds down to an even
 total to avoid a remove/add loop. Configurable idle fill keeps an all-bot match
-running without humans; setting its target to zero drains the idle lobby.
+running without humans; zero disables idle management and leaves existing bots alone.
 Both settings default on and migrate only when absent from host configuration.
 
 Each mode wrapper resets native defaults before loading its matching mode and
