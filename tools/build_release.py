@@ -22,7 +22,7 @@ HOST_FILES = {"README.md", ".gitignore", ".env.example", "Dockerfile", "Dockerfi
               "compose.smoke.yaml", "compose.ai.yaml", "compose.dockhand.yaml",
               "compose.dockhand.ai.yaml", "manage.sh", "docker.sh", "entrypoint.py",
               "healthcheck.py", "store_key.py", "prepare_package.py", "setup_host.py", "export_invite.py",
-              "backend_verify.py", "verification.gsc", "rotation.py", "rotation_verify.py", "compose.portal.yaml", "compose.accounts.yaml"}
+              "backend_verify.py", "verification.gsc", "rotation.py", "rotation_verify.py", "compose.portal.yaml", "compose.accounts.yaml", "account_verify.py"}
 AI_FILES = {"README.md", "Dockerfile", "Modelfile", "bridge.py", "tests/test_bridge.py", "armory.py", "tests/test_armory.py", "armory_native.py", "tests/test_armory_native.py",
             "config.example.json", "personalities.json", "careers.py", "tests/test_careers.py", "benchmark.py", "tactics.py", "tests/test_tactics.py", "operations.py", "conversation_benchmark.py", "tests/test_operations.py", "tests/test_dialogue_v3.py"}
 TOOL_FILES = {"build_release.py", "client_settings.py", "install_files.py", "play_lan_windows.ps1",
