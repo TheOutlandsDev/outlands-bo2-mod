@@ -2,6 +2,14 @@
 
 ## Unreleased — cooperative lobbies, grounded task chat, squads, contracts and rivals
 
+- Add the single-slot Armory backend with trusted unlock observations, a bounded
+  Pick-10 subset, attachment combinations, wildcard/slot checks, private atomic
+  revisioned saves and an at-most-once next-spawn claim queue. Revalidate unlocks
+  at claim time and preserve the previous slot on rejected or failed saves.
+  Add portable rule tests and a disposable native class-reference spawn probe.
+  This is a backend library; native arbitrary-class materialization, human
+  unlock transport, Tactician and an in-game editor are not enabled.
+
 - Add an opt-in native Career/Contracts HUD using acknowledged personal careers
   and fresh current-team task counters. Share the guarded focus queue with chat,
   hide unavailable values, use numeric HUD counters, and bound overlay lifetime

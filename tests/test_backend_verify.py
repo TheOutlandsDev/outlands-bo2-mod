@@ -78,6 +78,21 @@ class ExpansionReportTests(unittest.TestCase):
 
 
 class BackendReportTests(unittest.TestCase):
+    def test_armory_proof_requires_native_staging_and_next_spawn_but_not_humans(self):
+        good = 'OUTLANDS_ARMORY_V1|pass|5|1|1|1|1|1'
+        result = verify.assess_armory(good)
+        self.assertTrue(result['passed'])
+        self.assertFalse(result['actual_human_unlocks'])
+        self.assertFalse(result['custom_class_materialization'])
+        self.assertFalse(result['actual_client_editor'])
+        self.assertTrue(verify.assess_armory(good+'\n'+good,restart=True)['passed'])
+        for bad in ('', 'Player: '+good, good+'\n'+good, good+'\nOUTLANDS_ARMORY_V1|failed',
+                    good.replace('|5|','|0|'), good[:-1]+'0', 'OUTLANDS_ARMORY_V1|pass'):
+            self.assertFalse(verify.assess_armory(bad)['passed'])
+        self.assertFalse(verify.assess_armory(good,restart=True)['passed'])
+        cfg = verify.config_for(verify.Case('mp_raid','dom'),60,False,False,armory=True)
+        self.assertIn('set outlands_verify_armory 1',cfg)
+
     def test_ui_requires_exact_native_allocation_cleanup_evidence_per_stage(self):
         good = 'OUTLANDS_UI_V1|pass|29|6|16|0'
         result = verify.assess_ui(good)

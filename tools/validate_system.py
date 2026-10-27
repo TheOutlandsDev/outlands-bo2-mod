@@ -61,7 +61,7 @@ def pending_acceptance() -> dict:
         "ui_data_and_navigation": {"status": "native_hud_preview_requires_engine_and_client_checks"},
         "ui_rendering_and_input_windows": {"status": "pending_real_client"},
         "ui_rendering_and_input_linux": {"status": "pending_real_client"},
-        "mid_match_loadout_editor": {"status": "not_implemented"},
+        "mid_match_loadout_editor": {"status": "backend_rules_and_queue_only_native_adapter_pending"},
         "native_progression_after_ui_use": {"status": "pending_real_client"},
     }
 

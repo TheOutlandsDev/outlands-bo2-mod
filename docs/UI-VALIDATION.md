@@ -2,7 +2,9 @@
 
 Career and contract data feed an opt-in [native HUD preview](UI.md). Its actual
 client rendering and input are not yet accepted. A full client menu and
-mid-match loadout editor do not yet exist. The following gates define how to
+mid-match loadout editor do not yet exist. The [Armory backend](ARMORY.md) supplies
+single-slot validation/storage/queue code; native materialization and the
+human unlock adapter remain pending. The following gates define how to
 build and accept them. A backend pass is separate from a rendered UI pass.
 
 ## Repeatable offline baseline
