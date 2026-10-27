@@ -73,6 +73,17 @@ Each player must choose a different name and retain it across launches. Private
 connection settings are saved separately in `outlands_join.cfg`. Setup does not
 copy player saves, unlock content or change the stat source.
 
+### Direct joining and commands
+
+The canonical join method is the game console command
+`connect SERVER_ADDRESS:SERVER_PORT`, using the host's privately supplied
+Tailscale endpoint. The legacy join CFG is an optional local shortcut, not a
+second server. Use direct `connect` if that shortcut is missing or fails.
+
+After spawning, type `!outlands help` in in-game text chat, or
+`say !outlands help` in the game console. See the [command reference](docs/COMMANDS.md)
+for Career, Contracts and Armory commands, optional keys and test boundaries.
+
 ### Windows checks and direct joining
 
 Follow the [Windows setup and validation guide](docs/WINDOWS.md) to verify the

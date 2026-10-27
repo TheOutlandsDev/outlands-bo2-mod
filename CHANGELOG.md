@@ -2,6 +2,14 @@
 
 ## Unreleased — cooperative lobbies, grounded task chat, squads, contracts and rivals
 
+- Repair Outlands command parsing for native two-byte chat prefixes across
+  Career, Contracts, Operations and Armory. Normalize case/spacing and hidden
+  forms, give private readiness feedback and identity-free command results, and
+  use hidden `say` commands in optional key CFGs. Keep human chat/model privacy
+  checks strict. Require nineteen real native all/team chat events in UI backend
+  acceptance. Document direct `connect` as the canonical joining method with
+  deployment details kept private; real human input/rendering remains a client gate.
+
 - Add a 31-map multiplayer catalog and weighted installed-map decks, independent
   mode weights, recent-map protection and private restart history. Hand off the
   next native rotation through a map-scoped mailbox; retain static fallback and
