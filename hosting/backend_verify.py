@@ -25,6 +25,7 @@ LABEL = "org.outlands.backend-verification"
 MODES = frozenset(("dm", "tdm", "ctf", "dem", "dom", "koth", "hq", "conf"))
 CASE = re.compile(r"(mp_[a-z0-9_]{1,40}):(dm|tdm|ctf|dem|dom|koth|hq|conf)\Z")
 FAILURE = re.compile(r"(?:terminal\s+)?script(?:\s+(?:compile|runtime))?\s+error|could not resolve function|unresolved external|unknown function|error compiling", re.I)
+NATIVE_FAILURE = re.compile(r"A critical exception occu(?:r|rr)ed!|Exception Code: 0x[0-9a-f]+|Oops! Plutonium ran into a problem", re.I)
 ANSI = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 SCORE_LIMITS = {"tdm": 200, "dm": 60, "conf": 150, "ctf": 6, "dem": 4, "dom": 200, "hq": 500, "koth": 500}
 FIELDS = ("stage", "bots", "humans", "alive", "playing", "identities", "roles", "careers", "kills", "deaths", "score", "moved", "prematch", "invalid", "pools", "patrols", "scorelimit")
@@ -370,7 +371,7 @@ def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool
         while time.monotonic() - started < timeout:
             all_logs = docker.call("logs", container, check=False)
             samples = parse_samples(all_logs)
-            if FAILURE.search(all_logs):
+            if FAILURE.search(all_logs) or NATIVE_FAILURE.search(all_logs):
                 break
             stages = {s["stage"] for s in samples if s["kind"] == "complete"}
             if careers and 0 in stages and not worker_restarted:
@@ -413,13 +414,14 @@ def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool
                 report["reasons"].extend(report["runtime_switches"]["reasons"])
         report.update({"elapsed_seconds": round(time.monotonic() - started, 2),
                        "observation_completed": observed, "script_error": bool(FAILURE.search(all_logs)),
+                       "native_crash": bool(NATIVE_FAILURE.search(all_logs)),
                        "network_mode": "none", "published_ports": False,
                        "game_image": details["Image"],
                        "worker_image": json.loads(docker.call("inspect", worker))[0]["Image"] if worker else None})
         if careers:
             after = career_summary(docker, worker)
             preserved = ledger_before is not None and all(after["xp"].get(name, -1) >= xp for name, xp in ledger_before["xp"].items())
-            if process_restart:
+            if process_restart and observed and not NATIVE_FAILURE.search(all_logs):
                 # Restart the actual server process with its same disposable state.
                 # Keep the worker alive while the game shuts down to consume final events.
                 docker.call("stop", "-t", "15", container)
@@ -440,7 +442,7 @@ def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool
                     if not all_logs.startswith(previous):
                         raise RuntimeError("Verification log prefix changed across process restart")
                     current = all_logs[len(previous):]
-                    if FAILURE.search(current) or any(x["kind"] == "complete" for x in parse_samples(current)):
+                    if FAILURE.search(current) or NATIVE_FAILURE.search(current) or any(x["kind"] == "complete" for x in parse_samples(current)):
                         break
                     if docker.call("inspect", "--format", "{{.State.Status}}", container) in ("exited", "dead"):
                         break
@@ -453,7 +455,7 @@ def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool
                         process_result['reasons'].extend(process_result['chat_context']['reasons'])
                 after_process = career_summary(docker, worker)
                 process_preserved = all(after_process["xp"].get(name, -1) >= xp for name, xp in after["xp"].items())
-                report["server_process_restart"] = {"passed": process_result["passed"] and process_preserved and not FAILURE.search(current),
+                report["server_process_restart"] = {"passed": process_result["passed"] and process_preserved and not FAILURE.search(current) and not NATIVE_FAILURE.search(current),
                                                      "aggregate_preserved": process_preserved, "samples": process_result["samples"],
                                                      "reasons": process_result["reasons"],
                                                      "chat_context": process_result.get("chat_context")}
@@ -466,6 +468,9 @@ def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool
             if not preserved or after["earned_xp"] < 1:
                 report["passed"] = False
                 report["reasons"].append("career aggregate did not survive worker restart or earn native score deltas")
+        if report["native_crash"]:
+            report["passed"] = False
+            report["reasons"].append("native Plutonium exception detected; no automatic acceptance after recovery")
         if report["script_error"]:
             report["passed"] = False
             report["reasons"].append("native script error detected")
