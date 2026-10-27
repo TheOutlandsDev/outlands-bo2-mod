@@ -10,6 +10,11 @@ optional local Ollama chat, and client setup helpers. See the
 [implementation methodology](docs/METHODOLOGY.md) for architecture and
 [validation guide](docs/VALIDATION.md) for reproducible checks.
 
+Developers can run `python -B tools/validate_system.py` for an offline regression
+report tied to the audited source. Planned menu and mid-match class editing
+have separate [UI acceptance gates](docs/UI-VALIDATION.md); source checks do not
+establish a rendered or usable client interface.
+
 This repository contains original mod source and setup tools. Supply your own
 legitimate BO2 installation. Game files, Plutonium binaries, model weights,
 private invites, credentials and player saves are not distributed here.

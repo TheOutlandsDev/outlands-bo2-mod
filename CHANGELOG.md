@@ -2,6 +2,11 @@
 
 ## Unreleased — cooperative lobbies, grounded task chat, squads, contracts and rivals
 
+- Add one offline validation command with private logs, a source-bound summary,
+  timeout/failure handling and explicit pending UI/client gates. Configure both
+  CI platforms to retain sanitized summaries and define graphical menu/loadout
+  acceptance before those features are implemented.
+
 - Add optional persistent Outlands milestone careers, three contribution tracks,
   a first Broken Signal commendation and focus/view chat commands. Keep native
   human progression separate and protect private state with salted identities,
