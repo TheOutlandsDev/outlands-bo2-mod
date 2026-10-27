@@ -130,7 +130,9 @@ request_restart()
         setdvar( "outlands_verify_restarted", 1 );
         println( "OUTLANDS_VERIFY_V1|restart_requested" );
         wait 2;
-        map_restart( 1 );
+        // Full same-map reload, not a halftime/round-preserving restart.
+        // map_restart variants can leave all-bot FFA occupants unspawned.
+        cmdexec( "map " + getdvar( "mapname" ) );
     }
 }
 
@@ -692,7 +694,8 @@ verify_ui()
     goal_fn = getfunction( "scripts/mp/outlands_ui", "milestone_goal" );
     width_fn = getfunction( "scripts/mp/outlands_ui", "bar_width" );
     queue_fn = getfunction( "scripts/mp/outlands_operations", "queue_command" );
-    ok = isdefined( career_fn ) && isdefined( task_fn ) && isdefined( create_fn ) && isdefined( draw_fn ) && isdefined( destroy_fn ) && isdefined( eligible_fn ) && isdefined( page_fn ) && isdefined( goal_fn ) && isdefined( width_fn ) && isdefined( queue_fn );
+    command_fn = getfunction( "scripts/mp/outlands_chat", "ui_command" );
+    ok = isdefined( career_fn ) && isdefined( task_fn ) && isdefined( create_fn ) && isdefined( draw_fn ) && isdefined( destroy_fn ) && isdefined( eligible_fn ) && isdefined( page_fn ) && isdefined( goal_fn ) && isdefined( width_fn ) && isdefined( queue_fn ) && isdefined( command_fn );
     if ( !ok || players.size != 16 )
     {
         println( "OUTLANDS_UI_V1|failed|missing_helpers" );
@@ -702,6 +705,7 @@ verify_ui()
         if ( !bot istestclient() || [[ eligible_fn ]]( bot ) || [[ queue_fn ]]( bot, "select", "assault" ) )
             ok = false;
     ok = ok && [[ page_fn ]]( "!outlands" ) == "toggle" && [[ page_fn ]]( "!outlands contracts" ) == "contracts" && [[ page_fn ]]( "!outlands focus" ) == "focus" && [[ page_fn ]]( "!outlands career;quit" ) == "none";
+    ok = ok && [[ command_fn ]]( "!outlands" ) && [[ command_fn ]]( "!outlands contracts" ) && [[ command_fn ]]( "!track objective" ) && ![[ command_fn ]]( "good round" ) && ![[ command_fn ]]( "!outlandsjunk" );
     ok = ok && [[ goal_fn ]]( 24, "assault" ) == 25 && [[ goal_fn ]]( 25, "assault" ) == 100 && [[ goal_fn ]]( 100, "assault" ) == 250 && [[ goal_fn ]]( 999, "assault" ) == 250 && [[ goal_fn ]]( 3, "support" ) == 10;
     ok = ok && [[ width_fn ]]( 0, 25 ) == 0 && [[ width_fn ]]( 25, 25 ) == 330 && [[ width_fn ]]( 1000000000, 25 ) == 330 && [[ width_fn ]]( 1, 0 ) == 0;
     println( "OUTLANDS_UI_CHECK|commands_goals|" + ok );
@@ -791,8 +795,25 @@ verify_ui()
             ok = false;
         wait 0.05;
     }
+    simultaneous = [];
+    foreach ( bot in players )
+    {
+        state = [[ create_fn ]]( bot );
+        simultaneous[simultaneous.size] = state;
+        [[ draw_fn ]]( state, complete, completed_task );
+        if ( state.elements.size != 29 )
+            ok = false;
+    }
+    foreach ( state in simultaneous )
+    {
+        owned = state.elements;
+        [[ destroy_fn ]]( state );
+        foreach ( hud in owned )
+            if ( isdefined( hud ) )
+                ok = false;
+    }
     if ( ok )
-        println( "OUTLANDS_UI_V1|pass|29|6|0" );
+        println( "OUTLANDS_UI_V1|pass|29|6|16|0" );
     else
         println( "OUTLANDS_UI_V1|failed|presenter_or_cleanup" );
 }

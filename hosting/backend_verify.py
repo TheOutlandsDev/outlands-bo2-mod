@@ -284,7 +284,7 @@ def assess_expansion(text):
 
 def assess_ui(text, restart=False):
     markers = [line.strip() for line in ANSI.sub('', text).splitlines() if line.strip().startswith('OUTLANDS_UI_V1|')]
-    expected = ['OUTLANDS_UI_V1|pass|29|6|0'] * (2 if restart else 1)
+    expected = ['OUTLANDS_UI_V1|pass|29|6|16|0'] * (2 if restart else 1)
     passed = markers == expected
     return {'passed': passed, 'reasons': [] if passed else ['native UI presenter/render/cleanup evidence missing or failed'],
             'actual_human_commands': False, 'actual_client_rendering': False, 'native_bot_hud_fixture': True}
@@ -559,7 +559,7 @@ def main(argv=None) -> int:
         if args.lobby_balance and (any(c.mode=='dm' for c in cases) or args.seconds<90 or args.switches or args.process_restart or args.restart):
             raise ValueError('Lobby verification needs team modes, at least 90 seconds and no restart/switch flags')
         plan = {"server_process_restart": args.process_restart, "careers": args.careers, "squads": args.squads, "contracts": args.contracts, "contract_test_thresholds": args.contracts, "cases": [asdict(case) for case in cases], "seconds": args.seconds,
-                "native_restart": args.restart, "runtime_switches": args.switches, "chat_context":args.chat_context, "lobby_balance":args.lobby_balance, "air_response":args.air_response, "expansion":args.expansion, "ui":args.ui, "network_mode": "none", "published_ports": False,
+                "native_restart": args.restart, "native_restart_method": "same_map_reload" if args.restart else None, "runtime_switches": args.switches, "chat_context":args.chat_context, "lobby_balance":args.lobby_balance, "air_response":args.air_response, "expansion":args.expansion, "ui":args.ui, "network_mode": "none", "published_ports": False,
                 "human_clients": False, "live_state": False}
         if not args.run:
             print(json.dumps(plan, indent=2))
