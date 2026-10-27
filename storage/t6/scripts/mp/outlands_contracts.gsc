@@ -282,6 +282,9 @@ update_contracts()
             record.commendations = level.outlands_contracts_commendations[team];
             announce( team, "^2Contract complete! Team commendations: " + record.commendations );
             diagnostic( "complete", team, record );
+            milestone = getfunction( "scripts/mp/outlands_operations", "contract_completed" );
+            if ( isdefined( milestone ) )
+                [[ milestone ]]( team, record.kind, level.outlands_contracts_phase );
         }
         if ( !record.complete && gettime() - record.last_hint >= 30000 )
         {

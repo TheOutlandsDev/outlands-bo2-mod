@@ -1,6 +1,6 @@
 // Original local chat bridge for The Outlands BO2 Mod.
 // Native AI movement/combat and all human stats remain under the stock game.
-// Python reads OUTLANDS_CHAT_V2 lines from the private console log and returns
+// Python reads OUTLANDS_CHAT_V3 lines from the private console log and returns
 // one fixed-format response dvar through loopback-restricted RCON.
 #include common_scripts\utility;
 
@@ -28,6 +28,8 @@ init()
     level.outlands_chat_pending = undefined;
     level.outlands_chat_human_pending = undefined;
     level.outlands_chat_dialogue_pending = undefined;
+    level.outlands_chat_moment = undefined;
+    level.outlands_chat_observed_contracts = [];
     level.outlands_chat_request_times = [];
     level.outlands_chat_next_request = gettime() + 15000;
     setdvar( "outlands_chat_response", "" );
@@ -35,6 +37,7 @@ init()
     level thread watch_public_chat();
     level thread periodic_banter();
     level thread consume_responses();
+    level thread watch_moments();
 }
 
 bounded_seconds( name, fallback, minimum, maximum )
@@ -138,7 +141,7 @@ request_chat( kind, speaker, text, parent_id, topic )
         return false;
     if ( kind == "banter" && isdefined( level.outlands_chat_dialogue_pending ) )
         return false;
-    if ( kind == "bot_reply" && ( !getdvarint( "outlands_chat_dialogue" ) || parent_id == "" || parent_id.size > 62 ) )
+    if ( kind == "bot_reply" && ( !getdvarint( "outlands_chat_dialogue" ) || parent_id == "" || parent_id.size > 61 ) )
         return false;
 
     population = chat_population();
@@ -159,6 +162,8 @@ request_chat( kind, speaker, text, parent_id, topic )
         if ( kind == "bot_reply" && candidate_context.topic != topic )
             continue;
         if ( kind == "bot_reply" && topic == "contract" && candidate_context.key != level.outlands_chat_dialogue_pending.context_key )
+            continue;
+        if ( kind == "banter" && isdefined( level.outlands_chat_moment ) && ( candidate_context.team != level.outlands_chat_moment.team || candidate_context.key != level.outlands_chat_moment.key ) )
             continue;
         eligible[eligible.size] = candidate;
         if ( topic != "none" && candidate_context.topic == topic )
@@ -182,8 +187,20 @@ request_chat( kind, speaker, text, parent_id, topic )
     level.outlands_chat_sequence++;
     request = spawnstruct();
     request.id = level.outlands_chat_epoch + "_" + level.outlands_chat_sequence;
+    request.turn = 1;
+    request.turn_limit = 2;
+    request.root_id = request.id;
+    if ( kind == "banter" && randomint( 100 ) < 35 )
+        request.turn_limit = bounded_seconds( "outlands_chat_turn_limit", 4, 2, 4 );
     if ( kind == "bot_reply" )
-        request.id = parent_id + "_r";
+    {
+        request.turn = level.outlands_chat_dialogue_pending.turn + 1;
+        request.turn_limit = level.outlands_chat_dialogue_pending.turn_limit;
+        if ( request.turn > request.turn_limit )
+            return false;
+        request.root_id = parent_id;
+        request.id = parent_id + "_r" + request.turn;
+    }
     request.kind = kind;
     request.bot = bot;
     request.slot = bot getentitynumber();
@@ -200,7 +217,7 @@ request_chat( kind, speaker, text, parent_id, topic )
     bot.outlands_chat_next_request = gettime() + bot_cooldown * 1000;
     level.outlands_chat_request_times[level.outlands_chat_request_times.size] = gettime();
 
-    println( "OUTLANDS_CHAT_V2|" + request.id + "|" + request.slot + "|" + request.name + "|" + kind + "|" + safe_field( getdvar( "mapname" ), 32 ) + "|" + safe_field( getdvar( "g_gametype" ), 16 ) + "|" + safe_field( speaker, 24 ) + "|" + safe_field( text, 240 ) + "|" + context.wire );
+    println( event_line( request, speaker, text, context ) );
     return true;
 }
 
@@ -235,7 +252,10 @@ dispatch_queued_chat()
         return;
     }
     if ( !isdefined( level.outlands_chat_dialogue_pending ) )
+    {
+        dispatch_moment();
         return;
+    }
     dialogue = level.outlands_chat_dialogue_pending;
     speaker = dialogue.bot;
     if ( gettime() > dialogue.expires || !isdefined( speaker ) || !isplayer( speaker ) || !speaker istestclient() )
@@ -254,7 +274,7 @@ dispatch_queued_chat()
         level.outlands_chat_dialogue_pending = undefined;
         return;
     }
-    if ( gettime() >= dialogue.ready && request_chat( "bot_reply", dialogue.name, dialogue.text, dialogue.parent_id, dialogue.topic ) )
+    if ( gettime() >= dialogue.ready && request_chat( "bot_reply", dialogue.name, dialogue.text, dialogue.root_id, dialogue.topic ) )
         level.outlands_chat_dialogue_pending = undefined;
 }
 
@@ -279,6 +299,8 @@ watch_public_chat()
         if ( message.size > 1 && getsubstr( message, 1, 2 ) == "/" )
             continue;
         public_text = safe_field( message, 240 );
+        if ( public_text == "!career" || public_text == "!track assault" || public_text == "!track objective" || public_text == "!track support" )
+            continue;
         if ( public_text == "" )
             continue;
         queue_human_reply( player, public_text );
@@ -292,7 +314,7 @@ periodic_banter()
     {
         interval = bounded_seconds( "outlands_chat_interval", 60, 30, 600 );
         wait interval;
-        if ( getdvarint( "outlands_chat_enabled" ) )
+        if ( getdvarint( "outlands_chat_enabled" ) && !isdefined( level.outlands_chat_moment ) )
         {
             topics = array( "squad", "objective", "contract", "none" );
             topic = topics[level.outlands_chat_topic % topics.size];
@@ -313,6 +335,7 @@ consume_responses()
             level.outlands_chat_pending = undefined;
             level.outlands_chat_human_pending = undefined;
             level.outlands_chat_dialogue_pending = undefined;
+            level.outlands_chat_moment = undefined;
             setdvar( "outlands_chat_response", "" );
             continue;
         }
@@ -377,16 +400,18 @@ accept_response( response )
     bot sayall( fields[3] );
     println( "OUTLANDS_CHAT_ACK_V1|" + request.id + "|" + request.slot + "|" + request.name + "|" + request.kind );
     println( "Outlands chat: native speaker delivered one bounded response. kind=" + request.kind );
-    // Only an accepted opener can schedule one second turn. Bot replies and
-    // human replies never extend a conversation, and bot say events are ignored.
-    if ( request.kind == "banter" && getdvarint( "outlands_chat_dialogue" ) && !isdefined( level.outlands_chat_human_pending ) )
+    // Only an accepted native delivery can schedule the next numbered turn.
+    // The hard limit, shared budgets, current state and human priority apply.
+    if ( ( request.kind == "banter" || request.kind == "bot_reply" ) && request.turn < request.turn_limit && getdvarint( "outlands_chat_dialogue" ) && !isdefined( level.outlands_chat_human_pending ) )
     {
         dialogue = spawnstruct();
         dialogue.bot = bot;
         dialogue.slot = request.slot;
         dialogue.name = request.name;
         dialogue.text = fields[3];
-        dialogue.parent_id = request.id;
+        dialogue.root_id = request.root_id;
+        dialogue.turn = request.turn;
+        dialogue.turn_limit = request.turn_limit;
         dialogue.topic = request.topic;
         dialogue.team = request.team;
         dialogue.context_key = request.context_key;
@@ -467,4 +492,52 @@ task_context( bot, topic )
     else
         result.key = result.topic + "|" + result.team + "|" + role + "|" + target + "|" + state + "|" + kind + "|" + phase + "|" + complete;
     return result;
+}
+
+
+watch_moments()
+{
+    level endon( "game_ended" );
+    for (;;)
+    {
+        wait 2;
+        if ( !getdvarint( "outlands_chat_enabled" ) || !getdvarint( "outlands_chat_tactical" ) || !getdvarint( "outlands_contracts" ) || !isdefined( level.outlands_contracts_active ) || !level.outlands_contracts_active )
+            continue;
+        foreach ( team in array( "allies", "axis" ) )
+        {
+            record = level.outlands_contracts_records[team];
+            if ( !isdefined( record ) || !record.complete )
+                continue;
+            phase = level.outlands_contracts_phase;
+            if ( isdefined( level.outlands_chat_observed_contracts[team] ) && level.outlands_chat_observed_contracts[team] == phase )
+                continue;
+            level.outlands_chat_observed_contracts[team] = phase;
+            moment = spawnstruct();
+            moment.team = team;
+            moment.key = "contract|" + team + "|" + record.kind + "|" + phase + "|1";
+            moment.expires = gettime() + 15000;
+            moment.phase = phase;
+            level.outlands_chat_moment = moment;
+        }
+    }
+}
+
+dispatch_moment()
+{
+    if ( !isdefined( level.outlands_chat_moment ) )
+        return;
+    moment = level.outlands_chat_moment;
+    if ( gettime() > moment.expires || !getdvarint( "outlands_chat_tactical" ) || !getdvarint( "outlands_contracts" ) || !isdefined( level.outlands_contracts_active ) || !level.outlands_contracts_active || level.outlands_contracts_phase != moment.phase )
+    {
+        level.outlands_chat_moment = undefined;
+        return;
+    }
+    if ( request_chat( "banter", "match", "Your team's current contract has just completed. React briefly.", "", "contract" ) )
+        level.outlands_chat_moment = undefined;
+}
+
+
+event_line( request, speaker, text, context )
+{
+    return "OUTLANDS_CHAT_V3|" + request.id + "|" + request.slot + "|" + request.name + "|" + request.kind + "|" + safe_field( getdvar( "mapname" ), 32 ) + "|" + safe_field( getdvar( "g_gametype" ), 16 ) + "|" + safe_field( speaker, 24 ) + "|" + safe_field( text, 240 ) + "|" + context.wire + "|" + request.turn + "|" + request.turn_limit;
 }
