@@ -7,6 +7,7 @@ services:
     environment:
       T6_CHAT_ENABLED: "1"
       T6_CAREERS_ENABLED: "1"
+      T6_OPERATIONS_ENABLED: "1"
   ollama:
     image: outlands-bo2-ollama:local
     build:
@@ -46,6 +47,7 @@ services:
     environment:
       T6_CHAT_ENABLED: "1"
       T6_CAREERS_ENABLED: "1"
+      T6_OPERATIONS_ENABLED: "1"
       OLLAMA_URL: http://ollama:11434
       OLLAMA_MODEL: outlands-bo2-chat
       T6_CHAT_RCON_PORT: ${T6_PORT:-4977}

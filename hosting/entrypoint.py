@@ -52,6 +52,7 @@ MOD_PAYLOADS = (
     Path("scripts/mp/outlands_bot_careers.gsc"),
     Path("scripts/mp/outlands_squads.gsc"),
     Path("scripts/mp/outlands_contracts.gsc"),
+    Path("scripts/mp/outlands_operations.gsc"),
 )
 
 
@@ -266,7 +267,7 @@ def configure_mod(name: str | None) -> tuple[str, str]:
                     "outlands_contract_seconds", "outlands_contract_seed", "outlands_contract_goal_scale",
                     "outlands_chat_cooldown", "outlands_chat_interval", "outlands_chat_timeout",
                     "outlands_chat_dialogue", "outlands_chat_tactical", "outlands_chat_dialogue_delay", "outlands_chat_bot_cooldown",
-                    "outlands_chat_max_per_minute"):
+                    "outlands_chat_max_per_minute", "outlands_chat_turn_limit"):
         if not list(assignment_pattern(setting).finditer(content)):
             source_matches = list(assignment_pattern(setting).finditer(source_cfg))
             if len(source_matches) == 1:
@@ -296,7 +297,10 @@ def configure_mod(name: str | None) -> tuple[str, str]:
     careers_enabled = os.environ.get("T6_CAREERS_ENABLED", "0")
     if careers_enabled not in ("0", "1"):
         raise StartupError("T6_CAREERS_ENABLED must be 0 or 1")
-    control_enabled = enabled == "1" or careers_enabled == "1"
+    operations_enabled = os.environ.get("T6_OPERATIONS_ENABLED", "0")
+    if operations_enabled not in ("0", "1"):
+        raise StartupError("T6_OPERATIONS_ENABLED must be 0 or 1")
+    control_enabled = enabled == "1" or careers_enabled == "1" or operations_enabled == "1"
     control_secret = ""
     if control_enabled:
         secret_path = DATA / "private/outlands_rcon_password"
@@ -312,6 +316,7 @@ def configure_mod(name: str | None) -> tuple[str, str]:
     # RCON serves only the optional local worker's fixed chat/career mailboxes.
     # The model never supplies a console command or controls human progression.
     for command, value in (("outlands_chat_enabled", enabled), ("outlands_bot_careers", careers_enabled),
+                           ("outlands_operations", operations_enabled),
                            ("rcon_password", control_secret)):
         content = assignment_pattern(command).sub("", content)
         content += f'\nset {command} "{value}"\n'
