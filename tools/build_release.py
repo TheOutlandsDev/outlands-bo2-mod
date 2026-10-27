@@ -29,7 +29,7 @@ TOOL_FILES = {"build_release.py", "client_settings.py", "install_files.py", "pla
               "preflight.py", "setup_client.py", "windows_client.ps1", "content_inventory.py", "contract_rules.py", "validate_system.py"}
 TEST_FILES = {"test_client_setup.py", "test_host_setup.py", "test_host_state.py", "test_release.py",
               "test_windows_client.ps1", "test_backend_verify.py", "test_content_inventory.py", "test_contract_rules.py", "test_system_validation.py"}
-DOC_FILES = {"VALIDATION.md", "RELEASING.md", "WINDOWS.md", "METHODOLOGY.md", "RIVALS.md", "SQUADS-CONTRACTS.md", "OPERATIONS.md", "UI-VALIDATION.md"}
+DOC_FILES = {"VALIDATION.md", "RELEASING.md", "WINDOWS.md", "METHODOLOGY.md", "RIVALS.md", "SQUADS-CONTRACTS.md", "OPERATIONS.md", "UI-VALIDATION.md", "UI.md"}
 WORKFLOW_FILES = {"ci.yml", "release.yml"}
 STORAGE_FILES = {"storage/t6/outlands_t6.cfg", "storage/t6/gamesettings/outlands_tdm.cfg",
                  "storage/t6/gamesettings/outlands_dm.cfg", "storage/t6/gamesettings/outlands_ctf.cfg",
@@ -40,7 +40,7 @@ STORAGE_FILES = {"storage/t6/outlands_t6.cfg", "storage/t6/gamesettings/outlands
                  "storage/t6/scripts/mp/outlands_bot_identity.gsc", "storage/t6/scripts/mp/outlands_bot_profiles.gsc",
                  "storage/t6/scripts/mp/outlands_bot_careers.gsc",
                  "storage/t6/scripts/mp/outlands_squads.gsc", "storage/t6/scripts/mp/outlands_contracts.gsc",
-                 "storage/t6/scripts/mp/outlands_chat.gsc", "storage/t6/scripts/mp/outlands_operations.gsc", "storage/t6/bots.txt"}
+                 "storage/t6/scripts/mp/outlands_chat.gsc", "storage/t6/scripts/mp/outlands_operations.gsc", "storage/t6/scripts/mp/outlands_ui.gsc", "storage/t6/outlands_ui_keys.cfg", "storage/t6/bots.txt"}
 PUBLIC_PATHS = frozenset(ROOT_FILES | STORAGE_FILES
                         | {"hosting/" + name for name in HOST_FILES}
                         | {"ai/" + name for name in AI_FILES}
