@@ -78,6 +78,25 @@ class ExpansionReportTests(unittest.TestCase):
 
 
 class BackendReportTests(unittest.TestCase):
+    def test_ui_requires_exact_native_allocation_cleanup_evidence_per_stage(self):
+        good = 'OUTLANDS_UI_V1|pass|29|6|0'
+        result = verify.assess_ui(good)
+        self.assertTrue(result['passed'])
+        self.assertFalse(result['actual_human_commands'])
+        self.assertFalse(result['actual_client_rendering'])
+        self.assertTrue(verify.assess_ui(good+'\n'+good, restart=True)['passed'])
+        for bad in ('', 'Player: '+good, good+'\n'+good,
+                    good.replace('|0','|1'), good+'\nOUTLANDS_UI_V1|failed',
+                    'OUTLANDS_UI_V1|pass'):
+            self.assertFalse(verify.assess_ui(bad)['passed'])
+        self.assertFalse(verify.assess_ui(good, restart=True)['passed'])
+
+    def test_ui_probe_switch_is_explicit_and_disposable(self):
+        plain = verify.config_for(verify.Case('mp_raid','dom'),60,False,False)
+        enabled = verify.config_for(verify.Case('mp_raid','dom'),60,False,False,ui=True)
+        self.assertNotIn('set outlands_verify_ui 1',plain)
+        self.assertIn('set outlands_ui 1\nset outlands_verify_ui 1',enabled)
+
     def test_missing_map_preflight_fails_before_creating_state(self):
         class FakeDocker:
             def __init__(self, output):self.output=output;self.calls=[]

@@ -15,6 +15,16 @@ SPEC.loader.exec_module(host)
 
 
 class HostStateTests(unittest.TestCase):
+    def test_ui_payload_is_installed_without_rebinding_keys_or_overriding_host_choice(self):
+        self.assertIn(Path('scripts/mp/outlands_ui.gsc'),host.MOD_PAYLOADS)
+        self.assertIn(Path('outlands_ui_keys.cfg'),host.MOD_PAYLOADS)
+        self.cfg.write_text(self.cfg.read_text()+'\nset outlands_ui 1\n')
+        before = self.stats.read_bytes()
+        host.configure_mod(None)
+        self.assertEqual(self.value('outlands_ui'),'1')
+        self.assertEqual(self.stats.read_bytes(),before)
+        self.assertNotIn('exec outlands_ui_keys.cfg',self.cfg.read_text())
+
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix="outlands-host-state-")
         self.addCleanup(temporary.cleanup)
