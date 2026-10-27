@@ -78,6 +78,22 @@ class ExpansionReportTests(unittest.TestCase):
 
 
 class BackendReportTests(unittest.TestCase):
+    def test_idle_chat_requires_matching_native_acks_and_different_speaker(self):
+        context = 'none|none|none|-1|none|none|0|0|0|0|0'
+        root = 'OUTLANDS_CHAT_V3|ambient|1|NightLedger|banter|mp_raid|dom|match|A current team task.|' + context + '|1|2'
+        child = 'OUTLANDS_CHAT_V3|ambient_r2|2|CopperWren|bot_reply|mp_raid|dom|NightLedger|Fair, same here.|' + context + '|2|2'
+        first_ack = 'OUTLANDS_CHAT_ACK_V1|ambient|1|NightLedger|banter'
+        last_ack = 'OUTLANDS_CHAT_ACK_V1|ambient_r2|2|CopperWren|bot_reply'
+        sample = line(kind='sample', playing=16)
+        good = '\n'.join((sample, root, first_ack, child, last_ack))
+        self.assertTrue(verify.assess_ambient_chat(good)['passed'])
+        for bad in (good.replace(last_ack, ''), good.replace('|2|CopperWren|bot_reply', '|3|CopperWren|bot_reply', 1),
+                    good.replace(child, ''), 'Player: ' + good.replace('\n', '\nPlayer: ')):
+            self.assertFalse(verify.assess_ambient_chat(bad)['passed'])
+        cfg = verify.config_for(verify.Case('mp_raid','dom'),90,False,False,ambient_chat=True)
+        self.assertIn('set outlands_chat_without_humans 1', cfg)
+        self.assertIn('set outlands_rotation 0', cfg)
+
     def test_armory_editor_requires_full_native_grant_and_hud_receipt(self):
         good='OUTLANDS_ARMORY_EDITOR_V2|pass|7|25|6|2|0'
         result=verify.assess_armory_editor(good)

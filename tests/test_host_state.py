@@ -15,6 +15,12 @@ SPEC.loader.exec_module(host)
 
 
 class HostStateTests(unittest.TestCase):
+    def test_rotation_catalog_preserves_private_operator_weights(self):
+        target = self.storage / 'outlands_rotation.json'
+        target.write_text('synthetic private operator weights')
+        host.configure_mod(None)
+        self.assertEqual(target.read_text(), 'synthetic private operator weights')
+
     def test_armory_is_independently_opt_in_and_does_not_touch_stats_or_bindings(self):
         for path in ('scripts/mp/outlands_armory.gsc','scripts/mp/outlands_armory_ui.gsc','outlands_armory_keys.cfg'):
             self.assertIn(Path(path),host.MOD_PAYLOADS)
