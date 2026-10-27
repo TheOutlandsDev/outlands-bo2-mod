@@ -145,9 +145,13 @@ private reports for the exact image and selected map/mode pairs.
 
 The source tests cover private atomic ledger writes, replay/counter-reset
 handling, roster restrictions, current-context freshness and delivery ACKs.
-No-human runs keep production chat's human-presence guard intact. Synthetic
-chat fixtures and a native function call are separate from a full human-chat
-interaction acceptance result.
+The older `--chat-context` run explicitly tests the optional human-audience
+guard with no-audience chat disabled. The new `--ambient-chat` run enables
+production idle fill and requires matching native deliveries through a real
+worker, including a different bot's answer. It uses fallback mode in offline
+containers; see [rotation and idle-match testing](ROTATION.md). Synthetic
+fixtures and direct `sayall` calls cannot satisfy that transport acceptance.
+Actual human-chat interaction and rendering still need real clients.
 
 ## Squads and contracts
 

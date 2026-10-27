@@ -67,7 +67,8 @@ A shared count planner handles both total fill and team quotas. It removes only
 verified bots from an oversized side before adding native bots to the smaller
 side, even when the lobby is already full. Unassigned bots get time to initialize.
 Spectator connections reserve slots; the active budget rounds down to an even
-total to avoid a remove/add loop. The no-human production fill guard remains.
+total to avoid a remove/add loop. Configurable idle fill keeps an all-bot match
+running without humans; setting its target to zero drains the idle lobby.
 Both settings default on and migrate only when absent from host configuration.
 
 Each mode wrapper resets native defaults before loading its matching mode and
@@ -136,8 +137,9 @@ cannot receive bot speech.
 
 Ambient conversation uses explicit numbered turns, usually two and at most four.
 Human public-chat replies take priority and cancel queued followups. All turns
-share global, per-bot and per-minute budgets. Context is short-lived, no chat is
-generated without humans, and team/hidden chat is excluded. The worker stores
+share global, per-bot and per-minute budgets. Context is short-lived; chat is
+generated only from native bots and fresh context; optional no-audience
+speech is controlled by `outlands_chat_without_humans`. Team/hidden chat is excluded. The worker stores
 no persistent chat text; its short model context stays in memory. Console events
 can contain public chat, so raw server logs
 must remain private. See the [chat protocol](../ai/README.md) for exact limits.
@@ -168,8 +170,10 @@ publish changed release contents under a new version.
 Capture squad, objective and contract context through the same formatter used by
 production requests, in network-isolated native bot matches. Validate exact
 schemas, current assignments and contract values; reject malformed snapshots.
-Test the no-human production request guard and context off switch independently
-from a probe-only native speech primitive. Never fabricate human presence.
+Test the optional no-human request guard and context off switch independently
+from a probe-only native speech primitive. The ambient-chat assay instead uses
+production idle fill, a real worker and matching native speech ACKs. Never
+fabricate human presence. See [rotation and idle matches](ROTATION.md).
 
 Feed private snapshots to the worker's model benchmark with no RCON credential
 or server-state mount. Require bounded, task-compatible output and report model
