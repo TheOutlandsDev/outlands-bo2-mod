@@ -139,15 +139,21 @@ class BackendReportTests(unittest.TestCase):
         self.assertIn('set outlands_verify_armory 1',cfg)
 
     def test_ui_requires_exact_native_allocation_cleanup_evidence_per_stage(self):
-        good = 'OUTLANDS_UI_V1|pass|29|6|16|0'
+        hud = 'OUTLANDS_UI_V1|pass|29|6|16|0'
+        ingress = 'OUTLANDS_COMMAND_INGRESS_V1|pass|19|19|19|19|1|1|0'
+        good = hud+'\n'+ingress
         result = verify.assess_ui(good)
         self.assertTrue(result['passed'])
         self.assertFalse(result['actual_human_commands'])
+        self.assertTrue(result['native_sayall_sayteam_command_events'])
         self.assertFalse(result['actual_client_rendering'])
         self.assertTrue(verify.assess_ui(good+'\n'+good, restart=True)['passed'])
         for bad in ('', 'Player: '+good, good+'\n'+good,
                     good.replace('|0','|1'), good+'\nOUTLANDS_UI_V1|failed',
-                    'OUTLANDS_UI_V1|pass'):
+                    'OUTLANDS_UI_V1|pass', hud, ingress,
+                    good.replace(ingress, 'Player: '+ingress),
+                    good.replace('|19|19|19|19|1|1|0', '|19|18|19|19|1|1|0'),
+                    good+'\n'+ingress, good+'\nOUTLANDS_COMMAND_INGRESS_V1|failed'):
             self.assertFalse(verify.assess_ui(bad)['passed'])
         self.assertFalse(verify.assess_ui(good, restart=True)['passed'])
 
