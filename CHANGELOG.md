@@ -2,6 +2,16 @@
 
 ## Unreleased — cooperative lobbies, grounded task chat, squads, contracts and rivals
 
+- Add a 31-map multiplayer catalog and weighted installed-map decks, independent
+  mode weights, recent-map protection and private restart history. Hand off the
+  next native rotation through a map-scoped mailbox; retain static fallback and
+  exclude unavailable DLC. Preserve private operator weights. Add an isolated
+  native map-load, normal match-end and restart assay.
+- Allow configurable native idle matches and bounded bot conversation with or
+  without humans. Verify production filling, worker transport and native speech
+  ACKs rather than direct speech fixtures. Preserve human-reply priority, context
+  validation, turn limits, native stats and all shared rate limits.
+
 - Add an opt-in native Armory base-class editor with earned item/CAC checks,
   localized native labels and complete compound-perk effects. Connect single-slot
   persistence through a separate model-independent worker thread and fixed local
