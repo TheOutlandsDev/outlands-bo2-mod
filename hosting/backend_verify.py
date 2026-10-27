@@ -20,7 +20,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'ai'))
 from tactics import Tactical
-from bridge import Event
+from bridge import Event, ChatAck
 LABEL = "org.outlands.backend-verification"
 MODES = frozenset(("dm", "tdm", "ctf", "dem", "dom", "koth", "hq", "conf"))
 CASE = re.compile(r"(mp_[a-z0-9_]{1,40}):(dm|tdm|ctf|dem|dom|koth|hq|conf)\Z")
@@ -238,6 +238,38 @@ def assess_chat_context(text, case):
     return {'passed':not reasons,'reasons':reasons,'records':records,'topics':sorted(topics),'production_speech':False,'native_primitive_only':True}
 
 
+def assess_ambient_chat(text):
+    """Require real native ACKs tied to production requests and a different bot.
+
+    This proves worker/native speech transport, not rendering or subjective
+    conversational quality. No direct sayall fixture can satisfy the evidence.
+    """
+    events = {}
+    accepted = []
+    for raw in ANSI.sub('', text).splitlines():
+        line = raw.strip()
+        event = Event.parse(line, 0)
+        if event:
+            events[event.request_id] = event
+        ack = ChatAck.parse(line)
+        if ack:
+            request = events.get(ack.request_id)
+            if request and (ack.slot, ack.alias, ack.kind) == (request.slot, request.bot_name, request.kind):
+                accepted.append(request)
+    reasons = []
+    pairs = [e for e in accepted if e.kind == 'bot_reply' and e.speaker != e.bot_name]
+    if len(accepted) < 2 or not pairs:
+        reasons.append('production native bot conversation was not acknowledged through the worker')
+    samples = parse_samples(text)
+    if not samples or any(s['humans'] for s in samples):
+        reasons.append('ambient conversation must be observed with zero humans')
+    if not any(s['bots'] == 16 and s['playing'] >= 14 for s in samples):
+        reasons.append('production controller did not fill an idle native match')
+    return {'passed': not reasons, 'reasons': reasons, 'native_deliveries': len(accepted),
+            'bot_reply_deliveries': len(pairs), 'topics': sorted({e.tactical.topic for e in accepted if e.tactical}),
+            'production_transport': True, 'model_mode': 'fallback', 'actual_client_rendering': False}
+
+
 def assess_lobby(text):
     rows = []
     markers = [line.strip() for line in ANSI.sub('', text).splitlines()]
@@ -321,11 +353,13 @@ def assess_armory(text, restart=False):
 
 
 def config_for(case: Case, seconds: int, restart: bool, careers: bool,
-               squads: bool = False, contracts: bool = False, switches: bool = False, chat_context: bool = False, lobby_balance: bool = False, air_response: bool = False, expansion: bool = False, ui: bool = False, armory: bool = False, armory_editor: bool = False) -> str:
+               squads: bool = False, contracts: bool = False, switches: bool = False, chat_context: bool = False, lobby_balance: bool = False, air_response: bool = False, expansion: bool = False, ui: bool = False, armory: bool = False, armory_editor: bool = False, ambient_chat: bool = False) -> str:
     cfg = (ROOT / "storage/t6/outlands_t6.cfg").read_text()
     cfg = re.sub(r'^sv_maprotation .*$', f'sv_maprotation "gametype {case.mode} execgts outlands_{case.mode}.cfg map {case.map_name}"', cfg, flags=re.M)
     return cfg + (f'\nset outlands_backend_verification 1\nset outlands_verify_seconds {seconds}\n'
                   f'set outlands_verify_restart {int(restart)}\nset outlands_verify_restarted 0\n'
+                  f'set outlands_rotation 0\nset outlands_bot_idle_fill {16 if ambient_chat else 0}\n'
+                  f'set outlands_chat_without_humans {int(ambient_chat)}\nset outlands_verify_ambient_chat {int(ambient_chat)}\n'
                   f'set outlands_bot_careers {int(careers)}\n'
                   f'set outlands_squads {int(squads)}\nset outlands_squad_attackers 4\nset outlands_squad_defenders 2\n'
                   f'set outlands_contracts {int(contracts)}\n' +
@@ -362,7 +396,7 @@ def require_map_asset(docker: Docker, image: str, case: Case):
 
 def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool, directory: Path,
              careers: bool = False, worker_image: str = "outlands-bo2-chat:rivals-dev",
-             process_restart: bool = False, squads: bool = False, contracts: bool = False, switches: bool = False, chat_context: bool = False, lobby_balance: bool = False, air_response: bool = False, expansion: bool = False, ui: bool = False, armory: bool = False, armory_editor: bool = False) -> dict:
+             process_restart: bool = False, squads: bool = False, contracts: bool = False, switches: bool = False, chat_context: bool = False, lobby_balance: bool = False, air_response: bool = False, expansion: bool = False, ui: bool = False, armory: bool = False, armory_editor: bool = False, ambient_chat: bool = False) -> dict:
     require_map_asset(docker, image, case)
     resource = "outlands-backend-" + uuid.uuid4().hex
     volume = resource + "-state"
@@ -383,7 +417,7 @@ def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool
                 "x=json.load(sys.stdin);(p/'scripts/mp').mkdir(parents=True,exist_ok=True)\n"
                 "(p/'outlands_t6.cfg').write_text(x['cfg'])\n"
                 "(p/'scripts/mp/outlands_backend_verification.gsc').write_text(x['gsc'])\n")
-        payload = json.dumps({"cfg": config_for(case, seconds, restart, careers, squads, contracts, switches, chat_context, lobby_balance, air_response, expansion, ui, armory, armory_editor),
+        payload = json.dumps({"cfg": config_for(case, seconds, restart, careers, squads, contracts, switches, chat_context, lobby_balance, air_response, expansion, ui, armory, armory_editor, ambient_chat),
                               "gsc": (ROOT / "hosting/verification.gsc").read_text()})
         docker.call("run", "--rm", "-i", "--network", "none", "--cap-drop", "ALL",
                     "--security-opt", "no-new-privileges:true", "-v", volume + ":/data",
@@ -391,18 +425,18 @@ def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool
         container = docker.call("run", "-d", "--name", resource, "--label", LABEL + "=1",
                                 "--network", "none", "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true",
                                 "-e", "T6_MODE=lan", "-e", "T6_BIND_IP=127.0.0.1", "-e", "T6_PORT=14977",
-                                "-e", "T6_ARMORY_ENABLED="+str(int(armory_editor)), "-e", "T6_OPERATIONS_ENABLED="+str(int(expansion)), "-e", "T6_CHAT_ENABLED="+str(int(chat_context)), "-e", "T6_CAREERS_ENABLED=" + str(int(careers)), "-v", volume + ":/data", image)
+                                "-e", "T6_ARMORY_ENABLED="+str(int(armory_editor)), "-e", "T6_OPERATIONS_ENABLED="+str(int(expansion)), "-e", "T6_CHAT_ENABLED="+str(int(chat_context or ambient_chat)), "-e", "T6_CAREERS_ENABLED=" + str(int(careers)), "-v", volume + ":/data", image)
         if not re.fullmatch(r"[a-f0-9]{64}", container):
             raise RuntimeError("Docker did not return an expected verification container ID")
         details = json.loads(docker.call("inspect", container))[0]
         if details["HostConfig"]["NetworkMode"] != "none" or details["HostConfig"].get("PortBindings"):
             raise RuntimeError("Verification container isolation did not match its required configuration")
-        if careers or armory_editor:
+        if careers or armory_editor or ambient_chat:
             docker.call("volume", "create", "--label", LABEL + "=1", rivals_volume)
             rivals_created = True
             worker = docker.call("run", "-d", "--name", resource + "-worker", "--label", LABEL + "=1",
                                  "--network", "container:" + container, "--read-only", "--cap-drop", "ALL",
-                                 "--security-opt", "no-new-privileges:true", "-e", "T6_CHAT_ENABLED=0",
+                                 "--security-opt", "no-new-privileges:true", "-e", "T6_CHAT_ENABLED="+str(int(ambient_chat)), "-e", "T6_CHAT_MODE=fallback",
                                  "-e", "T6_CAREERS_ENABLED="+str(int(careers)), "-e", "T6_ARMORY_ENABLED="+str(int(armory_editor)), "-e", "T6_CHAT_RCON_PORT=14977",
                                  "-v", volume + ":/data:ro", "-v", rivals_volume + ":/rivals", worker_image)
             if not re.fullmatch(r"[a-f0-9]{64}", worker):
@@ -433,6 +467,11 @@ def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool
         if switches:
             samples = [s for s in samples if s.get("squads_enabled") and s.get("contracts_enabled")]
         report = assess(samples, case, restart, careers, squads, contracts)
+        if ambient_chat:
+            report['ambient_chat'] = assess_ambient_chat(all_logs)
+            if not report['ambient_chat']['passed']:
+                report['passed'] = False
+                report['reasons'].extend(report['ambient_chat']['reasons'])
         if armory_editor:
             report["armory_editor"] = assess_armory_editor(all_logs, restart)
             report["armory_editor"]["loopback_mailbox_sends"] = len(armory_mailboxes)
@@ -587,6 +626,7 @@ def main(argv=None) -> int:
     parser.add_argument('--air-response', action='store_true', help='verify bot-only air target gate with private script entities, not actual aircraft combat')
     parser.add_argument('--lobby-balance',action='store_true',help='verify native bot refill, imbalance repair and count-only cooperative side policy; no humans fabricated')
     parser.add_argument('--chat-context',action='store_true',help='capture native task snapshots and verify human-presence/context guards; native speech primitive is tested separately')
+    parser.add_argument('--ambient-chat',action='store_true',help='verify production idle fill, real worker fallback transport and native bot-to-bot delivery with no humans')
     parser.add_argument("--armory-editor", action="store_true", help="native base-class grant, HUD and lifecycle fixture with bots; human transport/rendering remain pending")
     parser.add_argument("--armory", action="store_true", help="native all-bot class-reference selection and next-spawn feasibility; no arbitrary edits or human unlock acceptance")
     parser.add_argument("--ui", action="store_true", help="verify actual native HUD creation, presenters and cleanup with bots; real client rendering/input remain pending")
@@ -605,6 +645,8 @@ def main(argv=None) -> int:
             raise ValueError("Expected a local Docker worker image name")
         if args.process_restart and not args.careers:
             raise ValueError("Process restart acceptance requires --careers")
+        if args.ambient_chat and (args.chat_context or args.process_restart or args.lobby_balance or args.seconds < 90):
+            raise ValueError('Ambient chat needs at least 90 seconds and cannot combine with guard, process-restart or lobby fixtures')
         if args.switches and (not args.squads or not args.contracts or len(cases) != 1 or cases[0].mode not in OBJECTIVE_MODES or args.seconds < 90 or args.restart or args.process_restart):
             raise ValueError("Switch acceptance requires both modules, one objective case, at least 90 seconds and no restart flags")
         if args.chat_context and (not args.contracts or any(c.mode in OBJECTIVE_MODES for c in cases) and not args.squads):
@@ -615,7 +657,7 @@ def main(argv=None) -> int:
             raise ValueError('Lobby verification needs team modes, at least 90 seconds and no restart/switch flags')
         plan = {"server_process_restart": args.process_restart, "careers": args.careers, "squads": args.squads, "contracts": args.contracts, "contract_test_thresholds": args.contracts, "cases": [asdict(case) for case in cases], "seconds": args.seconds,
                 "native_restart": args.restart, "native_restart_method": "same_map_reload" if args.restart else None, "runtime_switches": args.switches, "chat_context":args.chat_context, "lobby_balance":args.lobby_balance, "air_response":args.air_response, "expansion":args.expansion, "ui":args.ui, "armory":args.armory, "armory_editor":args.armory_editor, "network_mode": "none", "published_ports": False,
-                "human_clients": False, "live_state": False}
+                "human_clients": False, "live_state": False, "ambient_chat": args.ambient_chat}
         if not args.run:
             print(json.dumps(plan, indent=2))
             return 0
@@ -627,7 +669,7 @@ def main(argv=None) -> int:
         docker = Docker(ROOT / "hosting/docker.sh")
         reports = []
         for case in cases:
-            report = run_case(docker, args.image, case, args.seconds, args.restart, directory, args.careers, args.worker_image, args.process_restart, args.squads, args.contracts, args.switches,args.chat_context,args.lobby_balance,args.air_response,args.expansion,args.ui,args.armory,args.armory_editor)
+            report = run_case(docker, args.image, case, args.seconds, args.restart, directory, args.careers, args.worker_image, args.process_restart, args.squads, args.contracts, args.switches,args.chat_context,args.lobby_balance,args.air_response,args.expansion,args.ui,args.armory,args.armory_editor,args.ambient_chat)
             reports.append(report)
             (directory / "report.json").write_text(json.dumps({"plan": plan, "results": reports}, indent=2) + "\n")
             print(f"{'PASS' if report['passed'] else 'FAIL'}: {case.map_name}/{case.mode}", flush=True)

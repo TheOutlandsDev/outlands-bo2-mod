@@ -34,7 +34,7 @@ verify_native_match()
     foreach ( player in players )
         if ( isdefined( player ) && isplayer( player ) && player istestclient() )
             count++;
-    if ( count < target )
+    if ( count < target && !getdvarint( "outlands_verify_ambient_chat" ) )
         cmdexec( "spawnbot " + ( target - count ) );
     // A fresh native baseline makes within-stage completion evidence possible
     // even if the first short contract finishes before the ten-second sample.

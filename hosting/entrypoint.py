@@ -23,6 +23,11 @@ import subprocess
 import sys
 import tempfile
 
+try:
+    from rotation import Rotation, rotation_entry
+except ModuleNotFoundError:
+    from hosting.rotation import Rotation, rotation_entry
+
 
 GAME = Path("/opt/t6/game")
 VENDOR = Path("/opt/t6/plutonium")
@@ -58,6 +63,8 @@ MOD_PAYLOADS = (
     Path("scripts/mp/outlands_armory_ui.gsc"),
     Path("outlands_armory_keys.cfg"),
     Path("outlands_ui_keys.cfg"),
+    Path("outlands_rotation.json"),
+    Path("scripts/mp/outlands_rotation.gsc"),
 )
 
 
@@ -256,7 +263,10 @@ def configure_mod(name: str | None) -> tuple[str, str]:
     cfg = target / CFG_NAME
     copy_missing(MOD / CFG_NAME, cfg)
     for relative in MOD_PAYLOADS[1:]:
-        atomic_write(target / relative, (MOD / relative).read_bytes(), 0o644)
+        if relative == Path('outlands_rotation.json'):
+            copy_missing(MOD / relative, target / relative)
+        else:
+            atomic_write(target / relative, (MOD / relative).read_bytes(), 0o644)
     content = cfg.read_text(encoding="utf-8")
     # Introduce new nonsecret options without replacing operator choices or
     # regenerating the private CFG. Only this small reviewed list is migrated.
@@ -272,7 +282,8 @@ def configure_mod(name: str | None) -> tuple[str, str]:
                     "outlands_contract_seconds", "outlands_contract_seed", "outlands_contract_goal_scale",
                     "outlands_chat_cooldown", "outlands_chat_interval", "outlands_chat_timeout",
                     "outlands_chat_dialogue", "outlands_chat_tactical", "outlands_chat_dialogue_delay", "outlands_chat_bot_cooldown",
-                    "outlands_chat_max_per_minute", "outlands_chat_turn_limit"):
+                    "outlands_chat_max_per_minute", "outlands_chat_turn_limit",
+                    "outlands_chat_without_humans", "outlands_bot_idle_fill", "outlands_rotation"):
         if not list(assignment_pattern(setting).finditer(content)):
             source_matches = list(assignment_pattern(setting).finditer(source_cfg))
             if len(source_matches) == 1:
@@ -308,7 +319,9 @@ def configure_mod(name: str | None) -> tuple[str, str]:
     armory_enabled = os.environ.get("T6_ARMORY_ENABLED", "0")
     if armory_enabled not in ("0", "1"):
         raise StartupError("T6_ARMORY_ENABLED must be 0 or 1")
-    control_enabled = enabled == "1" or careers_enabled == "1" or operations_enabled == "1" or armory_enabled == "1"
+    rotation_matches = list(assignment_pattern("outlands_rotation").finditer(content))
+    rotation_enabled = bool(rotation_matches and (rotation_matches[-1].group(1) or rotation_matches[-1].group(2)) == "1")
+    control_enabled = enabled == "1" or careers_enabled == "1" or operations_enabled == "1" or armory_enabled == "1" or rotation_enabled
     control_secret = ""
     if control_enabled:
         secret_path = DATA / "private/outlands_rcon_password"
@@ -361,6 +374,7 @@ class ProcessRunner:
         self.sensitive_values = sorted({value for value in (server_key, join_password, control_secret) if value}, key=len, reverse=True)
         self.child: subprocess.Popen[str] | None = None
         self.stop_signal: int | None = None
+        self.rotation: Rotation | None = None
 
     def redact(self, text: str) -> str:
         for value in self.sensitive_values:
@@ -393,6 +407,14 @@ class ProcessRunner:
             assert self.child.stdout is not None
             for line in self.child.stdout:
                 safe_line = self.redact(line)
+                if self.rotation is not None:
+                    try:
+                        self.rotation.observe(safe_line)
+                    except (OSError, ValueError, TypeError, KeyError):
+                        # Keep serving the static CFG if persistence/transport
+                        # fails. Do not print potentially private exception text.
+                        print("Outlands rotation director unavailable; static fallback retained.", flush=True)
+                        self.rotation = None
                 if capture:
                     output.append(safe_line)
                 else:
@@ -461,7 +483,7 @@ def windows_path(runner: ProcessRunner, path: Path) -> str:
     return translated
 
 
-def server_command(bootstrapper: str, game: str, mode: str, bind_ip: str, port: int, key: str) -> list[str]:
+def server_command(bootstrapper: str, game: str, mode: str, bind_ip: str, port: int, key: str, rotation: Rotation | None = None) -> list[str]:
     command = ["wine", bootstrapper, "t6mp", game, "-dedicated"]
     if mode == "lan":
         command.append("-lan")
@@ -470,9 +492,31 @@ def server_command(bootstrapper: str, game: str, mode: str, bind_ip: str, port: 
     command.extend([
         "+set", "fs_game", "", "+set", "net_ip", bind_ip,
         "+set", "net_port", str(port), "+set", "logfile", "2",
-        "+exec", CFG_NAME, "+map_rotate",
+        "+exec", CFG_NAME,
     ])
+    if rotation is not None:
+        command.extend(["+exec", "outlands_rotation_runtime.cfg"])
+    command.append("+map_rotate")
     return command
+
+
+def prepare_rotation(control_secret: str, port: int) -> Rotation | None:
+    target = PLUTONIUM / "storage/t6"
+    cfg = (target / CFG_NAME).read_text()
+    enabled = list(assignment_pattern("outlands_rotation").finditer(cfg))
+    if not enabled or (enabled[-1].group(1) or enabled[-1].group(2)) != "1":
+        return None
+    rotation = Rotation(target / 'outlands_rotation.json', GAME,
+                        DATA / 'private/rotation.json', control_secret, port)
+    entry = rotation_entry(*rotation.plan())
+    runtime = ('set outlands_rotation_host 1\n'
+               'set outlands_rotation_maps "' + ','.join(rotation.maps) + '"\n'
+               'set outlands_rotation_modes "' + ','.join(rotation.modes) + '"\n'
+               'set sv_maprotationcurrent "' + entry + '"\n')
+    atomic_write(target / 'outlands_rotation_runtime.cfg', runtime.encode('ascii'))
+    print('Outlands weighted rotation ready: installed_maps=' + str(len(rotation.maps)) +
+          ' catalogued_maps=' + str(len(rotation.catalog['maps'])) + '; unavailable/disabled maps excluded.', flush=True)
+    return rotation
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -510,7 +554,11 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Starting Outlands BO2 in {mode} mode on {bind_ip}:{port}.", flush=True)
         print("Private join password is stored in the persistent server CFG.", flush=True)
         archive_console_log()
-        result, _ = runner.run(server_command(bootstrapper, game, mode, bind_ip, port, key), "T6 dedicated server")
+        try:
+            runner.rotation = prepare_rotation(control_secret, port)
+        except (OSError, ValueError, TypeError, KeyError):
+            print('Outlands weighted rotation unavailable; using static CFG fallback.', flush=True)
+        result, _ = runner.run(server_command(bootstrapper, game, mode, bind_ip, port, key, runner.rotation), "T6 dedicated server")
         return result
     except (StartupError, OSError, UnicodeError) as error:
         message = str(error)
