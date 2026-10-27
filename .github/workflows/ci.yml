@@ -23,7 +23,8 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install pinned account verification dependencies
-        run: python -m pip install --only-binary=:all: -r accounts/requirements.txt
+        run: |
+          python -m pip install --only-binary=:all: -r accounts/requirements.txt
       - name: Require real Google signature verification dependencies
         run: python -c "import google.auth, cryptography, requests"
       - name: Test portable private account and Google boundaries
@@ -52,7 +53,8 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install pinned account verification dependencies
-        run: python -m pip install --only-binary=:all: -r accounts/requirements.txt
+        run: |
+          python -m pip install --only-binary=:all: -r accounts/requirements.txt
       - name: Require real Google signature verification dependencies
         run: python -c "import google.auth, cryptography, requests"
       - name: Test portable private account and Google boundaries
