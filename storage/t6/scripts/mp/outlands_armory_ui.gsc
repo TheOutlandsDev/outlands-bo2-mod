@@ -196,7 +196,7 @@ create_editor( player )
     amber = ( 0.95, 0.57, 0.20 );
     white = ( 0.94, 0.94, 0.91 );
     soft = ( 0.70, 0.72, 0.73 );
-    scripts\mp\outlands_ui::ui_panel( state, -305, -175, 610, 350, ( 0.06, 0.075, 0.085 ), 100 );
+    scripts\mp\outlands_ui::fullscreen_panel( state );
     scripts\mp\outlands_ui::ui_panel( state, -305, -175, 610, 3, amber, 101 );
     scripts\mp\outlands_ui::ui_label( state, -285, -160, 1.8, "OUTLANDS / ARMORY", white );
     scripts\mp\outlands_ui::ui_label( state, -285, -131, 0.9, "BASE CLASS / NATIVE UNLOCKS / ONE SAVED SLOT", soft );

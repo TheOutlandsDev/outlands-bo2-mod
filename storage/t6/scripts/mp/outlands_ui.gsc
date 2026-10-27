@@ -437,6 +437,15 @@ ui_panel( state, x, y, width, height, color, sort )
     return hud;
 }
 
+// Overscan background fills widescreen displays while content stays inside
+// the native 640x480 safe area. The owner alone receives these HUD elements.
+fullscreen_panel( state )
+{
+    hud = ui_panel( state, -1280, -720, 2560, 1440, ( 0.06, 0.075, 0.085 ), 100 );
+    hud.alpha = 1;
+    return hud;
+}
+
 ui_label( state, x, y, size, caption, color )
 {
     hud = ui_element( state, x, y, 102 );
@@ -471,7 +480,7 @@ create_hud( player )
     amber = ( 0.95, 0.57, 0.20 );
     white = ( 0.94, 0.94, 0.91 );
     soft = ( 0.70, 0.72, 0.73 );
-    state.background = ui_panel( state, -305, -175, 610, 350, ( 0.06, 0.075, 0.085 ), 100 );
+    state.background = fullscreen_panel( state );
     state.rail = ui_panel( state, -305, -175, 610, 3, amber, 101 );
     state.heading = ui_label( state, -285, -160, 1.8, "OUTLANDS / OPERATIONS", white );
     state.divider = ui_panel( state, -285, -126, 570, 1, ( 0.24, 0.26, 0.27 ), 101 );
