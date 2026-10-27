@@ -83,6 +83,8 @@ second server. Use direct `connect` if that shortcut is missing or fails.
 After spawning, type `!outlands help` in in-game text chat, or
 `say !outlands help` in the game console. See the [command reference](docs/COMMANDS.md)
 for Career, Contracts and Armory commands, optional keys and test boundaries.
+Once open, close chat/console and use the displayed game-action prompts to
+navigate. Melee closes the menu; normal gameplay controls return on cleanup.
 
 ### Windows checks and direct joining
 
@@ -347,3 +349,13 @@ progress without names or chat. Native GUID stability and actual human command
 delivery require later Windows/Linux gameplay acceptance. Signal Four adds four
 featured recurring bot characters; membership is not a forced roster or a new
 combat controller. See the guide for identity limits, backups and backend checks.
+
+## Full-screen menus and Tailscale portal
+
+Open `!outlands` in in-game chat for the full-screen Career/Contracts menu, or
+`!outlands armory` for the native class editor. Close chat/console, release held
+buttons, then use the visible game-action prompts; Melee closes the menu.
+The optional [browser GUI](docs/PORTAL.md) adds a responsive match dashboard,
+current team contracts, persistent fictional AI rivals and command guides over
+Tailscale. Browser viewing is read-only; personal classes and careers stay
+inside the game. Actual Windows/Linux native menu input remains a client gate.
