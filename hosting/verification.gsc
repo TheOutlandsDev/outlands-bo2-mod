@@ -49,6 +49,8 @@ verify_native_match()
         level thread verify_ui();
     if ( getdvarint( "outlands_verify_armory" ) )
         level thread verify_armory();
+    if ( getdvarint( "outlands_verify_armory_editor" ) )
+        level thread verify_armory_editor();
 
     duration = getdvarint( "outlands_verify_seconds" );
     if ( duration < 30 )
@@ -675,6 +677,161 @@ verify_expansion()
 
 // Calls production presenters/HUD methods with actual native bots. It never
 // changes their identity/type or inserts a synthetic human career observation.
+verify_armory_editor()
+{
+    level endon( "game_ended" );
+    wait 7;
+    selected = undefined;
+    foreach ( bot in get_players() )
+        if ( isdefined( bot ) && bot istestclient() && isalive( bot ) && scripts\mp\outlands_armory::can_customize( bot ) )
+        {
+            selected = bot;
+            break;
+        }
+    if ( !isdefined( selected ) || !scripts\mp\outlands_armory::enabled() )
+    {
+        println( "OUTLANDS_ARMORY_EDITOR_V1|failed|hooks_or_player" );
+        return;
+    }
+    refs = scripts\mp\outlands_armory::empty_refs();
+    catalog_ok = true;
+    for ( i = 0; i < 7; i++ )
+    {
+        slot = level.outlands_armory_slots[i];
+        choices = level.outlands_armory_choices[slot];
+        println( "OUTLANDS_ARMORY_EDITOR_CHECK|catalog|" + slot + "|" + choices.size );
+        foreach ( ref in choices )
+            if ( ref != "none" && scripts\mp\outlands_armory::item_unlocked( selected, ref, slot ) )
+            {
+                refs[i] = ref;
+                break;
+            }
+        if ( refs[i] == "none" )
+            catalog_ok = false;
+    }
+    view = scripts\mp\outlands_armory::validate_refs( selected, refs );
+    bad = scripts\mp\outlands_armory::copy_refs( refs );
+    bad[0] = "not_a_weapon";
+    invalid = scripts\mp\outlands_armory::validate_refs( selected, bad );
+    bad[0] = refs[1];
+    wrong = scripts\mp\outlands_armory::validate_refs( selected, bad );
+    excluded = !scripts\mp\outlands_armory::eligible( selected ) && !scripts\mp\outlands_armory_ui::dispatch( selected, "toggle" );
+    record = scripts\mp\outlands_armory::new_record( selected );
+    record.fixture = 1;
+    record.restored = 1;
+    record.revision = 1;
+    record.draft = scripts\mp\outlands_armory::copy_refs( refs );
+    record.saved = scripts\mp\outlands_armory::copy_refs( refs );
+    record.queued = scripts\mp\outlands_armory::copy_refs( refs );
+    record.queued_spawn = 0;
+    record.fixture_grants = 0;
+    level.outlands_armory_records[record.slot] = record;
+    // Synthetic mailbox replies exercise the native parser without sending
+    // any bot through the human worker or the human identity ledger.
+    pending = spawnstruct();
+    pending.record = record;
+    pending.id = "fixture_request";
+    pending.kind = "save";
+    pending.sent = gettime();
+    pending.spawn = 0;
+    pending.refs = scripts\mp\outlands_armory::copy_refs( refs );
+    pending.revision = 0;
+    record.command = "save";
+    level.outlands_armory_pending = pending;
+    setdvar( "outlands_armory_response", "wrong_id|" + record.slot + "|queued|1|" + scripts\mp\outlands_armory::join_refs( refs ) );
+    scripts\mp\outlands_armory::consume_response();
+    mailbox_ok = isdefined( level.outlands_armory_pending );
+    setdvar( "outlands_armory_response", "fixture_request|" + record.slot + "|queued|1|" + scripts\mp\outlands_armory::join_refs( refs ) );
+    scripts\mp\outlands_armory::consume_response();
+    mailbox_ok = mailbox_ok && isdefined( record.queued ) && record.revision == 1 && record.command == "none";
+    pending.revision = 1;
+    record.command = "save";
+    level.outlands_armory_pending = pending;
+    scripts\mp\outlands_armory::cancel_record( record, "FIXTURE CANCEL" );
+    setdvar( "outlands_armory_response", "fixture_request|" + record.slot + "|queued|2|" + scripts\mp\outlands_armory::join_refs( refs ) );
+    scripts\mp\outlands_armory::consume_response();
+    mailbox_ok = mailbox_ok && !isdefined( record.queued ) && record.revision == 1;
+    pending.id = "fixture_mailbox_" + getdvarint( "outlands_verify_restarted" );
+    pending.kind = "cancel";
+    pending.sent = gettime();
+    record.command = "cancel";
+    level.outlands_armory_pending = pending;
+    println( "OUTLANDS_ARMORY_MAILBOX_V1|" + pending.id + "|" + record.slot + "|" + scripts\mp\outlands_armory::join_refs( refs ) );
+    attempts = 0;
+    while ( isdefined( level.outlands_armory_pending ) && attempts < 100 )
+    {
+        wait 0.025;
+        attempts++;
+    }
+    remote_ok = !isdefined( level.outlands_armory_pending ) && record.status == "OUTLANDS CLASS CANCELLED / STOCK CLASS ACTIVE";
+    mailbox_ok = mailbox_ok && remote_ok;
+    if ( remote_ok )
+        println( "OUTLANDS_ARMORY_MAILBOX_ACK_V1|" + pending.id );
+    record.command = "none";
+    record.queued = scripts\mp\outlands_armory::copy_refs( refs );
+    record.queued_spawn = 0;
+    // Refuse a formerly accepted class that is now unknown/restricted at the
+    // final grant boundary, before any inventory mutation.
+    before_invalid = selected getcurrentweapon();
+    record.last_claim = scripts\mp\outlands_armory::copy_refs( bad );
+    record.armed = 1;
+    record.in_spawn = 1;
+    refused = selected scripts\mp\outlands_armory::grant_callback();
+    invalid_ok = !isdefined( refused ) && !record.armed && !isdefined( record.queued ) && before_invalid == ( selected getcurrentweapon() );
+    record.in_spawn = 0;
+    record.command = "none";
+    record.queued = scripts\mp\outlands_armory::copy_refs( refs );
+    record.queued_spawn = 0;
+    hud_ok = true;
+    for ( cycle = 0; cycle < 6; cycle++ )
+    {
+        state = scripts\mp\outlands_armory_ui::create_editor( selected );
+        if ( state.elements.size != 25 )
+            hud_ok = false;
+        for ( row = 0; row < 7; row++ )
+        {
+            state.row = row;
+            scripts\mp\outlands_armory_ui::draw_editor( state, record );
+            if ( state.values[row].outlands_ref != refs[row] || state.selector.y != -105 + row * 29 )
+                hud_ok = false;
+        }
+        owned = state.elements;
+        scripts\mp\outlands_ui::destroy_hud( state );
+        scripts\mp\outlands_ui::destroy_hud( state );
+        foreach ( hud in owned )
+            if ( isdefined( hud ) )
+                hud_ok = false;
+    }
+    current = selected getcurrentweapon();
+    ammo = selected getweaponammoclip( current );
+    // Calling the custom grant outside the wrapped native spawn must refuse.
+    outside = selected scripts\mp\outlands_armory::grant_callback();
+    unchanged = !isdefined( outside ) && current == ( selected getcurrentweapon() ) && ammo == ( selected getweaponammoclip( current ) );
+    first = 0;
+    second = 0;
+    for ( life = 0; life < 2; life++ )
+    {
+        record.fixture_matched = 0;
+        selected suicide();
+        attempts = 0;
+        while ( !record.fixture_matched && attempts < 200 )
+        {
+            wait 0.1;
+            attempts++;
+        }
+        if ( life == 0 )
+            first = record.fixture_matched && record.fixture_grants == 1 && record.spawn == 1;
+        else
+            second = record.fixture_matched && record.fixture_grants == 2 && record.spawn == 2;
+    }
+    if ( catalog_ok && view.valid && view.points == 7 && !invalid.valid && !wrong.valid && excluded && hud_ok && unchanged && first && second && mailbox_ok && invalid_ok )
+        println( "OUTLANDS_ARMORY_EDITOR_V2|pass|7|25|6|2|0" );
+    else
+        println( "OUTLANDS_ARMORY_EDITOR_V2|failed|" + catalog_ok + "|" + view.valid + "|" + view.points + "|" + excluded + "|" + hud_ok + "|" + unchanged + "|" + first + "|" + second + "|" + mailbox_ok );
+    scripts\mp\outlands_armory::cancel_record( record, "FIXTURE FINISHED" );
+    level.outlands_armory_records[record.slot] = undefined;
+}
+
 verify_armory()
 {
     level endon( "game_ended" );

@@ -55,6 +55,8 @@ MOD_PAYLOADS = (
     Path("scripts/mp/outlands_operations.gsc"),
     Path("scripts/mp/outlands_ui.gsc"),
     Path("scripts/mp/outlands_armory.gsc"),
+    Path("scripts/mp/outlands_armory_ui.gsc"),
+    Path("outlands_armory_keys.cfg"),
     Path("outlands_ui_keys.cfg"),
 )
 
@@ -303,7 +305,10 @@ def configure_mod(name: str | None) -> tuple[str, str]:
     operations_enabled = os.environ.get("T6_OPERATIONS_ENABLED", "0")
     if operations_enabled not in ("0", "1"):
         raise StartupError("T6_OPERATIONS_ENABLED must be 0 or 1")
-    control_enabled = enabled == "1" or careers_enabled == "1" or operations_enabled == "1"
+    armory_enabled = os.environ.get("T6_ARMORY_ENABLED", "0")
+    if armory_enabled not in ("0", "1"):
+        raise StartupError("T6_ARMORY_ENABLED must be 0 or 1")
+    control_enabled = enabled == "1" or careers_enabled == "1" or operations_enabled == "1" or armory_enabled == "1"
     control_secret = ""
     if control_enabled:
         secret_path = DATA / "private/outlands_rcon_password"
@@ -320,6 +325,7 @@ def configure_mod(name: str | None) -> tuple[str, str]:
     # The model never supplies a console command or controls human progression.
     for command, value in (("outlands_chat_enabled", enabled), ("outlands_bot_careers", careers_enabled),
                            ("outlands_operations", operations_enabled),
+                           ("outlands_armory", armory_enabled),
                            ("rcon_password", control_secret)):
         content = assignment_pattern(command).sub("", content)
         content += f'\nset {command} "{value}"\n'

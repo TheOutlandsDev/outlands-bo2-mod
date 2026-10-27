@@ -290,6 +290,27 @@ def assess_ui(text, restart=False):
             'actual_human_commands': False, 'actual_client_rendering': False, 'native_bot_hud_fixture': True}
 
 
+def service_armory_mailboxes(docker, worker, text, sent):
+    # Only a fixed fixture response in disposable state; no fake human request.
+    matches = re.findall(r'(?m)^OUTLANDS_ARMORY_MAILBOX_V1\|([A-Za-z0-9_]{1,48})\|([0-9]{1,2})\|([a-z0-9_,]{1,350})$', ANSI.sub('', text))
+    for nonce, slot, refs in matches:
+        if nonce in sent or int(slot)>17 or len(refs.split(','))!=7 or any(not re.fullmatch(r'[a-z][a-z0-9_]{0,47}',x) for x in refs.split(',')):
+            continue
+        value=nonce+'|'+slot+'|cancelled|1|'+refs
+        script="from bridge import RconSink;from pathlib import Path;import sys;RconSink('127.0.0.1',14977,Path('/data/private/outlands_rcon_password')).send_armory(sys.stdin.read())"
+        docker.call('exec','-i',worker,'python3','-c',script,input_text=value)
+        sent.add(nonce)
+    return sent
+
+
+def assess_armory_editor(text, restart=False):
+    markers = [line.strip() for line in ANSI.sub('', text).splitlines() if line.strip().startswith('OUTLANDS_ARMORY_EDITOR_V2|')]
+    passed = markers == ['OUTLANDS_ARMORY_EDITOR_V2|pass|7|25|6|2|0'] * (2 if restart else 1)
+    return {'passed': passed, 'reasons': [] if passed else ['native Armory custom grant/editor fixture missing or failed'],
+            'actual_human_unlocks': False, 'actual_human_worker_transport': False, 'actual_client_rendering': False,
+            'native_base_class_grant_fixture': True}
+
+
 def assess_armory(text, restart=False):
     markers = [line.strip() for line in ANSI.sub('', text).splitlines() if line.strip().startswith('OUTLANDS_ARMORY_V1|')]
     expected_count = 2 if restart else 1
@@ -300,7 +321,7 @@ def assess_armory(text, restart=False):
 
 
 def config_for(case: Case, seconds: int, restart: bool, careers: bool,
-               squads: bool = False, contracts: bool = False, switches: bool = False, chat_context: bool = False, lobby_balance: bool = False, air_response: bool = False, expansion: bool = False, ui: bool = False, armory: bool = False) -> str:
+               squads: bool = False, contracts: bool = False, switches: bool = False, chat_context: bool = False, lobby_balance: bool = False, air_response: bool = False, expansion: bool = False, ui: bool = False, armory: bool = False, armory_editor: bool = False) -> str:
     cfg = (ROOT / "storage/t6/outlands_t6.cfg").read_text()
     cfg = re.sub(r'^sv_maprotation .*$', f'sv_maprotation "gametype {case.mode} execgts outlands_{case.mode}.cfg map {case.map_name}"', cfg, flags=re.M)
     return cfg + (f'\nset outlands_backend_verification 1\nset outlands_verify_seconds {seconds}\n'
@@ -317,7 +338,8 @@ def config_for(case: Case, seconds: int, restart: bool, careers: bool,
                   ('set outlands_verify_air 1\n' if air_response else '')+
                   ('set outlands_verify_expansion 1\n' if expansion else '')+
                   ('set outlands_ui 1\nset outlands_verify_ui 1\n' if ui else '')+
-                  ('set outlands_verify_armory 1\n' if armory else ''))
+                  ('set outlands_verify_armory 1\n' if armory else '')+
+                  ('set outlands_verify_armory_editor 1\n' if armory_editor else ''))
 
 
 def career_summary(docker: Docker, worker: str) -> dict:
@@ -340,7 +362,7 @@ def require_map_asset(docker: Docker, image: str, case: Case):
 
 def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool, directory: Path,
              careers: bool = False, worker_image: str = "outlands-bo2-chat:rivals-dev",
-             process_restart: bool = False, squads: bool = False, contracts: bool = False, switches: bool = False, chat_context: bool = False, lobby_balance: bool = False, air_response: bool = False, expansion: bool = False, ui: bool = False, armory: bool = False) -> dict:
+             process_restart: bool = False, squads: bool = False, contracts: bool = False, switches: bool = False, chat_context: bool = False, lobby_balance: bool = False, air_response: bool = False, expansion: bool = False, ui: bool = False, armory: bool = False, armory_editor: bool = False) -> dict:
     require_map_asset(docker, image, case)
     resource = "outlands-backend-" + uuid.uuid4().hex
     volume = resource + "-state"
@@ -361,7 +383,7 @@ def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool
                 "x=json.load(sys.stdin);(p/'scripts/mp').mkdir(parents=True,exist_ok=True)\n"
                 "(p/'outlands_t6.cfg').write_text(x['cfg'])\n"
                 "(p/'scripts/mp/outlands_backend_verification.gsc').write_text(x['gsc'])\n")
-        payload = json.dumps({"cfg": config_for(case, seconds, restart, careers, squads, contracts, switches, chat_context, lobby_balance, air_response, expansion, ui, armory),
+        payload = json.dumps({"cfg": config_for(case, seconds, restart, careers, squads, contracts, switches, chat_context, lobby_balance, air_response, expansion, ui, armory, armory_editor),
                               "gsc": (ROOT / "hosting/verification.gsc").read_text()})
         docker.call("run", "--rm", "-i", "--network", "none", "--cap-drop", "ALL",
                     "--security-opt", "no-new-privileges:true", "-v", volume + ":/data",
@@ -369,26 +391,29 @@ def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool
         container = docker.call("run", "-d", "--name", resource, "--label", LABEL + "=1",
                                 "--network", "none", "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true",
                                 "-e", "T6_MODE=lan", "-e", "T6_BIND_IP=127.0.0.1", "-e", "T6_PORT=14977",
-                                "-e", "T6_OPERATIONS_ENABLED="+str(int(expansion)), "-e", "T6_CHAT_ENABLED="+str(int(chat_context)), "-e", "T6_CAREERS_ENABLED=" + str(int(careers)), "-v", volume + ":/data", image)
+                                "-e", "T6_ARMORY_ENABLED="+str(int(armory_editor)), "-e", "T6_OPERATIONS_ENABLED="+str(int(expansion)), "-e", "T6_CHAT_ENABLED="+str(int(chat_context)), "-e", "T6_CAREERS_ENABLED=" + str(int(careers)), "-v", volume + ":/data", image)
         if not re.fullmatch(r"[a-f0-9]{64}", container):
             raise RuntimeError("Docker did not return an expected verification container ID")
         details = json.loads(docker.call("inspect", container))[0]
         if details["HostConfig"]["NetworkMode"] != "none" or details["HostConfig"].get("PortBindings"):
             raise RuntimeError("Verification container isolation did not match its required configuration")
-        if careers:
+        if careers or armory_editor:
             docker.call("volume", "create", "--label", LABEL + "=1", rivals_volume)
             rivals_created = True
             worker = docker.call("run", "-d", "--name", resource + "-worker", "--label", LABEL + "=1",
                                  "--network", "container:" + container, "--read-only", "--cap-drop", "ALL",
                                  "--security-opt", "no-new-privileges:true", "-e", "T6_CHAT_ENABLED=0",
-                                 "-e", "T6_CAREERS_ENABLED=1", "-e", "T6_CHAT_RCON_PORT=14977",
+                                 "-e", "T6_CAREERS_ENABLED="+str(int(careers)), "-e", "T6_ARMORY_ENABLED="+str(int(armory_editor)), "-e", "T6_CHAT_RCON_PORT=14977",
                                  "-v", volume + ":/data:ro", "-v", rivals_volume + ":/rivals", worker_image)
             if not re.fullmatch(r"[a-f0-9]{64}", worker):
                 raise RuntimeError("Docker did not return an expected verification worker ID")
         timeout = 180 + seconds * (2 if restart else 1)
         observed = False
+        armory_mailboxes = set()
         while time.monotonic() - started < timeout:
             all_logs = docker.call("logs", container, check=False)
+            if armory_editor and worker:
+                armory_mailboxes = service_armory_mailboxes(docker, worker, all_logs, armory_mailboxes)
             samples = parse_samples(all_logs)
             if FAILURE.search(all_logs) or NATIVE_FAILURE.search(all_logs):
                 break
@@ -403,11 +428,24 @@ def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool
             state = docker.call("inspect", "--format", "{{.State.Status}}", container)
             if state in ("exited", "dead"):
                 break
-            time.sleep(2)
+            time.sleep(0.1 if armory_editor else 2)
         samples = parse_samples(all_logs)
         if switches:
             samples = [s for s in samples if s.get("squads_enabled") and s.get("contracts_enabled")]
         report = assess(samples, case, restart, careers, squads, contracts)
+        if armory_editor:
+            report["armory_editor"] = assess_armory_editor(all_logs, restart)
+            report["armory_editor"]["loopback_mailbox_sends"] = len(armory_mailboxes)
+            worker_logs = docker.call("logs", worker, check=False)
+            private_store = docker.call("exec", worker, "python3", "-c", "from pathlib import Path;print(Path('/rivals/armory.json').exists())").strip()
+            transport_ok = len(armory_mailboxes) == (2 if restart else 1) and 'Armory persistence ready; native identity requests only' in worker_logs and 'Armory worker stopped' not in worker_logs and private_store == 'False'
+            report["armory_editor"]["worker_ready_and_human_store_absent"] = transport_ok
+            if not transport_ok:
+                report["armory_editor"]["passed"] = False
+                report["armory_editor"]["reasons"].append('Armory worker/mailbox/isolation checks failed')
+            if not report["armory_editor"]["passed"]:
+                report["passed"] = False
+                report["reasons"].extend(report["armory_editor"]["reasons"])
         if armory:
             report["armory"] = assess_armory(all_logs, restart)
             if not report["armory"]["passed"]:
@@ -549,6 +587,7 @@ def main(argv=None) -> int:
     parser.add_argument('--air-response', action='store_true', help='verify bot-only air target gate with private script entities, not actual aircraft combat')
     parser.add_argument('--lobby-balance',action='store_true',help='verify native bot refill, imbalance repair and count-only cooperative side policy; no humans fabricated')
     parser.add_argument('--chat-context',action='store_true',help='capture native task snapshots and verify human-presence/context guards; native speech primitive is tested separately')
+    parser.add_argument("--armory-editor", action="store_true", help="native base-class grant, HUD and lifecycle fixture with bots; human transport/rendering remain pending")
     parser.add_argument("--armory", action="store_true", help="native all-bot class-reference selection and next-spawn feasibility; no arbitrary edits or human unlock acceptance")
     parser.add_argument("--ui", action="store_true", help="verify actual native HUD creation, presenters and cleanup with bots; real client rendering/input remain pending")
     parser.add_argument("--expansion", action="store_true", help="verify native milestone helpers and bot exclusion; human commands require later client acceptance")
@@ -575,7 +614,7 @@ def main(argv=None) -> int:
         if args.lobby_balance and (any(c.mode=='dm' for c in cases) or args.seconds<90 or args.switches or args.process_restart or args.restart):
             raise ValueError('Lobby verification needs team modes, at least 90 seconds and no restart/switch flags')
         plan = {"server_process_restart": args.process_restart, "careers": args.careers, "squads": args.squads, "contracts": args.contracts, "contract_test_thresholds": args.contracts, "cases": [asdict(case) for case in cases], "seconds": args.seconds,
-                "native_restart": args.restart, "native_restart_method": "same_map_reload" if args.restart else None, "runtime_switches": args.switches, "chat_context":args.chat_context, "lobby_balance":args.lobby_balance, "air_response":args.air_response, "expansion":args.expansion, "ui":args.ui, "armory":args.armory, "network_mode": "none", "published_ports": False,
+                "native_restart": args.restart, "native_restart_method": "same_map_reload" if args.restart else None, "runtime_switches": args.switches, "chat_context":args.chat_context, "lobby_balance":args.lobby_balance, "air_response":args.air_response, "expansion":args.expansion, "ui":args.ui, "armory":args.armory, "armory_editor":args.armory_editor, "network_mode": "none", "published_ports": False,
                 "human_clients": False, "live_state": False}
         if not args.run:
             print(json.dumps(plan, indent=2))
@@ -588,7 +627,7 @@ def main(argv=None) -> int:
         docker = Docker(ROOT / "hosting/docker.sh")
         reports = []
         for case in cases:
-            report = run_case(docker, args.image, case, args.seconds, args.restart, directory, args.careers, args.worker_image, args.process_restart, args.squads, args.contracts, args.switches,args.chat_context,args.lobby_balance,args.air_response,args.expansion,args.ui,args.armory)
+            report = run_case(docker, args.image, case, args.seconds, args.restart, directory, args.careers, args.worker_image, args.process_restart, args.squads, args.contracts, args.switches,args.chat_context,args.lobby_balance,args.air_response,args.expansion,args.ui,args.armory,args.armory_editor)
             reports.append(report)
             (directory / "report.json").write_text(json.dumps({"plan": plan, "results": reports}, indent=2) + "\n")
             print(f"{'PASS' if report['passed'] else 'FAIL'}: {case.map_name}/{case.mode}", flush=True)

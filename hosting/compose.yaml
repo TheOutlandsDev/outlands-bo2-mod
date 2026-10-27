@@ -48,6 +48,7 @@ services:
       T6_PORT: ${T6_PORT:-4977}
       T6_NAME: ${T6_NAME:-Outlands BO2}
       T6_CHAT_ENABLED: ${T6_CHAT_ENABLED:-0}
+      T6_ARMORY_ENABLED: ${T6_ARMORY_ENABLED:-0}
       T6_CAREERS_ENABLED: ${T6_CAREERS_ENABLED:-0}
       T6_SERVER_KEY_FILE: /data/private/plutonium_server_key
     volumes:
