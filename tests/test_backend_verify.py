@@ -78,6 +78,35 @@ class ExpansionReportTests(unittest.TestCase):
 
 
 class BackendReportTests(unittest.TestCase):
+    def test_armory_editor_requires_full_native_grant_and_hud_receipt(self):
+        good='OUTLANDS_ARMORY_EDITOR_V2|pass|7|25|6|2|0'
+        result=verify.assess_armory_editor(good)
+        self.assertTrue(result['passed'])
+        self.assertFalse(result['actual_human_unlocks'])
+        self.assertFalse(result['actual_human_worker_transport'])
+        self.assertFalse(result['actual_client_rendering'])
+        self.assertTrue(verify.assess_armory_editor(good+'\n'+good,True)['passed'])
+        for bad in ('', 'Player: '+good,good+'\n'+good,good.replace('|25|','|23|'),good[:-1]+'1'):
+            self.assertFalse(verify.assess_armory_editor(bad)['passed'])
+        cfg=verify.config_for(verify.Case('mp_raid','dom'),90,False,False,armory_editor=True)
+        self.assertIn('set outlands_verify_armory_editor 1',cfg)
+        self.assertNotIn('set outlands_verify_armory_editor 1',verify.config_for(verify.Case('mp_raid','dom'),90,False,False))
+
+    def test_armory_loopback_fixture_sender_is_fixed_bounded_and_deduplicated(self):
+        class FakeDocker:
+            def __init__(self):self.calls=[]
+            def call(self,*args,**kwargs):self.calls.append((args,kwargs));return ''
+        docker=FakeDocker()
+        good='OUTLANDS_ARMORY_MAILBOX_V1|fixture_0|2|rifle,pistol,perk_1,perk_2,perk_3,frag,flash'
+        sent=verify.service_armory_mailboxes(docker,'worker',good,set())
+        self.assertEqual(sent,{'fixture_0'})
+        self.assertEqual(len(docker.calls),1)
+        self.assertIn('send_armory',docker.calls[0][0][-1])
+        self.assertEqual(docker.calls[0][1]['input_text'],'fixture_0|2|cancelled|1|rifle,pistol,perk_1,perk_2,perk_3,frag,flash')
+        verify.service_armory_mailboxes(docker,'worker',good,sent)
+        for bad in ('Player: '+good,good.replace('|2|','|18|'),good.replace('rifle,','rifle;quit,'),good+',extra'):
+            verify.service_armory_mailboxes(docker,'worker',bad,set())
+        self.assertEqual(len(docker.calls),1)
     def test_armory_proof_requires_native_staging_and_next_spawn_but_not_humans(self):
         good = 'OUTLANDS_ARMORY_V1|pass|5|1|1|1|1|1'
         result = verify.assess_armory(good)

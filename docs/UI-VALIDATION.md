@@ -1,10 +1,10 @@
 # UI development and acceptance
 
 Career and contract data feed an opt-in [native HUD preview](UI.md). Its actual
-client rendering and input are not yet accepted. A full client menu and
-mid-match loadout editor do not yet exist. The [Armory backend](ARMORY.md) supplies
-single-slot validation/storage/queue code; native materialization and the
-human unlock adapter remain pending. The following gates define how to
+client rendering and input are not yet accepted. The [native Armory preview](ARMORY.md)
+now supplies a base-class HUD editor, native unlock adapter, private persistence
+and spawn-time grants. Its actual human transport, rendering and progression
+still require client acceptance; advanced native class editing remains gated. The following gates define how to
 build and accept them. A backend pass is separate from a rendered UI pass.
 
 ## Repeatable offline baseline

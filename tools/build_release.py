@@ -23,7 +23,7 @@ HOST_FILES = {"README.md", ".gitignore", ".env.example", "Dockerfile", "Dockerfi
               "compose.dockhand.ai.yaml", "manage.sh", "docker.sh", "entrypoint.py",
               "healthcheck.py", "store_key.py", "prepare_package.py", "setup_host.py", "export_invite.py",
               "backend_verify.py", "verification.gsc"}
-AI_FILES = {"README.md", "Dockerfile", "Modelfile", "bridge.py", "tests/test_bridge.py", "armory.py", "tests/test_armory.py",
+AI_FILES = {"README.md", "Dockerfile", "Modelfile", "bridge.py", "tests/test_bridge.py", "armory.py", "tests/test_armory.py", "armory_native.py", "tests/test_armory_native.py",
             "config.example.json", "personalities.json", "careers.py", "tests/test_careers.py", "benchmark.py", "tactics.py", "tests/test_tactics.py", "operations.py", "conversation_benchmark.py", "tests/test_operations.py", "tests/test_dialogue_v3.py"}
 TOOL_FILES = {"build_release.py", "client_settings.py", "install_files.py", "play_lan_windows.ps1",
               "preflight.py", "setup_client.py", "windows_client.ps1", "content_inventory.py", "contract_rules.py", "validate_system.py"}
@@ -41,6 +41,7 @@ STORAGE_FILES = {"storage/t6/outlands_t6.cfg", "storage/t6/gamesettings/outlands
                  "storage/t6/scripts/mp/outlands_bot_careers.gsc",
                  "storage/t6/scripts/mp/outlands_squads.gsc", "storage/t6/scripts/mp/outlands_contracts.gsc",
                  "storage/t6/scripts/mp/outlands_chat.gsc", "storage/t6/scripts/mp/outlands_operations.gsc", "storage/t6/scripts/mp/outlands_ui.gsc", "storage/t6/scripts/mp/outlands_armory.gsc", "storage/t6/outlands_ui_keys.cfg", "storage/t6/bots.txt"}
+STORAGE_FILES |= {"storage/t6/scripts/mp/outlands_armory_ui.gsc", "storage/t6/outlands_armory_keys.cfg"}
 PUBLIC_PATHS = frozenset(ROOT_FILES | STORAGE_FILES
                         | {"hosting/" + name for name in HOST_FILES}
                         | {"ai/" + name for name in AI_FILES}

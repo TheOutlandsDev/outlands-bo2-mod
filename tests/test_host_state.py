@@ -15,6 +15,18 @@ SPEC.loader.exec_module(host)
 
 
 class HostStateTests(unittest.TestCase):
+    def test_armory_is_independently_opt_in_and_does_not_touch_stats_or_bindings(self):
+        for path in ('scripts/mp/outlands_armory.gsc','scripts/mp/outlands_armory_ui.gsc','outlands_armory_keys.cfg'):
+            self.assertIn(Path(path),host.MOD_PAYLOADS)
+        with patch.dict(os.environ,{'T6_CHAT_ENABLED':'0','T6_CAREERS_ENABLED':'0','T6_OPERATIONS_ENABLED':'0','T6_ARMORY_ENABLED':'1'}):
+            host.configure_mod(None)
+        self.assertEqual(self.value('outlands_armory'),'1')
+        self.assertTrue(self.secret.is_file())
+        self.assertEqual(self.stats.read_bytes(),self.original_stats)
+        self.assertNotIn('exec outlands_armory_keys.cfg',self.cfg.read_text())
+        with patch.dict(os.environ,{'T6_ARMORY_ENABLED':'0'}):
+            host.configure_mod(None)
+        self.assertEqual(self.value('outlands_armory'),'0')
     def test_ui_payload_is_installed_without_rebinding_keys_or_overriding_host_choice(self):
         self.assertIn(Path('scripts/mp/outlands_ui.gsc'),host.MOD_PAYLOADS)
         self.assertIn(Path('outlands_ui_keys.cfg'),host.MOD_PAYLOADS)

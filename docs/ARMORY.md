@@ -1,121 +1,176 @@
-# Outlands Armory backend
+# Native Outlands Armory preview
 
-The first Armory slice implements a single saved loadout per native identity,
-strict rules and a next-respawn queue. It is a backend library, not an available
-in-game editor. There is no live Armory command, endpoint or automatic equipment
-change. Career/Contracts HUD behavior is unchanged.
+The opt-in Armory now has a native HUD editor, server-side earned-unlock checks,
+private single-slot storage and a native spawn integration. It is a base-class
+preview awaiting real Windows/Linux acceptance. It does not edit native class
+DDL, manufacture XP, unlock items, change the current life on Save, or replace
+stock Create-a-Class.
 
-## Accepted request and trusted observations
+## Tonight's client test
 
-`ai/armory.py` accepts an exact, bounded class schema: optional primary and
-secondary, separate attachment lists, three perk groups, lethal/tactical type
-and count, and at most three wildcards. Cosmetic choices, scorestreaks, names,
-rank and unlock flags are not part of this request.
+Join with your existing private launcher or `exec outlands_join.cfg`, select a
+team and stock class, and spawn. Then use public chat `!outlands armory`.
+Hidden `/!outlands armory` is also supported by the handler. The overlay does
+not pause the match or capture movement controls; open it when safe.
 
-`Catalog` and `Observation` are separate trusted adapter inputs. The server must
-populate available items, full allowed attachment combinations, earned item and
-weapon-specific attachment unlocks, the actual allocation limit, native identity,
-session, map epoch, spawn ordinal, observation time and the earned native
-Create-a-Class feature unlock. A client must never
-supply these through a save request. No bundled fictional catalog is used at
-runtime; the small catalog in the tests is explicitly synthetic.
+1. Use `!outlands down` / `!outlands up` to choose a row and `!outlands right` /
+   `!outlands left` to change its item. Only currently earned, supported choices
+   are cycled. A new slot starts as an empty draft; NONE is a legal choice.
+2. Use `!outlands save`. Wait for SAVED / QUEUED, and confirm current weapons,
+   ammo and perks have not changed. Close with `!outlands close`.
+3. After your next normal respawn, inspect the actual primary, secondary,
+   perks and grenade types/counts. Check another respawn retains the active
+   class. A failed or late claim must not claim successful equipment.
+4. Quit/reconnect, reopen the Armory and confirm the saved choices remain.
+   Use `!outlands equip` to queue that saved revision for the next spawn.
+5. Use `!outlands stock` or select a different stock class to cancel the
+   Outlands class for subsequent respawns. Selecting the already-selected
+   stock class may produce no native class-change event; use the chat command.
+   Finish a round and confirm ordinary player/weapon progression survives
+   restarting the client. With two players, confirm classes stay separate.
 
-Rules reject unknown IDs, wrong slots, locked content, excess allocation,
-duplicate items and incompatible attachment combinations. Overkill, both
-Gunfighters, three Perk Greeds and Danger Close have explicit constraints and
-cost a point themselves. Each selected item/attachment/perk/equipment unit also
-costs one point. A lower native allocation limit is respected. A knife-only
-class costs zero; cosmetic selections are outside this schema. Equipment count
-limits come from the trusted catalog. The current subset refuses Tactician
-because its second tactical slot and native count/cost semantics are not yet
-accepted. The custom validator is an additional gate, not a replacement for
-Plutonium's native class validity check.
+Console equivalents are `outlands_armory`, `outlands_armory_up`,
+`outlands_armory_down`, `outlands_armory_prev`, `outlands_armory_next`,
+`outlands_armory_save`, `outlands_armory_equip`, `outlands_armory_stock` and
+`outlands_armory_close`. Chat works without new client assets or bindings.
 
-Missing unlock observations fail closed. Maximum observation age is five
-seconds; future observations, bots, spectators and catalog changes are refused.
-Rank alone never establishes an unlock. All unlocks are rechecked at claim time,
-including after a prestige/reset or changed server restrictions.
+Optional `exec outlands_armory_keys.cfg` replaces F5-F9 and F11 bindings:
+F5 toggle, F6 row, F7/F8 previous/next item, F9 save, F11 equip. Record your
+existing bindings first. These overlap the optional Career HUD bindings.
+Installers copy the CFG but never execute it. For an older client without that
+file, use chat/console commands. Mouse and controller navigation are not
+implemented. Accept the layout/fonts/input on both platforms at 720p and 1080p;
+backend HUD allocation does not establish actual client rendering.
 
-## One saved slot
+## First native subset
 
-`ArmoryStore.save()` validates first, then uses expected revision and an
-idempotent request token to commit one private slot. Rejected saves preserve
-the previous bytes. Duplicate requests return the committed revision; a reused
-token with different contents is rejected. Responses are copies, so UI callers
-cannot mutate the stored class. The service has no cross-player lookup field in
-an untrusted loadout: ownership comes from the trusted observation.
+The editor offers a primary, a pistol/launcher secondary, one perk from each of
+three native groups, and ordinary lethal/tactical grenades with one charge each.
+Items and localized labels are discovered from the installed native stats table.
+Compound perks remain one pick but apply every native effect. Each selected
+slot costs one point; the actual native allocation limit is displayed and
+respected. NONE removes an item; knife-only is supported.
 
-The Linux host store requires an owned mode-700 directory and mode-600 regular
-state file, refuses symlinks/hardlinks, bounds records/bytes and atomically
-replaces a flushed/fsynced temporary file. One worker must own this store; it
-is not a concurrent multi-writer database. The file contains a random salt,
-HMAC identity keys, class IDs, revisions and request/content digests. It contains
-no raw native GUID, name, chat, session, address or native profile data. Consumed
-claims retain only a keyed digest of session/map scope and a spawn ordinal. Armory
-state is separate from Operations, bot careers and native BO2 saves. Store
-errors must not be presented as a successful save or queued revision.
+Attachments, wildcards, optics/camos/reticles, shields, ballistic knives,
+scripted equipment and scorestreak editing remain in stock CAC. The standalone
+backend library has broader attachment/wildcard rules, but those are not
+exposed through this first native grant adapter. An advanced saved class is
+refused rather than silently truncated. Stock scorestreak choices and earned
+streak counters remain under native control.
 
-## Respawn semantics
+Native `isitemlocked`, the earned `feature_cac` unlock, allocation-feature
+unlocks, mode restrictions and item exclusions are read for each selected item.
+The editor never infers ownership from displayed rank. The supported modes are
+TDM, FFA, Kill Confirmed, CTF, Demolition, Domination, Hardpoint and Headquarters.
+Disabled CAC or unsupported modes refuse application. Native metadata and actual
+human unlock behavior still need client acceptance; no bot is relabeled as a
+human for tests.
 
-`RespawnQueue.enqueue()` validates the committed class again. It can replace a
-pending revision with the newest accepted revision for the same identity.
-Enqueueing never touches inventory. The current life cannot claim it. Exactly
-the next spawn ordinal, in the same human session and map epoch, can claim it;
-a successful claim durably consumes the revision before returning it. Repeated enqueue after consumption
-cannot claim the same revision again in that session. A claim returns
-`claimed_not_applied`; only an adapter's actual equipment readback can confirm
-equipping. An adapter failure must be reported and never silently retried into
-a later life.
+## Enable and rollback
 
-Disconnect must cancel the ticket. Map change, changed session, disabled or
-spectator state, stale observations, missed spawn, changed unlocks or a newer
-unqueued save invalidate it. The native adapter must increment the spawn ordinal
-for every life, including round starts; team or mode transitions should cancel
-the ticket. Restart intentionally discards pending tickets but preserves the
-saved slot. Reconnect requires an explicit requeue and fresh native observation.
+The source defaults to off. Build the matching game and worker images and set
+`T6_ARMORY_ENABLED=1` in the private Compose environment. The source and Dockhand
+AI stacks pass it to both game and worker. Use the AI hosting profile even when
+chat/model features are disabled: the Armory needs its persistence worker.
+Entry point configures `outlands_armory` from that explicit flag. No port,
+Tailscale access, credential or player profile change is required.
 
-## Native integration checkpoint
+The adapter installs only if the native custom-loadout hook is free. A conflicting
+hook blocks the feature instead of replacing another mod. The worker runs a
+separate Armory thread so model response latency cannot block a respawn claim.
+It reads private native observations and sends one fixed loopback RCON mailbox.
+It has no public HTTP endpoint and sends no identities/loadouts to Ollama.
 
-Native BO2 `giveloadout` runs before `spawned_player`. The stock class menu can
-also regrant a class immediately during its grace period. Calling either from a
-post-spawn editor callback would not establish next-respawn-only semantics.
-See the native [spawn path](https://github.com/plutoniummod/t6-scripts/blob/main/MP/Core/maps/mp/gametypes/_globallogic_spawn.gsc),
-[menu class selection](https://github.com/plutoniummod/t6-scripts/blob/main/MP/Core/maps/mp/gametypes/_globallogic_ui.gsc)
-and [class implementation](https://github.com/plutoniummod/t6-scripts/blob/main/MP/Core/maps/mp/gametypes/_class.gsc).
-Plutonium documents `classIsValid` and dedicated-server class checks in its
-[changelog](https://plutonium.pw/docs/changelog/).
+Turn the flag back to zero to close editors and stop future custom grants;
+current inventory changes only at a normal spawn. Restore previous pinned images
+for code rollback. Back up complete server storage and the private rival-state
+volume before promotion. Keep Armory state/backups out of the public source.
+No release tag implies real-client acceptance.
 
-`outlands_armory.gsc` has no `main`, `init`, human mutation path or commands. Its
-read-only inspector accesses the first five native custom slots. A loopback-only
-disposable bot fixture can stage a reference to an existing valid native slot,
-check current weapon/ammo remain unchanged, then observe a real death/respawn
-and compare granted primary/secondary/perks. This is class-reference feasibility,
-not arbitrary loadout materialization or earned human unlock acceptance. Native
-slot validity alone must never be relabeled as verified human unlock ownership.
+## Save, queue, grant and acknowledgement
 
-The missing integration gates are authoritative human unlock/catalog export,
-native-safe materialization of a separately saved custom class without rewriting
-DDL, pre-loadout queue consumption, verified equipment acknowledgement and the
-actual editor controls. Until those pass, the public API remains a local library
-and the live server receives no Armory equipment changes.
+`ai/armory.py` remains the strict validator and atomic single-slot store. Its
+catalog and observation are separate trusted inputs, never editor-supplied
+unlock flags. `ai/armory_native.py` parses bounded, anchored native-only records,
+binds sessions/sequences/slots/identities and uses that same validator/store.
+The exact seven-slot transport refuses extras and advanced combinations.
 
-## Verification
+A save validates native unlocks, then commits a compare-and-swap revision before
+acknowledging it. Duplicate requests are idempotent; altered/replayed requests
+cannot replace an accepted revision. A pending revision is queued for one spawn
+ordinal in the same connection and map. A save reply arriving after its intended
+spawn is shown as saved but requires explicit Equip; it never changes a live
+inventory. Cancelling invalidates the in-flight native mailbox as well as the
+queue, so a late response cannot resurrect it.
+
+The wrapper around native `level.spawnplayer` requests a durable claim before
+calling the stock spawn path. It waits a bounded time before spawning; failure
+retains the last accepted active class when valid, otherwise the stock class.
+The native `givecustomloadout` hook grants the accepted base class during the
+normal native class grant, before `spawned_player`. It refuses calls outside
+that wrapper and clears its armed flag before mutation. No native class slot
+is rewritten. Later lives reapply the active class with fresh native checks;
+this is distinct from consuming the pending revision again.
+
+After the native spawn event, readback checks actual primary/secondary/perk
+effects, grenade counts/ammo and absence of unexpected base weapons. Native
+scorestreak weapons are allowed. Only matching readback produces an equipment
+acknowledgement. Saved, queued, durably claimed and equipped are separate states.
+A process loss after durable claim may lose application, but cannot silently
+replay it. If unconfirmed, save a new revision or reconnect and explicitly
+requeue. Worker restart discards unconsumed queues; it preserves saved slots
+and durable consumed-claim guards. Native XP/unlock acceptance remains a real
+client test after these backend checks.
+
+Death/spawn closes the editor; native class changes, team changes, spectator
+state and feature disable cancel queued/active classes. Map changes and reconnect
+start a new session. Overlay ownership includes the session, preventing slot
+reuse from displaying another connection's draft. Editors time out after forty
+seconds, use a bounded set of client HUD objects and do not create extra command
+listeners each time they open.
+
+## Private data and failure handling
+
+The Linux host store requires an owned mode-700 parent and mode-600 regular file,
+refuses links, bounds entries/bytes and atomically replaces a flushed/fsynced
+file. One Armory thread owns it. Only salted HMAC identity keys, class IDs,
+revisions and request/claim digests persist. Raw GUID, session, name, address,
+chat and native profile data do not persist in Armory state. Native identity
+still has the existing LAN client's limitations; this is not a global account
+system. Keep private console transport logs outside shared artifacts.
+
+Disk failure does not acknowledge a save. A failure after rename requires store
+reload before further mutation. Failed worker startup/request transport times
+out without new equipment. Source tests inject malformed requests, locked
+items, revision conflicts, two identities, duplicate claims, reconnects,
+worker restarts, cancellations and interrupted writes. Keep raw diagnostics
+and user profiles private.
+
+## Reproducible checks
 
 ```sh
-python -B -m unittest discover -s ai/tests -p test_armory.py -v
+python -B -m unittest discover -s ai/tests -p 'test_armory*.py' -v
 python -B tools/validate_system.py
-python -B hosting/backend_verify.py --run --case mp_raid:dom --seconds 60 \
-  --image outlands-t6:armory-dev --armory
+python -B hosting/backend_verify.py --run --case mp_raid:dom --seconds 90 \
+  --image outlands-t6:native-armory-dev \
+  --worker-image outlands-bo2-chat:native-armory-dev --armory-editor --ui
 ```
 
-The first command exercises the actual validator/store/queue. Validator tests
-run on Linux and Windows; the private Linux host store tests explicitly skip
-on Windows. The full offline runner includes the tests on Linux. Native tests
-require a private image containing locally owned game files and use disposable
-state, no network, no published ports and no humans. Reports distinguish these
-three scopes from actual Windows/Linux client editing and native progression.
-Follow the remaining [UI acceptance gates](UI-VALIDATION.md) before enabling a
-class editor or describing mid-match customization as available. If a process
-dies after durable consume but before equipment acknowledgement, the UI must
-report unconfirmed equipment. A new revision or explicit reconnect/requeue is
-required; the old claim must not silently replay after restart.
+Windows CI runs the portable validator/protocol tests and client setup checks;
+Linux CI also runs private-store and backend-runner tests. Offline checks do
+not launch a game or accept the interface. The isolated native runner uses
+locally owned game files, no network/public ports, disposable volumes and bots.
+It exercises real native class grants over two lives, compound perk effects,
+current-life refusal, native reply/cancel checks, fixed loopback RCON through
+the worker image and repeated editor HUD cleanup. The worker must start and no
+human Armory ledger may be created by these all-bot fixtures. Pure worker tests
+exercise the actual save/claim pipeline with explicitly synthetic identities.
+Those are separate evidence scopes; real human transport/rendering/progression
+remain tonight's acceptance gates.
+
+`--restart` means a full same-map reload, not a warm/halftime restart. Existing
+warm FFA restart limitations remain separate. Native references:
+[spawn path](https://github.com/plutoniummod/t6-scripts/blob/main/MP/Core/maps/mp/gametypes/_globallogic_spawn.gsc),
+[class grant/hook](https://github.com/plutoniummod/t6-scripts/blob/main/MP/Core/maps/mp/gametypes/_class.gsc),
+[native bot unlock reads](https://github.com/plutoniummod/t6-scripts/blob/main/MP/Core/maps/mp/bots/_bot_loadout.gsc).
+Follow the remaining [UI acceptance gates](UI-VALIDATION.md).

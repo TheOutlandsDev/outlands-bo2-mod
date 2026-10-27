@@ -4,8 +4,8 @@ The first functional frontend is a server-rendered Career and Contracts HUD
 using original charcoal panels, amber selection rails and BO2's native HUD
 fonts. It reads real Operations responses and the current team's contract.
 The browser design remains a visual target, not a screenshot of this engine
-implementation. Armory, Rivals, mouse hit targets and native LUI menus are not
-implemented by this slice.
+implementation. The separate [native Armory preview](ARMORY.md) supplies a base-
+class editor. Rivals, mouse hit targets and native LUI menus remain future work.
 
 ## Enable and open
 

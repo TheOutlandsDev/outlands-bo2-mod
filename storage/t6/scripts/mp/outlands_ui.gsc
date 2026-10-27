@@ -222,6 +222,12 @@ dispatch( player, action )
     {
         if ( action == "next" || action == "focus" )
             return false;
+        if ( isdefined( level.outlands_armory_ui_owners ) )
+        {
+            editor = level.outlands_armory_ui_owners[slot];
+            if ( isdefined( editor ) )
+                destroy_hud( editor );
+        }
         state = create_hud( player );
         level.outlands_ui_owners[slot] = state;
     }

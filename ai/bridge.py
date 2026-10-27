@@ -21,6 +21,7 @@ import re
 import signal
 import socket
 import stat
+import threading
 import time
 import unicodedata
 import urllib.error
@@ -30,6 +31,7 @@ import urllib.request
 from careers import CareerEvent, CareerStore, ROLES, integer
 from tactics import Tactical, fallback as tactical_fallback, usable as tactical_usable
 from operations import OperationEvent, OperationStore, response_value
+from armory_native import serve as serve_armory
 
 LOG = logging.getLogger("outlands-chat")
 MARKER = "OUTLANDS_CHAT_V1|"
@@ -101,6 +103,7 @@ class Config:
     enabled: bool = False
     careers_enabled: bool = False
     operations_enabled: bool = False
+    armory_enabled: bool = False
     mode: str = "ollama"
     ollama_url: str = "http://127.0.0.1:11434"
     model: str = "outlands-bo2-chat"
@@ -144,6 +147,14 @@ class Config:
             operations_enabled = env_operations == "1"
         if not isinstance(operations_enabled, bool):
             raise ConfigError("operations_enabled must be a boolean")
+        armory_enabled = data.get("armory_enabled", False)
+        env_armory = os.environ.get("T6_ARMORY_ENABLED")
+        if env_armory is not None:
+            if env_armory not in ("0", "1"):
+                raise ConfigError("T6_ARMORY_ENABLED must be 0 or 1")
+            armory_enabled = env_armory == "1"
+        if not isinstance(armory_enabled, bool):
+            raise ConfigError("armory_enabled must be a boolean")
         dialogue_enabled = data.get("dialogue_enabled", True)
         env_dialogue = os.environ.get("T6_CHAT_DIALOGUE_ENABLED")
         if env_dialogue is not None:
@@ -178,7 +189,7 @@ class Config:
             if int(values[key]) != values[key]:
                 raise ConfigError(f"{key} must be an integer")
             values[key] = int(values[key])
-        return cls(enabled=enabled, careers_enabled=careers_enabled, operations_enabled=operations_enabled, mode=mode, ollama_url=url.rstrip("/"), model=model,
+        return cls(enabled=enabled, careers_enabled=careers_enabled, operations_enabled=operations_enabled, armory_enabled=armory_enabled, mode=mode, ollama_url=url.rstrip("/"), model=model,
                    fallback_on_error=data.get("fallback_on_error", True),
                    dialogue_enabled=dialogue_enabled,
                    allowed_event_kinds=tuple(kinds), **values)
@@ -679,6 +690,12 @@ class RconSink:
         secret = read_secret(self.secret_path)
         self._send(b"\xff\xff\xff\xff" + f'rcon {secret} set outlands_operation_response "{value}"'.encode("ascii"))
 
+    def send_armory(self, value):
+        if not isinstance(value, str) or not re.fullmatch(r"[A-Za-z0-9_,|_-]{1,700}", value):
+            raise ValueError("Unsafe Armory response")
+        secret = read_secret(self.secret_path)
+        self._send(b"\xff\xff\xff\xff" + f'rcon {secret} set outlands_armory_response "{value}"'.encode("ascii"))
+
     def _send(self, packet: bytes):
         family = socket.AF_INET6 if ":" in self.address[0] else socket.AF_INET
         with socket.socket(family, socket.SOCK_DGRAM) as connection:
@@ -863,7 +880,7 @@ def main():
         if args.check:
             print("Configuration valid; chat " + ("enabled" if cfg.enabled else "disabled") + "; bot careers " + ("enabled" if cfg.careers_enabled else "disabled"))
             return 0
-        if not cfg.enabled and not cfg.careers_enabled and not cfg.operations_enabled:
+        if not cfg.enabled and not cfg.careers_enabled and not cfg.operations_enabled and not cfg.armory_enabled:
             LOG.info("Optional bot chat and careers are disabled")
             return 0
         sink = RconSink(os.environ.get("T6_CHAT_RCON_HOST", "127.0.0.1"),
@@ -874,12 +891,26 @@ def main():
                               {name: personalities.role(name) for name in personalities.profiles}) if cfg.careers_enabled else None
         operations = OperationStore(Path(os.environ.get("T6_OPERATIONS_STATE_FILE", "/rivals/operations.json"))) if cfg.operations_enabled else None
         worker = Worker(cfg, Generator(cfg, personalities) if cfg.enabled else None, sink, tail, careers, operations)
+        armory_stop = threading.Event()
+        armory_thread = None
+        if cfg.armory_enabled:
+            armory_thread = threading.Thread(target=serve_armory, name="outlands-armory", daemon=True,
+                args=(Path(os.environ.get("T6_ARMORY_STATE_FILE", "/rivals/armory.json")),
+                      LogTail(tail.path), sink, armory_stop, ANSI, LOG))
+            armory_thread.start()
         def stop(_signum, _frame):
             worker.running = False
+            armory_stop.set()
         signal.signal(signal.SIGTERM, stop)
         signal.signal(signal.SIGINT, stop)
         LOG.info("Optional worker enabled; chat=%s bot_careers=%s operations=%s", cfg.enabled, cfg.careers_enabled, cfg.operations_enabled)
-        worker.run()
+        LOG.info("Armory transport enabled=%s; independent of model latency", cfg.armory_enabled)
+        try:
+            worker.run()
+        finally:
+            armory_stop.set()
+            if armory_thread is not None:
+                armory_thread.join(timeout=2)
     except (OSError, ValueError, KeyError, TypeError):
         LOG.error("Invalid configuration or unavailable private input; see ai/README.md")
         return 2
