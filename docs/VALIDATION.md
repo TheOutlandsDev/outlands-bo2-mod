@@ -112,7 +112,8 @@ exercise repeated rotations and reconnects.
 2. On a private test host, verify one banter opener, one answer by a different
    bot, and a public human-chat reply. Confirm native `sayall` delivery in game;
    a worker submission alone does not establish speech delivery.
-3. Confirm the exchange ends after two lines, human replies take priority,
+3. Confirm each numbered exchange stops at its explicit two-to-four-line limit,
+   human replies take priority,
    shared budgets apply to both turns, and no ambient chat occurs without a
    human. Test disconnects and slot reuse before delivery.
 4. Test both a cold/unavailable model's canned fallback and a warm-model reply.
@@ -207,3 +208,25 @@ Later call in an earned UAV, counter-UAV and attack helicopter from real clients
 Compare time to first bot rocket and streak survival with default tuning versus
 0 ms / 100 percent. Confirm bots still counter aircraft and keep their normal
 ground combat. Adjust these small values based on playtest feedback.
+
+
+## Outlands Operations acceptance
+
+Run the regression suites and `ai/conversation_benchmark.py --mode fallback`
+without a game/model. Optional `--mode ollama` uses synthetic conversations only;
+review relevance and tone in addition to transport/grounding gates. Never inject
+synthetic human observations into live game state.
+
+Use `hosting/backend_verify.py --run --expansion --chat-context --squads --contracts`
+with private candidate images and disposable state. It waits for actual native
+bots before checking exclusion and formats all four dialogue turns using the
+production serializer. Synthetic milestone tests cover commit/retry/restart and
+selection independently from that native integration.
+
+With real Windows and Linux clients later, use public `!career` and `!track
+objective`. Earn personal kills and contribute score to a team-points or
+combined-score contract before completion. Check the private notification, then
+reconnect, rotate maps and restart the client/server while retaining profile and
+private ledger. Confirm native BO2 XP/unlocks remain unchanged by the Operations
+path. Check duplicate-name/identity behavior deliberately in private test profiles.
+Public documentation must not contain raw identity values, chat or state files.
