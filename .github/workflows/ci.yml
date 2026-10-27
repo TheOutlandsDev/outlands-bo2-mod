@@ -31,13 +31,19 @@ jobs:
         run: |
           python -B -m unittest discover -s tests -p "test_account*.py" -v
           python -B -m unittest discover -s tests -p test_google_login.py -v
+      - name: Verify disposable private account bootstrap
+        run: |
+          docker build -f accounts/Dockerfile -t outlands-bo2-accounts:ci .
+          python -B hosting/account_verify.py --run --image outlands-bo2-accounts:ci --report-dir runtime/account-bootstrap-ci
       - name: Validate source and record acceptance boundaries
         run: python -B tools/validate_system.py --report-dir runtime/validation
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: validation-linux
-          path: runtime/validation/report.json
+          path: |
+            runtime/validation/report.json
+            runtime/account-bootstrap-ci/report.json
           if-no-files-found: error
           retention-days: 14
 
