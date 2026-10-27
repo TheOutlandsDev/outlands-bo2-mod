@@ -72,8 +72,13 @@ python -B hosting/backend_verify.py --run --case mp_raid:dom --seconds 60 \
 Omit `--run` to inspect the plan. This uses disposable volumes, network mode
 `none`, no published ports and no live profiles. Native bots remain bots; no
 synthetic human is inserted into a production match. Existing probes cover
-career/helpers, bot exclusion, contracts, squads and chat context. They do not
-exercise a graphical menu. Add UI-specific probes when the UI adapter exists.
+career/helpers, bot exclusion, contracts, squads and chat context. Add `--ui`
+for native HUD presenters/allocation/cleanup and nineteen actual all/team chat
+events through production command parsers, including two-byte prefixes, hidden
+forms and privacy rejection. Add `--armory-editor` for its base-grant fixture.
+The control fixture also checks all seven native button reads while frozen,
+their two menu mappings, exclusive ownership and cleanup. These probes do not
+accept a real human's keyboard/controller input or client rendering.
 Raw reports remain private. A native crash or script error fails acceptance,
 including a run that later recovers.
 
@@ -104,3 +109,10 @@ For each candidate, retain source digest, private image IDs, check results and
 platform-specific client results together. Keep pending gates explicit. Public
 updates may include methods and aggregate results, without connection details,
 identities, game assets, profile data, raw logs or screenshots containing them.
+
+## Browser portal
+
+The [optional portal](PORTAL.md) has separate HTTP/privacy tests, anonymous native
+telemetry assessment and desktop/mobile browser QA. Its read-only server view
+does not replace private in-game class or career editing. Browser QA cannot
+accept actual Windows/Linux game input or access from another tailnet device.

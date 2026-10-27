@@ -1,10 +1,10 @@
-# Outlands native HUD preview
+# Outlands full-screen native menu
 
 The first functional frontend is a server-rendered Career and Contracts HUD
 using original charcoal panels, amber selection rails and BO2's native HUD
 fonts. It reads real Operations responses and the current team's contract.
-The browser design remains a visual target, not a screenshot of this engine
-implementation. The separate [native Armory preview](ARMORY.md) supplies a base-
+The [Tailscale browser portal](PORTAL.md) uses the same original visual theme
+with mouse/touch navigation and an aggregate live server view. The separate [native Armory preview](ARMORY.md) supplies a base-
 class editor. Rivals, mouse hit targets and native LUI menus remain future work.
 
 ## Enable and open
@@ -17,19 +17,28 @@ or contact Ollama.
 
 Use public chat `!outlands`, `!outlands career`, `!outlands contracts`,
 `!outlands focus` or `!outlands close`. Hidden `/!outlands` commands are also
-accepted. Console commands are `outlands` (toggle), `outlands_next` (other page),
-`outlands_focus` (cycle career focus) and `outlands_close`.
+accepted. In the game console use `say !outlands`, `say !outlands next`,
+`say !outlands focus` or `say !outlands close`. `!outlands help` shows private
+help. See the [command reference](COMMANDS.md); bare console aliases remain
+compatibility paths requiring real-client forwarding acceptance.
 
-Optional `exec outlands_ui_keys.cfg` binds F6-F9 to those four commands.
+Optional `exec outlands_ui_keys.cfg` binds F6-F9 to hidden `say` forms of those four commands.
 This overwrites existing F6-F9 bindings; record yours before opting in.
 Installers copy the file but never execute it or rebind controls automatically.
-Console/chat commands work without those bindings. Controller mapping and all
-actual client input still require acceptance; there is no built-in mouse menu.
+Chat/explicit `say` commands need no additional bindings. After opening, close
+the console/chat box. The menu reads existing game actions: ADS/Fire or grenade
+actions change pages, Use changes focus, Jump opens Armory, and Melee closes.
+The footer displays these prompts. Keyboard/controller delivery and visual
+layout still need real-client acceptance; there is no clickable mouse cursor.
 
-The overlay does not pause a multiplayer match or freeze controls. Open it
-when safe. It closes after forty seconds without menu input, on death, spawn,
-disconnect, map end or feature disable. Each open owns a bounded set of native
-client HUD objects. Opening does not create another controller/listener.
+The overlay captures gameplay controls while open; the live match continues
+and your character remains vulnerable. Release held inputs before navigating.
+It closes after forty seconds without menu input, on damage, death, spawn,
+team change, disconnect, map end or feature disable. Its ownership token prevents
+a stale overlay from unfreezing another overlay or a native round transition. Each open owns a bounded set of native
+client HUD objects and one input poller. Closing invalidates its ownership so
+old pollers exit rather than accumulate. An opaque overscan panel fills the
+screen while content stays inside the native safe area.
 
 ## Data and mutation boundaries
 
@@ -62,6 +71,14 @@ python -B hosting/backend_verify.py --run --case mp_raid:dom --seconds 60 \
   --image outlands-t6:ui-dev --worker-image outlands-bo2-chat:local \
   --careers --squads --contracts --chat-context --expansion --ui
 ```
+
+The `--ui` native probe now also requires nineteen engine-generated all/team
+chat events to match the production command parsers. It checks two-byte
+transport-prefix removal, hidden-form/case/spacing handling, bot exclusion and
+privacy refusal. A native bot control fixture also exercises all seven game
+actions while frozen, their Career/Armory mappings, exclusive focus ownership
+and cleanup. Pure input helpers check initial release, repeat bounds and
+one-shot saves. It does not substitute bots for human command acceptance.
 
 The native probe calls production presenters for loading, disabled, stale,
 invalid, complete and saving states. Actual native bots exercise allocation,
