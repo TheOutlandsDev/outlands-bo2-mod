@@ -20,6 +20,11 @@ HUD editor, native unlock checks, one private saved slot and next-respawn
 application. Attachments, wildcards and advanced equipment remain in stock CAC.
 Real Windows/Linux editing, equipment and progression require client acceptance.
 
+The opt-in [personal account foundation](docs/ACCOUNTS.md) supports a Google-backed
+Outlands identity and private linked-profile views. It is disabled by default;
+real Google login, HTTPS deployment and native pairing require separate acceptance.
+Native saves are not synced or merged by this preview.
+
 This repository contains original mod source and setup tools. Supply your own
 legitimate BO2 installation. Game files, Plutonium binaries, model weights,
 private invites, credentials and player saves are not distributed here.

@@ -14,3 +14,11 @@ __pycache__/
 /storage/demonware/
 /storage/t6/outlands_join.cfg
 /storage/t6/outlands_player_name.txt
+
+# Personal account state and OAuth files never enter source archives.
+/accounts/private/
+*.sqlite3
+*.sqlite3-*
+google-client*.json
+identity.key
+server.credential

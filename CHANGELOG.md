@@ -2,6 +2,12 @@
 
 ## Unreleased — cooperative lobbies, grounded task chat, squads, contracts and rivals
 
+- Add a disabled-by-default personal account preview: Google authorization-code
+  login with official signature verification, private browser sessions, one-use
+  native linking, server-scoped read-only stat snapshots and a responsive account
+  screen. Add synthetic isolation/replay/expiry/transaction tests and pinned auth
+  dependencies. Real OAuth/HTTPS and player pairing remain enablement gates; no
+  native save transfer or progress merge is implemented.
 - Add the optional full-screen Tailscale browser portal for live aggregate match
   counts/scores, team contracts, persistent fictional AI careers and command
   guides. Isolate its offline exporter from the read-only web container; bind
