@@ -58,7 +58,7 @@ def pending_acceptance() -> dict:
     # Do not mark these accepted from successful backend/source checks.
     return {
         "native_engine": {"status": "not_run", "method": "hosting/backend_verify.py"},
-        "ui_data_and_navigation": {"status": "not_implemented"},
+        "ui_data_and_navigation": {"status": "native_hud_preview_requires_engine_and_client_checks"},
         "ui_rendering_and_input_windows": {"status": "pending_real_client"},
         "ui_rendering_and_input_linux": {"status": "pending_real_client"},
         "mid_match_loadout_editor": {"status": "not_implemented"},

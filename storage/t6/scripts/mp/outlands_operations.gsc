@@ -205,20 +205,38 @@ commands()
             text = getsubstr( text, 1 );
         if ( text != "!career" && text != "!track assault" && text != "!track objective" && text != "!track support" )
             continue;
-        slot = player getentitynumber();
-        record = level.outlands_operations_records[slot];
-        if ( !same_human( record ) || !record.restored || gettime() - record.last_command < 5000 )
-            continue;
-        record.last_command = gettime();
-        record.command = "show";
-        record.track = "none";
+        kind = "show";
+        track = "none";
         if ( text != "!career" )
         {
-            record.command = "select";
-            record.track = getsubstr( text, 7 );
+            kind = "select";
+            track = getsubstr( text, 7 );
         }
-        record.next_send = gettime();
+        queue_command( player, kind, track );
     }
+}
+
+// Shared by chat and the opt-in native HUD; all mutations still require a
+// current, acknowledged human session. A second click never replaces a save.
+queue_command( player, kind, track )
+{
+    if ( !human_ready( player ) || ( kind != "show" && kind != "select" ) )
+        return false;
+    if ( ( kind == "show" && track != "none" ) || ( kind == "select" && track != "assault" && track != "objective" && track != "support" ) )
+        return false;
+    slot = player getentitynumber();
+    if ( slot < 0 || slot > 17 )
+        return false;
+    record = level.outlands_operations_records[slot];
+    if ( !same_human( record ) || record.player != player || !record.restored || record.command != "none" || gettime() - record.last_command < 5000 )
+        return false;
+    if ( isdefined( level.outlands_operations_pending ) && level.outlands_operations_pending.record == record )
+        return false;
+    record.last_command = gettime();
+    record.command = kind;
+    record.track = track;
+    record.next_send = gettime();
+    return true;
 }
 
 number( text, maximum )
@@ -296,6 +314,7 @@ accept( response )
     record.totals = values;
     record.selected = fields[5];
     record.restored = 1;
+    record.acknowledged = gettime();
     record.next_send = gettime() + 15000;
     if ( changed || issubstr( pending.line, "|show|" ) )
     {

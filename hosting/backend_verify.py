@@ -282,8 +282,16 @@ def assess_expansion(text):
             'actual_human_progression': False, 'actual_human_commands': False}
 
 
+def assess_ui(text, restart=False):
+    markers = [line.strip() for line in ANSI.sub('', text).splitlines() if line.strip().startswith('OUTLANDS_UI_V1|')]
+    expected = ['OUTLANDS_UI_V1|pass|29|6|16|0'] * (2 if restart else 1)
+    passed = markers == expected
+    return {'passed': passed, 'reasons': [] if passed else ['native UI presenter/render/cleanup evidence missing or failed'],
+            'actual_human_commands': False, 'actual_client_rendering': False, 'native_bot_hud_fixture': True}
+
+
 def config_for(case: Case, seconds: int, restart: bool, careers: bool,
-               squads: bool = False, contracts: bool = False, switches: bool = False, chat_context: bool = False, lobby_balance: bool = False, air_response: bool = False, expansion: bool = False) -> str:
+               squads: bool = False, contracts: bool = False, switches: bool = False, chat_context: bool = False, lobby_balance: bool = False, air_response: bool = False, expansion: bool = False, ui: bool = False) -> str:
     cfg = (ROOT / "storage/t6/outlands_t6.cfg").read_text()
     cfg = re.sub(r'^sv_maprotation .*$', f'sv_maprotation "gametype {case.mode} execgts outlands_{case.mode}.cfg map {case.map_name}"', cfg, flags=re.M)
     return cfg + (f'\nset outlands_backend_verification 1\nset outlands_verify_seconds {seconds}\n'
@@ -298,7 +306,8 @@ def config_for(case: Case, seconds: int, restart: bool, careers: bool,
                   ('set outlands_verify_chat_context 1\nset outlands_chat_tactical 1\n' if chat_context else '')+
                   ('set outlands_verify_lobby 1\nset outlands_coop_teams 1\nset outlands_balance_teams 1\nset scr_teambalance 1\n' if lobby_balance else '')+
                   ('set outlands_verify_air 1\n' if air_response else '')+
-                  ('set outlands_verify_expansion 1\n' if expansion else ''))
+                  ('set outlands_verify_expansion 1\n' if expansion else '')+
+                  ('set outlands_ui 1\nset outlands_verify_ui 1\n' if ui else ''))
 
 
 def career_summary(docker: Docker, worker: str) -> dict:
@@ -321,7 +330,7 @@ def require_map_asset(docker: Docker, image: str, case: Case):
 
 def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool, directory: Path,
              careers: bool = False, worker_image: str = "outlands-bo2-chat:rivals-dev",
-             process_restart: bool = False, squads: bool = False, contracts: bool = False, switches: bool = False, chat_context: bool = False, lobby_balance: bool = False, air_response: bool = False, expansion: bool = False) -> dict:
+             process_restart: bool = False, squads: bool = False, contracts: bool = False, switches: bool = False, chat_context: bool = False, lobby_balance: bool = False, air_response: bool = False, expansion: bool = False, ui: bool = False) -> dict:
     require_map_asset(docker, image, case)
     resource = "outlands-backend-" + uuid.uuid4().hex
     volume = resource + "-state"
@@ -342,7 +351,7 @@ def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool
                 "x=json.load(sys.stdin);(p/'scripts/mp').mkdir(parents=True,exist_ok=True)\n"
                 "(p/'outlands_t6.cfg').write_text(x['cfg'])\n"
                 "(p/'scripts/mp/outlands_backend_verification.gsc').write_text(x['gsc'])\n")
-        payload = json.dumps({"cfg": config_for(case, seconds, restart, careers, squads, contracts, switches, chat_context, lobby_balance, air_response, expansion),
+        payload = json.dumps({"cfg": config_for(case, seconds, restart, careers, squads, contracts, switches, chat_context, lobby_balance, air_response, expansion, ui),
                               "gsc": (ROOT / "hosting/verification.gsc").read_text()})
         docker.call("run", "--rm", "-i", "--network", "none", "--cap-drop", "ALL",
                     "--security-opt", "no-new-privileges:true", "-v", volume + ":/data",
@@ -389,6 +398,11 @@ def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool
         if switches:
             samples = [s for s in samples if s.get("squads_enabled") and s.get("contracts_enabled")]
         report = assess(samples, case, restart, careers, squads, contracts)
+        if ui:
+            report["ui"] = assess_ui(all_logs, restart)
+            if not report["ui"]["passed"]:
+                report["passed"] = False
+                report["reasons"].extend(report["ui"]["reasons"])
         if expansion:
             report["expansion"] = assess_expansion(all_logs)
             if not report["expansion"]["passed"]:
@@ -520,6 +534,7 @@ def main(argv=None) -> int:
     parser.add_argument('--air-response', action='store_true', help='verify bot-only air target gate with private script entities, not actual aircraft combat')
     parser.add_argument('--lobby-balance',action='store_true',help='verify native bot refill, imbalance repair and count-only cooperative side policy; no humans fabricated')
     parser.add_argument('--chat-context',action='store_true',help='capture native task snapshots and verify human-presence/context guards; native speech primitive is tested separately')
+    parser.add_argument("--ui", action="store_true", help="verify actual native HUD creation, presenters and cleanup with bots; real client rendering/input remain pending")
     parser.add_argument("--expansion", action="store_true", help="verify native milestone helpers and bot exclusion; human commands require later client acceptance")
     parser.add_argument("--worker-image", default="outlands-bo2-chat:rivals-dev")
     parser.add_argument("--process-restart", action="store_true", help="also restart the actual game/worker containers with their same disposable volumes")
@@ -544,7 +559,7 @@ def main(argv=None) -> int:
         if args.lobby_balance and (any(c.mode=='dm' for c in cases) or args.seconds<90 or args.switches or args.process_restart or args.restart):
             raise ValueError('Lobby verification needs team modes, at least 90 seconds and no restart/switch flags')
         plan = {"server_process_restart": args.process_restart, "careers": args.careers, "squads": args.squads, "contracts": args.contracts, "contract_test_thresholds": args.contracts, "cases": [asdict(case) for case in cases], "seconds": args.seconds,
-                "native_restart": args.restart, "runtime_switches": args.switches, "chat_context":args.chat_context, "lobby_balance":args.lobby_balance, "air_response":args.air_response, "expansion":args.expansion, "network_mode": "none", "published_ports": False,
+                "native_restart": args.restart, "native_restart_method": "same_map_reload" if args.restart else None, "runtime_switches": args.switches, "chat_context":args.chat_context, "lobby_balance":args.lobby_balance, "air_response":args.air_response, "expansion":args.expansion, "ui":args.ui, "network_mode": "none", "published_ports": False,
                 "human_clients": False, "live_state": False}
         if not args.run:
             print(json.dumps(plan, indent=2))
@@ -557,7 +572,7 @@ def main(argv=None) -> int:
         docker = Docker(ROOT / "hosting/docker.sh")
         reports = []
         for case in cases:
-            report = run_case(docker, args.image, case, args.seconds, args.restart, directory, args.careers, args.worker_image, args.process_restart, args.squads, args.contracts, args.switches,args.chat_context,args.lobby_balance,args.air_response,args.expansion)
+            report = run_case(docker, args.image, case, args.seconds, args.restart, directory, args.careers, args.worker_image, args.process_restart, args.squads, args.contracts, args.switches,args.chat_context,args.lobby_balance,args.air_response,args.expansion,args.ui)
             reports.append(report)
             (directory / "report.json").write_text(json.dumps({"plan": plan, "results": reports}, indent=2) + "\n")
             print(f"{'PASS' if report['passed'] else 'FAIL'}: {case.map_name}/{case.mode}", flush=True)

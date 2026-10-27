@@ -2,6 +2,13 @@
 
 ## Unreleased — cooperative lobbies, grounded task chat, squads, contracts and rivals
 
+- Add an opt-in native Career/Contracts HUD using acknowledged personal careers
+  and fresh current-team task counters. Share the guarded focus queue with chat,
+  hide unavailable values, use numeric HUD counters, and bound overlay lifetime
+  and cleanup. Supply optional F6-F9 bindings without executing them on install.
+  Add disposable native presenter/allocation/cleanup probes; real Windows/Linux
+  rendering and input remain separate client acceptance gates.
+
 - Add one offline validation command with private logs, a source-bound summary,
   timeout/failure handling and explicit pending UI/client gates. Configure both
   CI platforms to retain sanitized summaries and define graphical menu/loadout

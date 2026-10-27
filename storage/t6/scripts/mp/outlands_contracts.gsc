@@ -259,6 +259,7 @@ begin_phase()
         record.commendations = level.outlands_contracts_commendations[team];
         record.invalid = level.outlands_contracts_invalid[team];
         record.last_hint = gettime();
+        record.observed = gettime();
         level.outlands_contracts_records[team] = record;
         announce( team, "^3Team contract: " + description( kind, record.goal ) );
         diagnostic( "begin", team, record );
@@ -271,6 +272,7 @@ update_contracts()
     {
         record = level.outlands_contracts_records[team];
         record.current = metric( team, record.kind );
+        record.observed = gettime();
         record.progress = record.current - record.baseline;
         record.invalid = level.outlands_contracts_invalid[team];
         if ( !record.complete && record.progress >= record.goal )
