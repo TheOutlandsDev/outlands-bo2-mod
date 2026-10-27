@@ -13,5 +13,11 @@
   "queue_size": 2,
   "fallback_on_error": true,
   "dialogue_enabled": true,
-  "allowed_event_kinds": ["banter", "reply", "bot_reply", "round_end"]
+  "allowed_event_kinds": [
+    "banter",
+    "reply",
+    "bot_reply",
+    "round_end"
+  ],
+  "operations_enabled": false
 }

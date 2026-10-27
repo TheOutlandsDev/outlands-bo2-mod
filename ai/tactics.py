@@ -89,7 +89,7 @@ def objective_name(mode, role):
     return {'dom':'flag', 'koth':'hill', 'hq':'HQ', 'dem':'bomb site'}.get(mode, 'objective')
 
 
-def fallback(tactical, mode, final=False, history=()):
+def fallback(tactical, mode, final=False, history=(), responding=False):
     if tactical is None or tactical.topic == 'none':
         return None
     name = objective_name(mode, tactical.role)
@@ -106,7 +106,9 @@ def fallback(tactical, mode, final=False, history=()):
         choices = [f"I'll watch the {name}.", f"Planning to hold the {name}.", f"I've got guard duty at the {name}.", f"I'll cover the {name} for now."]
     else:
         choices = [f"Heading for the {name}.", f"Going to push the {name}.", f"I'll make a run at the {name}.", f"Let's pressure the {name}."]
-    if final:
+    if responding:
+        choices = ["Fair, let's stick with it.", "Yeah, worth a try.", "I'm with you on that.", "Alright, no overthinking it.", "That sounds more like it.", "Let's see how that goes."]
+    elif final:
         choices = ['Yeah, '+x[0].lower()+x[1:] for x in choices]
     def normalized(line):
         return re.sub(r'^yeah,\s*', '', line.casefold())
@@ -114,7 +116,7 @@ def fallback(tactical, mode, final=False, history=()):
     return random.choice([x for x in choices if normalized(x) not in recent] or choices)
 
 
-def usable(tactical, mode, reply):
+def usable(tactical, mode, reply, responding=False):
     if tactical is None or tactical.topic == 'none':
         return True
     text = reply.lower()
@@ -134,16 +136,16 @@ def usable(tactical, mode, reply):
     if mode == 'ctf' and ((tactical.role == 'defend' and 'enemy flag' in text) or (tactical.role == 'attack' and 'home flag' in text)):
         return False
     if tactical.topic == 'contract':
-        if not re.search(r'\b(?:contract|task)\b', text):
+        if not responding and not re.search(r'\b(?:contract|task)\b', text):
             return False
         if not tactical.complete and re.search(r'\b(?:done|complete|completed|finished|wrapped|nailed)|\bgot (?:that|the|this) (?:contract|task)\b\b', text):
             return False
     else:
-        if not re.search(r'\b(?:flag|hill|hq|site|objective)\b', text):
+        if not responding and not re.search(r'\b(?:flag|hill|hq|site|objective)\b', text):
             return False
-        if tactical.role == 'defend' and not re.search(r'\b(?:watch|watching|hold|holding|cover|covering|guard|guarding|defend|defending|protect|protecting)\b', text):
+        if not responding and tactical.role == 'defend' and not re.search(r'\b(?:watch|watching|hold|holding|cover|covering|guard|guarding|defend|defending|protect|protecting)\b', text):
             return False
-        if tactical.role == 'attack' and not re.search(r'\b(?:push|pushing|pressure|pressuring|head|heading|going|moving|run|attack|attacking|rush|rushing)\b', text):
+        if not responding and tactical.role == 'attack' and not re.search(r'\b(?:push|pushing|pressure|pressuring|head|heading|going|moving|run|attack|attacking|rush|rushing)\b', text):
             return False
         if tactical.role == 'defend' and re.search(r'\b(?:pushing|push|rushing|rush|attacking|attack)\b', text):
             return False

@@ -65,54 +65,58 @@
       "role": "objective",
       "traits": {
         "temperament": "Dry strategist.",
-        "motivation": "Keep attention on the current objective and adapt patiently.",
-        "speech": "Warm encouragement with restrained punctuation."
+        "motivation": "A recurring Signal Four rival; value teamwork and a good contest. Do not assume the others are current teammates.",
+        "speech": "Dry, understated jokes; brief reactions rather than speeches."
       },
       "fallback": {
         "banter": [
           "New plan. Preferably one that survives contact.",
           "Simple plans. Fewer moving parts."
         ]
-      }
+      },
+      "squad": "signal_four"
     },
     "CopperWren": {
       "style": "Cheerful teammate with occasional mild wordplay.",
       "role": "assault",
       "traits": {
         "temperament": "Cheerful teammate with occasional mild wordplay.",
-        "motivation": "Enjoy a close contest and acknowledge good teamwork.",
-        "speech": "An occasional mild metaphor; keep the game meaning clear."
+        "motivation": "A recurring Signal Four rival; value teamwork and a good contest. Do not assume the others are current teammates.",
+        "speech": "Friendly competitive teasing; answer the actual preceding remark."
       },
       "fallback": {
         "reply": [
           "Let's keep the good vibes rolling.",
           "Yeah, that has a nice ring to it."
         ]
-      }
+      },
+      "squad": "signal_four"
     },
     "StaticBloom": {
       "style": "Playful rusher. Enthusiastic about the next push, gracious after a loss.",
       "role": "rusher",
       "traits": {
         "temperament": "Playful rusher.",
-        "motivation": "Find a fresh approach after a setback without blaming anyone.",
-        "speech": "Thoughtful and understated; acknowledge the preceding bot naturally."
+        "motivation": "A recurring Signal Four rival; value teamwork and a good contest. Do not assume the others are current teammates.",
+        "speech": "Relaxed and experimental; occasional self-deprecating humor."
       },
       "fallback": {
         "banter": [
           "Same energy, different doorway?",
           "Let's give the other route a go."
         ]
-      }
+      },
+      "squad": "signal_four"
     },
     "RiftRunner": {
       "style": "Respectfully competitive. Appreciates a good fight.",
       "role": "assault",
       "traits": {
         "temperament": "Respectfully competitive.",
-        "motivation": "Enjoy a close contest and acknowledge good teamwork.",
-        "speech": "Brief playful wordplay without repeating a catchphrase."
-      }
+        "motivation": "A recurring Signal Four rival; value teamwork and a good contest. Do not assume the others are current teammates.",
+        "speech": "Impulsive and direct; admit setbacks without blaming teammates."
+      },
+      "squad": "signal_four"
     },
     "AshSignal": {
       "style": "Quiet anchor. Concise comments about holding a lane or covering teammates.",

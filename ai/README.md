@@ -1,14 +1,16 @@
 # Outlands local bot chat and careers
 
 This optional worker gives the native multiplayer bots occasional short banter,
-public-chat replies, and bounded two-bot exchanges. After an accepted banter line,
-a different native bot can respond once to that bot's name and preceding line.
-The second turn cannot start another turn. The adapter ignores bot-originated
+public-chat replies, and bounded two-to-four-line exchanges. After each accepted
+native delivery, a different eligible bot can answer its name and preceding line.
+Numbered turns stop at their explicit limit. The adapter ignores bot-originated
 chat notifications; conversations are scheduled from accepted deliveries rather
 than an automatic reply loop. `round_end` is reserved protocol support and is not
 emitted yet. Optional bot careers retain a fictional roster's cosmetic progression
 and structured bot-to-bot familiarity across worker/server restarts. The model
 does not control combat, read player saves, award player XP, or change unlocks.
+A separate opt-in Operations observer persists human challenge milestones without
+model involvement; see [Operations](../docs/OPERATIONS.md).
 The lobby should disclose that the
 AI players are bots even when their clan tags are blank.
 
@@ -56,7 +58,7 @@ the model cannot choose native combat settings or career awards.
 Keep fallback lines short and friendly. Output is capped at 120 characters and
 six requests per minute; cooldowns cannot be shorter than ten seconds globally
 or thirty seconds per bot. Defaults allow six requests per minute,
-ten seconds globally, and forty-five seconds per bot. Both turns consume the same
+ten seconds globally, and forty-five seconds per bot. All turns consume the same
 budgets, and failures consume the cooldown too. The game adapter defaults to a
 ten-second request gap, thirty-second periodic banter, and a twelve-second
 pause after accepted banter before a possible second turn. It has matching
@@ -101,6 +103,8 @@ Environment overrides:
 | `T6_CHAT_ENABLED` | Explicit `0` or `1` switch |
 | `T6_CHAT_MODE` | `ollama` or `fallback` |
 | `T6_CHAT_DIALOGUE_ENABLED` | Explicit `0` or `1` switch for second turns |
+| `T6_OPERATIONS_ENABLED` | Independent explicit `0` or `1` milestone observer switch |
+| `T6_OPERATIONS_STATE_FILE` | Private milestone ledger, default `/rivals/operations.json` |
 | `T6_CAREERS_ENABLED` | Independent explicit `0` or `1` switch for private bot careers |
 | `T6_CAREERS_STATE_FILE` | Private ledger path, default `/rivals/careers.json` |
 | `OLLAMA_URL` | Local/private Ollama origin, e.g. `http://ollama:11434` |
@@ -129,7 +133,8 @@ be on the opener's team with a compatible current topic/contract phase. Both
 turns retain the existing human-presence guard, queues and shared rate limits.
 Snapshots are ephemeral; neither task context nor dialogue text enters careers.
 
-New adapters emit V2, with these eleven fields appended to the V1 fields:
+V2 appends these eleven fields to the V1 fields; V3 appends `turn|turn_limit`
+after them. New adapters emit V3:
 
 ```text
 topic|team|role|target|state|contract|phase|progress|goal|complete|remaining
@@ -262,7 +267,7 @@ sequence 1–2,147,483,647. Kinds are `hello`, `snapshot`, `depart`, and `match_
 Only `hello` requests a profile response, and the game serializes that mailbox.
 Native bot identity, exact request/slot/alias, expiry and cosmetic bounds must
 pass in GSC before application. The worker's complete command surface consists
-of the two fixed response dvars above; the model cannot select either command,
+of the fixed bot response dvars above; the model cannot select either command,
 alter career values or write human progression.
 
 Synthetic tests cover restart/duplicate handling, connection reuse, counter
@@ -279,3 +284,19 @@ model/fallback, fixed mailbox, identity-validation and native delivery path.
 Synthetic worker tests cannot establish GSC compilation, rendered chat or client
 gameplay. Model startup latency depends on hardware and model state; test both
 cold-model fallback and warm-model replies.
+
+
+## Numbered V3 dialogue and Operations
+
+V3 request IDs use the original root for turn 1, followed by `root_r2`,
+`root_r3`, `root_r4`. Legacy V1/V2 `_r` replies still stop after two lines.
+The worker requires the exact previously submitted line, speaker, map/mode,
+compatible current team/topic/contract phase, matching turn limit and adjacent
+turn number. Each parent admits one child. Final-turn questions are rejected;
+middle turns may ask a short question. Native delivery, expiry and presence
+guards remain authoritative. No generic chat notification extends a chain.
+
+The separate `OUTLANDS_OP_V1` observer and fixed `outlands_operation_response`
+mailbox carry only bounded numeric milestones and native identity input, never
+model-authored rewards. Operations use their own private salted ledger, not bot
+career/social state or native player saves. See the [full methodology and limits](../docs/OPERATIONS.md).
