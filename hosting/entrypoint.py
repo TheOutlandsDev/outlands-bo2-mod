@@ -42,6 +42,7 @@ MOD_PAYLOADS = (
     Path(CFG_NAME),
     Path("gamesettings/outlands_tdm.cfg"),
     Path("scripts/mp/outlands_status.gsc"),
+    Path("scripts/mp/outlands_accounts.gsc"),
     Path("scripts/mp/outlands_native_bots.gsc"),
     Path("scripts/mp/outlands_chat.gsc"),
     Path("bots.txt"),
@@ -319,9 +320,12 @@ def configure_mod(name: str | None) -> tuple[str, str]:
     armory_enabled = os.environ.get("T6_ARMORY_ENABLED", "0")
     if armory_enabled not in ("0", "1"):
         raise StartupError("T6_ARMORY_ENABLED must be 0 or 1")
+    accounts_enabled = os.environ.get("T6_ACCOUNTS_ENABLED", "0")
+    if accounts_enabled not in ("0", "1"):
+        raise StartupError("T6_ACCOUNTS_ENABLED must be 0 or 1")
     rotation_matches = list(assignment_pattern("outlands_rotation").finditer(content))
     rotation_enabled = bool(rotation_matches and (rotation_matches[-1].group(1) or rotation_matches[-1].group(2)) == "1")
-    control_enabled = enabled == "1" or careers_enabled == "1" or operations_enabled == "1" or armory_enabled == "1" or rotation_enabled
+    control_enabled = enabled == "1" or careers_enabled == "1" or operations_enabled == "1" or armory_enabled == "1" or accounts_enabled == "1" or rotation_enabled
     control_secret = ""
     if control_enabled:
         secret_path = DATA / "private/outlands_rcon_password"
@@ -339,6 +343,7 @@ def configure_mod(name: str | None) -> tuple[str, str]:
     for command, value in (("outlands_chat_enabled", enabled), ("outlands_bot_careers", careers_enabled),
                            ("outlands_operations", operations_enabled),
                            ("outlands_armory", armory_enabled),
+                           ("outlands_accounts", accounts_enabled),
                            ("rcon_password", control_secret)):
         content = assignment_pattern(command).sub("", content)
         content += f'\nset {command} "{value}"\n'

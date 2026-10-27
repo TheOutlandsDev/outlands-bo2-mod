@@ -955,6 +955,18 @@ verify_ui()
     foreach ( bot in players )
         if ( !bot istestclient() || [[ eligible_fn ]]( bot ) || [[ queue_fn ]]( bot, "select", "assault" ) )
             ok = false;
+    account_human = getfunction( "scripts/mp/outlands_accounts", "human" );
+    account_command = getfunction( "scripts/mp/outlands_accounts", "parse_command" );
+    account_ok = isdefined( account_human ) && isdefined( account_command );
+    if ( account_ok )
+    {
+        foreach ( bot in players )
+            if ( [[ account_human ]]( bot ) )
+                account_ok = false;
+        account_ok = account_ok && [[ account_command ]]( "!outlands link" ) && ![[ account_command ]]( "!outlands link;quit" ) && ![[ account_command ]]( "!outlands" );
+    }
+    println( "OUTLANDS_ACCOUNT_GUARD_V1|" + account_ok );
+    ok = ok && account_ok;
     ok = ok && [[ page_fn ]]( "!outlands" ) == "toggle" && [[ page_fn ]]( "!outlands contracts" ) == "contracts" && [[ page_fn ]]( "!outlands focus" ) == "focus" && [[ page_fn ]]( "!outlands career;quit" ) == "none";
     ok = ok && [[ command_fn ]]( "!outlands" ) && [[ command_fn ]]( "!outlands contracts" ) && [[ command_fn ]]( "!track objective" ) && ![[ command_fn ]]( "good round" ) && ![[ command_fn ]]( "!outlandsjunk" );
     ok = ok && [[ goal_fn ]]( 24, "assault" ) == 25 && [[ goal_fn ]]( 25, "assault" ) == 100 && [[ goal_fn ]]( 100, "assault" ) == 250 && [[ goal_fn ]]( 999, "assault" ) == 250 && [[ goal_fn ]]( 3, "support" ) == 10;

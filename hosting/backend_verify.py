@@ -375,7 +375,7 @@ def assess_armory(text, restart=False):
 
 
 def config_for(case: Case, seconds: int, restart: bool, careers: bool,
-               squads: bool = False, contracts: bool = False, switches: bool = False, chat_context: bool = False, lobby_balance: bool = False, air_response: bool = False, expansion: bool = False, ui: bool = False, armory: bool = False, armory_editor: bool = False, ambient_chat: bool = False) -> str:
+               squads: bool = False, contracts: bool = False, switches: bool = False, chat_context: bool = False, lobby_balance: bool = False, air_response: bool = False, expansion: bool = False, ui: bool = False, armory: bool = False, armory_editor: bool = False, ambient_chat: bool = False, accounts: bool = False) -> str:
     cfg = (ROOT / "storage/t6/outlands_t6.cfg").read_text()
     cfg = re.sub(r'^sv_maprotation .*$', f'sv_maprotation "gametype {case.mode} execgts outlands_{case.mode}.cfg map {case.map_name}"', cfg, flags=re.M)
     return cfg + (f'\nset outlands_backend_verification 1\nset outlands_verify_seconds {seconds}\n'
@@ -418,7 +418,7 @@ def require_map_asset(docker: Docker, image: str, case: Case):
 
 def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool, directory: Path,
              careers: bool = False, worker_image: str = "outlands-bo2-chat:rivals-dev",
-             process_restart: bool = False, squads: bool = False, contracts: bool = False, switches: bool = False, chat_context: bool = False, lobby_balance: bool = False, air_response: bool = False, expansion: bool = False, ui: bool = False, armory: bool = False, armory_editor: bool = False, ambient_chat: bool = False) -> dict:
+             process_restart: bool = False, squads: bool = False, contracts: bool = False, switches: bool = False, chat_context: bool = False, lobby_balance: bool = False, air_response: bool = False, expansion: bool = False, ui: bool = False, armory: bool = False, armory_editor: bool = False, ambient_chat: bool = False, accounts: bool = False) -> dict:
     require_map_asset(docker, image, case)
     resource = "outlands-backend-" + uuid.uuid4().hex
     volume = resource + "-state"
@@ -439,7 +439,7 @@ def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool
                 "x=json.load(sys.stdin);(p/'scripts/mp').mkdir(parents=True,exist_ok=True)\n"
                 "(p/'outlands_t6.cfg').write_text(x['cfg'])\n"
                 "(p/'scripts/mp/outlands_backend_verification.gsc').write_text(x['gsc'])\n")
-        payload = json.dumps({"cfg": config_for(case, seconds, restart, careers, squads, contracts, switches, chat_context, lobby_balance, air_response, expansion, ui, armory, armory_editor, ambient_chat),
+        payload = json.dumps({"cfg": config_for(case, seconds, restart, careers, squads, contracts, switches, chat_context, lobby_balance, air_response, expansion, ui, armory, armory_editor, ambient_chat, accounts),
                               "gsc": (ROOT / "hosting/verification.gsc").read_text()})
         docker.call("run", "--rm", "-i", "--network", "none", "--cap-drop", "ALL",
                     "--security-opt", "no-new-privileges:true", "-v", volume + ":/data",
@@ -447,7 +447,7 @@ def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool
         container = docker.call("run", "-d", "--name", resource, "--label", LABEL + "=1",
                                 "--network", "none", "--cap-drop", "ALL", "--security-opt", "no-new-privileges:true",
                                 "-e", "T6_MODE=lan", "-e", "T6_BIND_IP=127.0.0.1", "-e", "T6_PORT=14977",
-                                "-e", "T6_ARMORY_ENABLED="+str(int(armory_editor)), "-e", "T6_OPERATIONS_ENABLED="+str(int(expansion)), "-e", "T6_CHAT_ENABLED="+str(int(chat_context or ambient_chat)), "-e", "T6_CAREERS_ENABLED=" + str(int(careers)), "-v", volume + ":/data", image)
+                                "-e", "T6_ACCOUNTS_ENABLED="+str(int(accounts)), "-e", "T6_ARMORY_ENABLED="+str(int(armory_editor)), "-e", "T6_OPERATIONS_ENABLED="+str(int(expansion)), "-e", "T6_CHAT_ENABLED="+str(int(chat_context or ambient_chat)), "-e", "T6_CAREERS_ENABLED=" + str(int(careers)), "-v", volume + ":/data", image)
         if not re.fullmatch(r"[a-f0-9]{64}", container):
             raise RuntimeError("Docker did not return an expected verification container ID")
         details = json.loads(docker.call("inspect", container))[0]
@@ -459,17 +459,26 @@ def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool
             worker = docker.call("run", "-d", "--name", resource + "-worker", "--label", LABEL + "=1",
                                  "--network", "container:" + container, "--read-only", "--cap-drop", "ALL",
                                  "--security-opt", "no-new-privileges:true", "-e", "T6_CHAT_ENABLED="+str(int(ambient_chat)), "-e", "T6_CHAT_MODE=fallback",
-                                 "-e", "T6_CAREERS_ENABLED="+str(int(careers)), "-e", "T6_ARMORY_ENABLED="+str(int(armory_editor)), "-e", "T6_CHAT_RCON_PORT=14977",
+                                 "-e", "T6_CAREERS_ENABLED="+str(int(careers)), "-e", "T6_ACCOUNTS_ENABLED="+str(int(accounts)), "-e", "T6_ARMORY_ENABLED="+str(int(armory_editor)), "-e", "T6_CHAT_RCON_PORT=14977",
                                  "-v", volume + ":/data:ro", "-v", rivals_volume + ":/rivals", worker_image)
             if not re.fullmatch(r"[a-f0-9]{64}", worker):
                 raise RuntimeError("Docker did not return an expected verification worker ID")
         timeout = 180 + seconds * (2 if restart else 1)
         observed = False
         armory_mailboxes = set()
+        account_mailbox_sent = False
         while time.monotonic() - started < timeout:
             all_logs = docker.call("logs", container, check=False)
             if armory_editor and worker:
                 armory_mailboxes = service_armory_mailboxes(docker, worker, all_logs, armory_mailboxes)
+            if accounts and not account_mailbox_sent and 'OUTLANDS_ACCOUNT_GUARD_V1|1' in all_logs:
+                probe = ("from pathlib import Path;import socket,time; "
+                         "p=Path('/data/private/outlands_rcon_password').read_bytes().strip(); "
+                         "s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM); "
+                         "s.sendto(b'\\xff\\xff\\xff\\xffrcon '+p+b' set outlands_account_response \"synthetic_session_001_1|0|"+'C'*32+"\"',('127.0.0.1',14977)); "
+                         "s.close();time.sleep(1)")
+                docker.call('exec',container,'python3','-c',probe)
+                account_mailbox_sent = True
             samples = parse_samples(all_logs)
             if FAILURE.search(all_logs) or NATIVE_FAILURE.search(all_logs):
                 break
@@ -512,6 +521,23 @@ def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool
             if not report["armory"]["passed"]:
                 report["passed"] = False
                 report["reasons"].extend(report["armory"]["reasons"])
+        if accounts:
+            expected = 2 if restart else 1
+            console_private = json.loads(docker.call('exec',container,'python3','-c',
+                "import json;from pathlib import Path;print(json.dumps("+repr('C'*32)+" not in Path('/data/plutonium/console.log').read_text(errors='replace')))"))
+            account_passed = (account_mailbox_sent and all_logs.count('OUTLANDS_ACCOUNT_READY_V1') == expected
+                              and all_logs.count('OUTLANDS_ACCOUNT_GUARD_V1|1') == expected
+                              and all_logs.count('OUTLANDS_ACCOUNT_MAILBOX_V1') == 1
+                              and 'OUTLANDS_ACCOUNT_V1|' not in all_logs and 'C'*32 not in all_logs and console_private)
+            report['accounts'] = {'passed':account_passed,'native_enabled':True,
+                'bot_identities_excluded':account_passed,'unmatched_mailbox_sent':account_mailbox_sent,
+                'canary_absent_from_container_logs':'C'*32 not in all_logs,
+                'canary_absent_from_console_log':console_private,
+                'native_mailbox_received':all_logs.count('OUTLANDS_ACCOUNT_MAILBOX_V1') == 1,
+                'actual_human_pairing':False,'actual_google_login':False}
+            if not account_passed:
+                report['passed'] = False
+                report['reasons'].append('Account native guard or private mailbox canary failed')
         if ui:
             report["ui"] = assess_ui(all_logs, restart)
             report["portal"] = assess_portal(all_logs, case)
@@ -645,6 +671,7 @@ def main(argv=None) -> int:
     parser.add_argument("--case", action="append", default=[])
     parser.add_argument("--seconds", type=int, default=60)
     parser.add_argument("--restart", action="store_true")
+    parser.add_argument("--accounts", action="store_true", help="verify enabled native account guards and unmatched private mailbox; requires --ui")
     parser.add_argument("--careers", action="store_true", help="verify private career worker/restore and worker restart")
     parser.add_argument("--squads", action="store_true", help="verify native coordinated squad roles/goals; unsupported modes must remain native")
     parser.add_argument("--contracts", action="store_true", help="verify team contracts from native counters using disposable short thresholds")
@@ -669,6 +696,8 @@ def main(argv=None) -> int:
             raise ValueError("Expected a local Docker image name")
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_./:-]{0,180}", args.worker_image):
             raise ValueError("Expected a local Docker worker image name")
+        if args.accounts and not args.ui:
+            raise ValueError("Account native guards require --ui")
         if args.process_restart and not args.careers:
             raise ValueError("Process restart acceptance requires --careers")
         if args.ambient_chat and (args.chat_context or args.process_restart or args.lobby_balance or args.seconds < 90):
@@ -682,7 +711,7 @@ def main(argv=None) -> int:
         if args.lobby_balance and (any(c.mode=='dm' for c in cases) or args.seconds<90 or args.switches or args.process_restart or args.restart):
             raise ValueError('Lobby verification needs team modes, at least 90 seconds and no restart/switch flags')
         plan = {"server_process_restart": args.process_restart, "careers": args.careers, "squads": args.squads, "contracts": args.contracts, "contract_test_thresholds": args.contracts, "cases": [asdict(case) for case in cases], "seconds": args.seconds,
-                "native_restart": args.restart, "native_restart_method": "same_map_reload" if args.restart else None, "runtime_switches": args.switches, "chat_context":args.chat_context, "lobby_balance":args.lobby_balance, "air_response":args.air_response, "expansion":args.expansion, "ui":args.ui, "armory":args.armory, "armory_editor":args.armory_editor, "network_mode": "none", "published_ports": False,
+                "accounts":args.accounts, "native_restart": args.restart, "native_restart_method": "same_map_reload" if args.restart else None, "runtime_switches": args.switches, "chat_context":args.chat_context, "lobby_balance":args.lobby_balance, "air_response":args.air_response, "expansion":args.expansion, "ui":args.ui, "armory":args.armory, "armory_editor":args.armory_editor, "network_mode": "none", "published_ports": False,
                 "human_clients": False, "live_state": False, "ambient_chat": args.ambient_chat}
         if not args.run:
             print(json.dumps(plan, indent=2))
@@ -695,7 +724,7 @@ def main(argv=None) -> int:
         docker = Docker(ROOT / "hosting/docker.sh")
         reports = []
         for case in cases:
-            report = run_case(docker, args.image, case, args.seconds, args.restart, directory, args.careers, args.worker_image, args.process_restart, args.squads, args.contracts, args.switches,args.chat_context,args.lobby_balance,args.air_response,args.expansion,args.ui,args.armory,args.armory_editor,args.ambient_chat)
+            report = run_case(docker, args.image, case, args.seconds, args.restart, directory, args.careers, args.worker_image, args.process_restart, args.squads, args.contracts, args.switches,args.chat_context,args.lobby_balance,args.air_response,args.expansion,args.ui,args.armory,args.armory_editor,args.ambient_chat,args.accounts)
             reports.append(report)
             (directory / "report.json").write_text(json.dumps({"plan": plan, "results": reports}, indent=2) + "\n")
             print(f"{'PASS' if report['passed'] else 'FAIL'}: {case.map_name}/{case.mode}", flush=True)
