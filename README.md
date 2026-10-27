@@ -15,9 +15,10 @@ report tied to the audited source. The opt-in [Career/Contracts HUD](docs/UI.md)
 and the [Armory backend](docs/ARMORY.md) have separate [UI acceptance gates](docs/UI-VALIDATION.md); source checks do not
 establish a rendered or usable client interface.
 
-Armory currently provides a validated single saved slot and a respawn queue
-library. Native arbitrary-class application and an in-game editor remain gated;
-it does not change player equipment on the live server.
+The opt-in [native Armory preview](docs/ARMORY.md) adds a seven-slot base-class
+HUD editor, native unlock checks, one private saved slot and next-respawn
+application. Attachments, wildcards and advanced equipment remain in stock CAC.
+Real Windows/Linux editing, equipment and progression require client acceptance.
 
 This repository contains original mod source and setup tools. Supply your own
 legitimate BO2 installation. Game files, Plutonium binaries, model weights,

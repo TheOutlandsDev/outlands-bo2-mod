@@ -2,13 +2,22 @@
 
 ## Unreleased — cooperative lobbies, grounded task chat, squads, contracts and rivals
 
+- Add an opt-in native Armory base-class editor with earned item/CAC checks,
+  localized native labels and complete compound-perk effects. Connect single-slot
+  persistence through a separate model-independent worker thread and fixed local
+  mailbox. Claim before native spawning, grant in the native custom-loadout hook,
+  verify actual equipment, retain an active class across lives and cancel stale
+  or superseded requests. Preserve native class DDL, unlocks, XP and streaks.
+  Keep advanced attachments/wildcards/equipment in stock CAC and real client
+  input/progression acceptance separate from synthetic and native bot checks.
+
 - Add the single-slot Armory backend with trusted unlock observations, a bounded
   Pick-10 subset, attachment combinations, wildcard/slot checks, private atomic
   revisioned saves and an at-most-once next-spawn claim queue. Revalidate unlocks
   at claim time and preserve the previous slot on rejected or failed saves.
   Add portable rule tests and a disposable native class-reference spawn probe.
-  This is a backend library; native arbitrary-class materialization, human
-  unlock transport, Tactician and an in-game editor are not enabled.
+  The broader attachment/wildcard schema remains a backend library; the native
+  editor below exposes only its separately tested base-class subset.
 
 - Add an opt-in native Career/Contracts HUD using acknowledged personal careers
   and fresh current-team task counters. Share the guarded focus queue with chat,
