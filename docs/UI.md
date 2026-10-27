@@ -67,6 +67,8 @@ The native probe calls production presenters for loading, disabled, stale,
 invalid, complete and saving states. Actual native bots exercise allocation,
 both pages and repeated cleanup through real HUD methods. Bot exclusion and
 the human-only focus queue remain enforced; no bot becomes a fake human.
+The fixture also allocates all sixteen overlays together and verifies their
+HUD handles are destroyed. Menu commands are excluded from bot reply generation.
 These checks do not prove a real client received input or rendered the layout.
 
 Later accept actual Windows/Linux clients at 1280x720 and 1920x1080: open both
@@ -78,3 +80,8 @@ Keep results and profile data private.
 
 Native references: [HUD primitives](https://github.com/plutoniummod/t6-scripts/blob/main/MP/Core/maps/mp/gametypes/_hud_util.gsc)
 and [custom command support](https://plutonium.pw/docs/changelog/).
+
+The `--restart` fixture uses an explicit same-map reload, not a halftime or
+round-preserving `map_restart`. Isolated FFA attempts with both `map_restart`
+variants left bots connected but unspawned. Keep those failed results separate;
+a full-reload pass does not accept warm FFA restart behavior with real clients.
