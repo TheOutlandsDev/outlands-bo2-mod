@@ -2,6 +2,19 @@
 
 ## Unreleased — cooperative lobbies, grounded task chat, squads, contracts and rivals
 
+- Add optional persistent Outlands milestone careers, three contribution tracks,
+  a first Broken Signal commendation and focus/view chat commands. Keep native
+  human progression separate and protect private state with salted identities,
+  atomic writes and observation replay checks.
+- Extend chat with numbered two-to-four-line exchanges, verified contract-completion
+  opportunities and natural acknowledgements without repeated task nouns. Retain
+  human priority, shared budgets, state expiry and bot-only native speech.
+- Feature Signal Four as recurring bot characters while preserving native class
+  roles and objective squads. Add synthetic persistence/dialogue tests and isolated
+  native milestone-helper/bot-exclusion checks. Real-client acceptance remains
+  separate from backend evidence.
+
+
 - Double ambient conversation frequency with a shared six-line-per-minute cap,
   shorter answer delay and per-bot cooldown. General replies and fallbacks react
   to the previous message and fresh own-scoreboard context; human input keeps

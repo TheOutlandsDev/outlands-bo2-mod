@@ -143,7 +143,7 @@ across respawns and use bot-only native display calls. The optional rival ledger
 adds persistent cosmetic careers; native bot weapon unlocks remain separate. Hosts should disclose the native AI opponents.
 
 The optional [local chat bridge](ai/README.md) provides occasional banter,
-public-chat replies and bounded two-line bot conversations through Ollama, with
+public-chat replies and bounded two-to-four-line bot conversations through Ollama, with
 canned fallbacks. Chat uses local RCON, exact bot identity checks and native
 `sayall`; it does not control combat or alter stats. Enable it with the hosting
 guide's `ai-up` command. Dockhand users can import the complete image-only
@@ -200,9 +200,11 @@ selection, objectives, combat and stuck recovery remain in control. Patrol
 cadence changes do not implement new pathfinding or persistent learning; evaluate
 movement quality in gameplay separately from hook execution.
 
-Chat can now schedule one answer from another native bot after a delivered
-banter opener. Human public-chat replies take priority. The exchange ends after
-the second line, shares global/per-bot limits, and stops when no humans remain.
+Chat schedules bounded numbered exchanges after accepted native deliveries.
+Most conversations use two lines; occasional exchanges may use up to four.
+Human public-chat replies take priority. All turns share global/per-bot limits
+and stop when no humans remain. Verified contract completions create fresh chat
+opportunities, and followups need not repeat tactical nouns.
 Defaults are a 30-second opener interval, 12-second answer delay and at most
 six requested lines per minute. General replies react to the preceding line and fresh own-scoreboard context;
 public human messages take priority. `outlands_chat_dialogue 0` disables bot-to-bot
@@ -300,3 +302,21 @@ Built against [Plutonium's T6 scripting sources](https://github.com/plutoniummod
 [mod loading](https://plutonium.pw/docs/modding/loading-mods/#t6),
 [native bot/chat support](https://plutonium.pw/docs/changelog/), and the
 [Tailscale sidecar pattern](https://tailscale.com/blog/docker-tailscale-guide).
+
+
+### Outlands Operations development preview
+
+The optional [Operations system](docs/OPERATIONS.md) adds persistent Assault,
+Objective and Support milestones alongside normal BO2 progression. Complete the
+first milestone in each track for Broken Signal / Field Regular. Use public chat
+`!career` to view your private notification and `!track assault`, `!track objective`
+or `!track support` to choose a persistent focus. Contract credit requires an
+observed personal score contribution during the phase. Rewards are Outlands
+commendations, not native equipment unlocks or combat bonuses.
+
+The AI hosting overlays explicitly enable the separate milestone worker path.
+Default/source installations leave it off. A private salted ledger retains numeric
+progress without names or chat. Native GUID stability and actual human command
+delivery require later Windows/Linux gameplay acceptance. Signal Four adds four
+featured recurring bot characters; membership is not a forced roster or a new
+combat controller. See the guide for identity limits, backups and backend checks.
