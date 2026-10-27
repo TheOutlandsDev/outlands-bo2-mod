@@ -12,8 +12,12 @@ optional local Ollama chat, and client setup helpers. See the
 
 Developers can run `python -B tools/validate_system.py` for an offline regression
 report tied to the audited source. The opt-in [Career/Contracts HUD](docs/UI.md)
-and planned mid-match class editing have separate [UI acceptance gates](docs/UI-VALIDATION.md); source checks do not
+and the [Armory backend](docs/ARMORY.md) have separate [UI acceptance gates](docs/UI-VALIDATION.md); source checks do not
 establish a rendered or usable client interface.
+
+Armory currently provides a validated single saved slot and a respawn queue
+library. Native arbitrary-class application and an in-game editor remain gated;
+it does not change player equipment on the live server.
 
 This repository contains original mod source and setup tools. Supply your own
 legitimate BO2 installation. Game files, Plutonium binaries, model weights,
