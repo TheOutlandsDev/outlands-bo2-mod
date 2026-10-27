@@ -71,7 +71,7 @@ class Catalog:
         if not token(self.revision) or not isinstance(self.items, dict) or not 1 <= len(self.items) <= 512:
             raise Rejected("catalog_unavailable")
         for name, item in self.items.items():
-            if not identifier(name) or type(item) is not Item or item.slot not in SLOTS or not integer(item.max_count, 1, 2):
+            if not identifier(name) or type(item) is not Item or not isinstance(item.slot, str) or item.slot not in SLOTS or not integer(item.max_count, 1, 2):
                 raise Rejected("catalog_unavailable")
             if item.slot not in ("lethal", "tactical") and item.max_count != 1:
                 raise Rejected("catalog_unavailable")
@@ -98,12 +98,15 @@ class Observation:
     allocation: int
     unlocked_items: frozenset[str]
     unlocked_attachments: frozenset[tuple[str, str]]
-    human: bool = True
-    playing: bool = True
+    human: bool
+    playing: bool
+    can_customize: bool
 
     def check(self, catalog, now):
         if type(self.human) is not bool or not self.human or type(self.playing) is not bool or not self.playing:
             raise Rejected("human_session_required")
+        if type(self.can_customize) is not bool or not self.can_customize:
+            raise Rejected("create_a_class_locked")
         if not isinstance(self.identity, str) or not GUID.fullmatch(self.identity) or not int(self.identity, 16) or not token(self.session) or not token(self.map_epoch):
             raise Rejected("human_session_required")
         if not integer(self.spawn, 0, MAX_REVISION) or not integer(now, 0, MAX_REVISION) or not integer(self.observed_ms, 0, now) or now - self.observed_ms > 5000:
@@ -409,6 +412,7 @@ class RespawnQueue:
                         revision, record["fingerprint"], self.catalog.revision)
         if key in self.pending and self.pending[key].revision == revision:
             if self.pending[key] != ticket:
+                del self.pending[key]
                 raise Rejected("queue_session_changed")
             return self.pending[key]
         if len(self.pending) >= 512 and key not in self.pending:
