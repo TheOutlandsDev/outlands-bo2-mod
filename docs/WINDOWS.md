@@ -93,7 +93,7 @@ The client writes exactly two commands to its private `outlands_join.cfg`:
 the password prevents an old saved value from being sent. This only changes
 client settings; server configuration and Tailscale authorization are separate.
 
-## Check, launch and join
+## Check, launch and direct joining
 
 ```powershell
 .\setup-client-windows.cmd --check
@@ -102,7 +102,9 @@ client settings; server configuration and Tailscale authorization are separate.
 
 The check validates saved settings without launching a game. The launcher uses
 the configured runtime, stable name, LAN mode and client port, then executes the
-private join CFG. Neither source nor command-line examples embed a real host
+optional private join CFG. This file shortcut has separate runtime/search-path
+requirements. Use direct `connect` below as the canonical join method, including
+when a wrapper launches BO2 but does not join. Neither source nor examples embed a real host
 address, personal identity or credential.
 
 If using an older release without the explicit option, launch the existing
@@ -127,6 +129,9 @@ the host's privately supplied address and port for the placeholder:
 password ""
 connect SERVER_ADDRESS:SERVER_PORT
 ```
+
+After spawning, Outlands commands go in text chat (`!outlands help`) or use
+`say !outlands help` in the game console. See the [command reference](COMMANDS.md).
 
 ## Validate each stage separately
 

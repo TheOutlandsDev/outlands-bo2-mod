@@ -2,6 +2,27 @@
 
 ## Unreleased — cooperative lobbies, grounded task chat, squads, contracts and rivals
 
+- Add the optional full-screen Tailscale browser portal for live aggregate match
+  counts/scores, team contracts, persistent fictional AI careers and command
+  guides. Isolate its offline exporter from the read-only web container; bind
+  only the existing tailnet address, refuse writes, filter private player data
+  and expire stale native telemetry. Add responsive mouse/touch navigation,
+  fullscreen/clipboard fallbacks and backend HTTP/privacy tests.
+- Fill the native Career/Contracts and Armory screens with an opaque background
+  while preserving safe-area content and native fonts.
+- Give the Career/Contracts and Armory HUDs an owned gameplay-input mode with
+  visible action prompts, existing keyboard/controller game actions, a Melee
+  exit, release-to-arm and bounded navigation repeats. Freeze gameplay while
+  open, keep the player vulnerable, and restore only menu-owned control state
+  on close/damage/lifecycle cleanup. Add native frozen-button/ownership assays.
+- Repair Outlands command parsing for native two-byte chat prefixes across
+  Career, Contracts, Operations and Armory. Normalize case/spacing and hidden
+  forms, give private readiness feedback and identity-free command results, and
+  use hidden `say` commands in optional key CFGs. Keep human chat/model privacy
+  checks strict. Require nineteen real native all/team chat events in UI backend
+  acceptance. Document direct `connect` as the canonical joining method with
+  deployment details kept private; real human input/rendering remains a client gate.
+
 - Add a 31-map multiplayer catalog and weighted installed-map decks, independent
   mode weights, recent-map protection and private restart history. Hand off the
   next native rotation through a map-scoped mailbox; retain static fallback and

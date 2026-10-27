@@ -317,9 +317,31 @@ def assess_expansion(text):
 def assess_ui(text, restart=False):
     markers = [line.strip() for line in ANSI.sub('', text).splitlines() if line.strip().startswith('OUTLANDS_UI_V1|')]
     expected = ['OUTLANDS_UI_V1|pass|29|6|16|0'] * (2 if restart else 1)
-    passed = markers == expected
-    return {'passed': passed, 'reasons': [] if passed else ['native UI presenter/render/cleanup evidence missing or failed'],
+    ingress = [line.strip() for line in ANSI.sub('', text).splitlines() if line.strip().startswith('OUTLANDS_COMMAND_INGRESS_V1|')]
+    ingress_expected = ['OUTLANDS_COMMAND_INGRESS_V1|pass|19|19|19|19|1|1|0'] * (2 if restart else 1)
+    menu = [line.strip() for line in ANSI.sub('', text).splitlines() if line.strip().startswith('OUTLANDS_MENU_INPUT_V2|')]
+    menu_expected = ['OUTLANDS_MENU_INPUT_V2|pass|7|1|1'] * (2 if restart else 1)
+    passed = markers == expected and ingress == ingress_expected and menu == menu_expected
+    return {'passed': passed, 'reasons': [] if passed else ['native UI or command ingress/render/cleanup evidence missing or failed'],
+            'native_sayall_sayteam_command_events': ingress == ingress_expected,
+            'native_menu_control_fixture': menu == menu_expected,
             'actual_human_commands': False, 'actual_client_rendering': False, 'native_bot_hud_fixture': True}
+
+
+def assess_portal(text, case):
+    # The same strict public parser consumes actual native output. Names or raw
+    # lines are never included in the sanitized acceptance result.
+    sys.path.insert(0, str(ROOT))
+    from portal.portal import parse_snapshot
+    maps = json.loads((ROOT / 'storage/t6/outlands_rotation.json').read_text())['maps']
+    names = {key: value['name'] for key, value in maps.items()}
+    records = [line for line in ANSI.sub('', text).splitlines() if line.startswith('OUTLANDS_PORTAL_V1|')]
+    samples = [parse_snapshot(line, names) for line in records]
+    valid = [sample for sample in samples if sample is not None]
+    passed = len(valid) >= 3 and len(valid) == len(records) and all(sample['map'] == case.map_name and sample['mode'] == case.mode and sample['humans'] == 0 for sample in valid) and any(sample['bots'] == 16 for sample in valid)
+    return {'passed': passed, 'native_samples': len(valid), 'aggregate_only': True,
+            'actual_remote_browser': False,
+            'reasons': [] if passed else ['native anonymous portal snapshots missing or invalid']}
 
 
 def service_armory_mailboxes(docker, worker, text, sent):
@@ -492,6 +514,10 @@ def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool
                 report["reasons"].extend(report["armory"]["reasons"])
         if ui:
             report["ui"] = assess_ui(all_logs, restart)
+            report["portal"] = assess_portal(all_logs, case)
+            if not report["portal"]["passed"]:
+                report["passed"] = False
+                report["reasons"].extend(report["portal"]["reasons"])
             if not report["ui"]["passed"]:
                 report["passed"] = False
                 report["reasons"].extend(report["ui"]["reasons"])

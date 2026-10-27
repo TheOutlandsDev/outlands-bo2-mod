@@ -193,17 +193,24 @@ request( record )
     println( pending.line );
 }
 
+parse_command( text )
+{
+    text = scripts\mp\outlands_ui::normalize_command( text );
+    if ( text == "!career" || text == "!track assault" || text == "!track objective" || text == "!track support" )
+        return text;
+    return "";
+}
+
 commands()
 {
     level endon( "game_ended" );
     for (;;)
     {
         level waittill( "say", text, player, hidden, team_chat );
-        if ( !human_ready( player ) || !isdefined( hidden ) || hidden || !isdefined( team_chat ) || team_chat || !isdefined( text ) )
+        if ( !scripts\mp\outlands_ui::eligible( player ) )
             continue;
-        if ( text.size > 1 && getsubstr( text, 0, 1 ) != "!" )
-            text = getsubstr( text, 1 );
-        if ( text != "!career" && text != "!track assault" && text != "!track objective" && text != "!track support" )
+        text = parse_command( text );
+        if ( text == "" )
             continue;
         kind = "show";
         track = "none";
@@ -212,7 +219,7 @@ commands()
             kind = "select";
             track = getsubstr( text, 7 );
         }
-        queue_command( player, kind, track );
+        scripts\mp\outlands_ui::command_result( player, "operations", kind, queue_command( player, kind, track ) );
     }
 }
 

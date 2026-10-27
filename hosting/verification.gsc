@@ -46,7 +46,10 @@ verify_native_match()
     if ( getdvarint( "outlands_verify_expansion" ) )
         level thread verify_expansion();
     if ( getdvarint( "outlands_verify_ui" ) )
+    {
         level thread verify_ui();
+        level thread verify_command_ingress();
+    }
     if ( getdvarint( "outlands_verify_armory" ) )
         level thread verify_armory();
     if ( getdvarint( "outlands_verify_armory_editor" ) )
@@ -1060,8 +1063,191 @@ verify_ui()
             if ( isdefined( hud ) )
                 ok = false;
     }
+    ok = verify_menu_input( players ) && ok;
     if ( ok )
         println( "OUTLANDS_UI_V1|pass|29|6|16|0" );
     else
         println( "OUTLANDS_UI_V1|failed|presenter_or_cleanup" );
+}
+
+
+// Real native sayall/sayteam events exercise the production parsers. The sender
+// remains a native bot: no human gate, identity, unlock or worker is bypassed.
+verify_command_ingress()
+{
+    level endon( "game_ended" );
+    wait 3;
+    players = get_players();
+    if ( players.size < 1 || !players[0] istestclient() )
+    {
+        println( "OUTLANDS_COMMAND_INGRESS_V1|failed|no_bot" );
+        return;
+    }
+    fixture = spawnstruct();
+    fixture.bot = players[0];
+    fixture.index = 0;
+    fixture.received = 0;
+    fixture.matched = 0;
+    fixture.legacy_failed = 0;
+    fixture.flags = 0;
+    fixture.bot_accepted = 0;
+    fixture.texts = array( "!outlands", "!outlands career", "!outlands contracts", "!outlands focus", "!outlands next", "!outlands help", "!outlands close", "!outlands armory", "!outlands up", "!outlands down", "!outlands left", "!outlands right", "!outlands save", "!outlands equip", "!outlands stock", "!career", "!track assault", "!track objective", "!track support" );
+    fixture.ui = array( "toggle", "career", "contracts", "focus", "next", "help", "close", "none", "none", "none", "none", "none", "none", "none", "none", "none", "none", "none", "none" );
+    fixture.armory = array( "none", "none", "none", "none", "none", "none", "close", "toggle", "up", "down", "prev", "next", "save", "equip", "stock", "none", "none", "none", "none" );
+    level thread observe_command_ingress( fixture );
+    wait 0.1;
+    for ( i = 0; i < fixture.texts.size; i++ )
+    {
+        fixture.index = i;
+        text = fixture.texts[i];
+        if ( i % 3 == 1 )
+            text = "/" + text;
+        if ( i == 1 )
+            text = "  /!OUTLANDS   CAREER  ";
+        if ( i % 2 == 0 )
+            fixture.bot sayall( text );
+        else
+            fixture.bot sayteam( text );
+        attempts = 0;
+        while ( fixture.received <= i && attempts < 20 )
+        {
+            wait 0.05;
+            attempts++;
+        }
+        if ( fixture.received <= i )
+            break;
+    }
+    normalize_ok = scripts\mp\outlands_ui::normalize_command( undefined ) == "" && scripts\mp\outlands_ui::normalize_command( "" ) == "";
+    normalize_ok = normalize_ok && scripts\mp\outlands_ui::parse_action( "x!outlands" ) == "none" && scripts\mp\outlands_ui::parse_action( "!outlands career;quit" ) == "none";
+    normalize_ok = normalize_ok && scripts\mp\outlands_armory_ui::parse_action( "!outlands save extra" ) == "none" && scripts\mp\outlands_operations::parse_command( "!track admin" ) == "";
+    normalize_ok = normalize_ok && scripts\mp\outlands_ui::parse_action( " /!OUTLANDS   CONTRACTS  " ) == "contracts";
+    long_text = "!outlands ";
+    for ( i = 0; i < 160; i++ )
+        long_text += "x";
+    normalize_ok = normalize_ok && scripts\mp\outlands_ui::parse_action( long_text ) == "none" && scripts\mp\outlands_chat::ui_command( long_text );
+    privacy_ok = scripts\mp\outlands_chat::public_chat_allowed( 0, 0 );
+    privacy_ok = privacy_ok && !scripts\mp\outlands_chat::public_chat_allowed( 1, 0 ) && !scripts\mp\outlands_chat::public_chat_allowed( 0, 1 ) && !scripts\mp\outlands_chat::public_chat_allowed( 1, 1 );
+    privacy_ok = privacy_ok && !scripts\mp\outlands_chat::public_chat_allowed( undefined, 0 ) && !scripts\mp\outlands_chat::public_chat_allowed( 0, undefined ) && !scripts\mp\outlands_chat::public_chat_allowed( undefined, undefined );
+    passed = normalize_ok && privacy_ok && fixture.received == fixture.texts.size && fixture.matched == fixture.texts.size && fixture.legacy_failed == fixture.texts.size && fixture.flags == fixture.texts.size && fixture.bot_accepted == 0;
+    result = "failed";
+    if ( passed )
+        result = "pass";
+    println( "OUTLANDS_COMMAND_INGRESS_V1|" + result + "|" + fixture.received + "|" + fixture.matched + "|" + fixture.legacy_failed + "|" + fixture.flags + "|" + normalize_ok + "|" + privacy_ok + "|" + fixture.bot_accepted );
+}
+
+observe_command_ingress( fixture )
+{
+    level endon( "game_ended" );
+    while ( fixture.received < fixture.texts.size )
+    {
+        level waittill( "say", text, player, hidden, team_chat );
+        if ( !isdefined( player ) || player != fixture.bot )
+            continue;
+        i = fixture.index;
+        normalized = scripts\mp\outlands_ui::normalize_command( text );
+        if ( normalized != fixture.texts[i] )
+        {
+            println( "OUTLANDS_COMMAND_INGRESS_CHECK|normalization_failed|" + i );
+            continue;
+        }
+        fixture.received++;
+        ui = scripts\mp\outlands_ui::parse_action( text );
+        armory = scripts\mp\outlands_armory_ui::parse_action( text );
+        operation = scripts\mp\outlands_operations::parse_command( text );
+        operation_ok = operation == "";
+        if ( i >= 15 )
+            operation_ok = operation == fixture.texts[i];
+        if ( ui == fixture.ui[i] && armory == fixture.armory[i] && operation_ok && scripts\mp\outlands_chat::ui_command( text ) )
+            fixture.matched++;
+        // Reproduce the former one-byte removal on the same engine event.
+        legacy = text;
+        if ( legacy.size > 1 && getsubstr( legacy, 0, 1 ) != "!" )
+            legacy = getsubstr( legacy, 1 );
+        if ( legacy != fixture.texts[i] )
+            fixture.legacy_failed++;
+        if ( isdefined( hidden ) && isdefined( team_chat ) )
+            fixture.flags++;
+        if ( scripts\mp\outlands_ui::dispatch( player, "toggle" ) || scripts\mp\outlands_armory_ui::dispatch( player, "toggle" ) || scripts\mp\outlands_operations::queue_command( player, "show", "none" ) )
+            fixture.bot_accepted++;
+        println( "OUTLANDS_COMMAND_INGRESS_CHECK|native_event|" + i + "|" + fixture.matched );
+    }
+}
+
+
+verify_menu_input( players )
+{
+    input = scripts\mp\outlands_ui::new_input();
+    ok = scripts\mp\outlands_ui::input_step( input, "close", 0 ) == "none";
+    ok = ok && scripts\mp\outlands_ui::input_step( input, "none", 1 ) == "none" && input.armed;
+    ok = ok && scripts\mp\outlands_ui::input_step( input, "close", 2 ) == "close";
+    ok = ok && scripts\mp\outlands_ui::input_step( input, "close", 1000 ) == "none";
+    scripts\mp\outlands_ui::input_step( input, "none", 1001 );
+    ok = ok && scripts\mp\outlands_ui::input_step( input, "down", 1002 ) == "down";
+    ok = ok && scripts\mp\outlands_ui::input_step( input, "down", 1451 ) == "none";
+    ok = ok && scripts\mp\outlands_ui::input_step( input, "down", 1452 ) == "down";
+    ok = ok && scripts\mp\outlands_ui::input_step( input, "down", 1600 ) == "none";
+    ok = ok && scripts\mp\outlands_ui::input_step( input, "down", 1752 ) == "down";
+    foreach ( action in array( "save", "equip", "focus", "armory" ) )
+    {
+        scripts\mp\outlands_ui::input_step( input, "none", 2000 );
+        ok = ok && scripts\mp\outlands_ui::input_step( input, action, 2001 ) == action;
+        ok = ok && scripts\mp\outlands_ui::input_step( input, action, 10000 ) == "none";
+    }
+    bot = undefined;
+    for ( i = players.size - 1; i >= 0; i-- )
+        if ( players[i] istestclient() && scripts\mp\outlands_ui::focus_gameplay( players[i] ) )
+        {
+            bot = players[i];
+            break;
+        }
+    if ( !isdefined( bot ) )
+    {
+        println( "OUTLANDS_MENU_INPUT_V1|failed|no_native_bot" );
+        return false;
+    }
+    // Explicit low-level control fixture, never a human dispatch or identity.
+    state = spawnstruct();
+    state.owner = bot;
+    state.open = 1;
+    state.elements = [];
+    state.domain = "ui";
+    captured = scripts\mp\outlands_ui::capture_focus( state );
+    ok = ok && captured && state.focused && bot.outlands_menu_focus == state;
+    second = spawnstruct();
+    second.owner = bot;
+    second.open = 1;
+    second.elements = [];
+    ok = ok && !scripts\mp\outlands_ui::capture_focus( second );
+    // A stale overlay cannot release a newer overlay's ownership token.
+    second.focused = 1;
+    scripts\mp\outlands_ui::release_focus( second );
+    ok = ok && bot.outlands_menu_focus == state && state.focused;
+    // Freeze blocks gameplay, while each native action remains readable.
+    buttons = array( "ads", "attack", "usereload", "gostand", "frag", "smoke", "melee" );
+    expected_ui = array( "page", "page", "focus", "armory", "page", "page", "close" );
+    expected_armory = array( "up", "down", "save", "equip", "next", "prev", "close" );
+    foreach ( button in buttons )
+        bot botbuttonoverride( "-" + button );
+    native_actions = 0;
+    for ( i = 0; i < buttons.size; i++ )
+    {
+        bot botbuttonoverride( "+" + buttons[i] );
+        wait 0.15;
+        if ( scripts\mp\outlands_ui::read_menu_action( bot, "ui" ) == expected_ui[i] && scripts\mp\outlands_ui::read_menu_action( bot, "armory" ) == expected_armory[i] )
+            native_actions++;
+        println( "OUTLANDS_MENU_INPUT_CHECK|native_action|" + i + "|" + native_actions );
+        bot botbuttonoverride( "-" + buttons[i] );
+    }
+    scripts\mp\outlands_ui::destroy_hud( state );
+    scripts\mp\outlands_ui::destroy_hud( state );
+    restored = !isdefined( bot.outlands_menu_focus ) && !state.focused && !state.open;
+    foreach ( button in array( "melee", "ads", "fire", "attack", "use", "usereload", "gostand", "frag", "smoke" ) )
+        bot botbuttonoverride( "~" + button );
+    excluded = !scripts\mp\outlands_ui::eligible( bot ) && !scripts\mp\outlands_ui::dispatch( bot, "toggle" ) && !scripts\mp\outlands_armory_ui::dispatch( bot, "toggle" );
+    ok = ok && native_actions == 7 && restored && excluded;
+    result = "failed";
+    if ( ok )
+        result = "pass";
+    println( "OUTLANDS_MENU_INPUT_V2|" + result + "|" + native_actions + "|" + restored + "|" + excluded );
+    return ok;
 }

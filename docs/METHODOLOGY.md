@@ -239,3 +239,36 @@ profile. The model neither sees human identities nor awards rewards. Native XP,
 DDL, equipment and saves remain unchanged. Synthetic restart/retry/atomic-write
 tests and isolated native bot-exclusion checks are separate from later real-client
 identity and command-delivery acceptance.
+
+## Native command ingress
+
+Career, Contracts, Operations and Armory share a bounded chat normalizer. The
+engine can attach two control bytes before text; stripping a single byte makes
+an otherwise correct command fail. Test the engine's actual `sayall`/`sayteam`
+event payload before attributing failures to a client or network endpoint.
+Local commands produce private feedback and fixed identity-free diagnostics.
+They accept hidden/team forms without changing the stricter privacy flags
+required for human messages entering the chat/model worker. Optional key CFGs
+use hidden `say` commands; direct console `connect` remains the join method.
+
+The disposable UI assay uses every supported command through native chat methods,
+compares production parsers with the old one-byte behavior, rejects malformed
+commands, checks privacy guards and enforces bot exclusion. Its assessor rejects
+missing, duplicate, prefixed and failed ingress evidence. This establishes native
+parser integration; actual human/client command delivery remains a separate test.
+
+Opening a native HUD now acquires one per-player gameplay focus token. A bounded
+poll reads existing game actions while normal controls are frozen; it does not
+replace bindings, create a desktop window or add invulnerability. Held opening
+inputs must be released before navigation, only navigation repeats, and saves
+remain edge-triggered. The same destruction path releases focus on close,
+damage, lifecycle changes, timeout and disable. Native prematch, migration,
+death and round-end freezes retain authority. Native tests exercise all seven
+button reads while frozen, both mappings, exclusive ownership and repeated
+cleanup. Actual human binding/keyboard/controller behavior remains a client gate.
+
+The optional browser portal follows only new anonymous native match snapshots,
+then exports allowlisted aggregates through a separate offline process. HTTP
+regressions cover stale data, route restrictions and private-field exclusion.
+Native probes validate emitted snapshots; browser layout/navigation and actual
+remote-device access remain distinct checks. See [portal methodology](PORTAL.md).

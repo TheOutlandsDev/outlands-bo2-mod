@@ -19,10 +19,12 @@ cannot earn contract participation. Counter resets and excessive jumps rebase
 conservatively. Disabled intervals do not earn catch-up credit.
 
 All three tracks progress together. Free-for-all can advance Assault; team-contract
-tracks require a supported team mode. Public chat commands `!career` and
+tracks require a supported team mode. In-game chat commands `!career` and
 `!track assault`, `!track objective`, `!track support` display progress or select
 a focus. Responses are private on-screen notifications, not public profile
-broadcasts. Notifications appear on restore, a milestone, a focus change or an
+broadcasts. Hidden and team-chat forms are accepted locally. In the game
+console use `say !career` or, for example, `say !track objective`; see the
+[command reference](COMMANDS.md). Notifications appear on restore, a milestone, a focus change or an
 explicit request rather than every sample. Selection persists on this server.
 
 The first milestone in all three tracks completes Broken Signal and earns the

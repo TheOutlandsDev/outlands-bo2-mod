@@ -8,10 +8,14 @@ stock Create-a-Class.
 
 ## Tonight's client test
 
-Join with your existing private launcher or `exec outlands_join.cfg`, select a
-team and stock class, and spawn. Then use public chat `!outlands armory`.
+Join from the game console with `connect SERVER_ADDRESS:SERVER_PORT`, using
+the host's privately supplied endpoint. Select a team and stock class and spawn.
+Then use in-game text chat `!outlands armory` or console `say !outlands armory`.
 Hidden `/!outlands armory` is also supported by the handler. The overlay does
-not pause the match or capture movement controls; open it when safe.
+not pause the match. It captures gameplay controls while open and keeps your
+character vulnerable; open it when safe. Close chat/console, release held inputs,
+then use ADS/Fire for rows, Tactical/Lethal for items, Use to save, Jump to equip
+and Melee to close. See the [control table](COMMANDS.md#navigate-the-open-menu).
 
 1. Use `!outlands down` / `!outlands up` to choose a row and `!outlands right` /
    `!outlands left` to change its item. Only currently earned, supported choices
@@ -29,17 +33,19 @@ not pause the match or capture movement controls; open it when safe.
    Finish a round and confirm ordinary player/weapon progression survives
    restarting the client. With two players, confirm classes stay separate.
 
-Console equivalents are `outlands_armory`, `outlands_armory_up`,
-`outlands_armory_down`, `outlands_armory_prev`, `outlands_armory_next`,
-`outlands_armory_save`, `outlands_armory_equip`, `outlands_armory_stock` and
-`outlands_armory_close`. Chat works without new client assets or bindings.
+For every chat command above, prepend `say ` to use it in the game console.
+Do not enter a bare `!outlands` there. The [command reference](COMMANDS.md)
+explains hidden commands, private feedback and legacy aliases. Chat/explicit
+`say` commands need no new client assets or bindings.
 
 Optional `exec outlands_armory_keys.cfg` replaces F5-F9 and F11 bindings:
 F5 toggle, F6 row, F7/F8 previous/next item, F9 save, F11 equip. Record your
 existing bindings first. These overlap the optional Career HUD bindings.
 Installers copy the CFG but never execute it. For an older client without that
-file, use chat/console commands. Mouse and controller navigation are not
-implemented. Accept the layout/fonts/input on both platforms at 720p and 1080p;
+file, use chat/console commands. A clickable mouse cursor is not
+implemented. Keyboard/mouse and controller use the existing game actions. Native game-action navigation works
+without these optional key CFGs. Accept the layout/fonts/input on both platforms
+at 720p and 1080p;
 backend HUD allocation does not establish actual client rendering.
 
 ## First native subset
@@ -122,7 +128,7 @@ requeue. Worker restart discards unconsumed queues; it preserves saved slots
 and durable consumed-claim guards. Native XP/unlock acceptance remains a real
 client test after these backend checks.
 
-Death/spawn closes the editor; native class changes, team changes, spectator
+Damage/death/spawn closes the editor and releases its control ownership; native class changes, team changes, spectator
 state and feature disable cancel queued/active classes. Map changes and reconnect
 start a new session. Overlay ownership includes the session, preventing slot
 reuse from displaying another connection's draft. Editors time out after forty

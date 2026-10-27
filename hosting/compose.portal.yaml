@@ -1,0 +1,53 @@
+# Optional read-only web GUI. Bind only the existing server's Tailscale IPv4.
+services:
+  portal-export:
+    image: outlands-bo2-portal:local
+    build:
+      context: ..
+      dockerfile: portal/Dockerfile
+    command: [export]
+    network_mode: none
+    environment:
+      PORTAL_JOIN: ${PORTAL_TAILSCALE_IP:?Set PORTAL_TAILSCALE_IP in private hosting/.env}:${T6_PORT:-4977}
+    volumes:
+      - t6-state:/data:ro
+      - rival-state:/rivals:ro
+      - portal-public:/public
+    user: "10001:10001"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    cpus: 0.25
+    mem_limit: 64m
+    restart: unless-stopped
+  portal:
+    image: outlands-bo2-portal:local
+    build:
+      context: ..
+      dockerfile: portal/Dockerfile
+    network_mode: service:tailscale
+    depends_on:
+      tailscale:
+        condition: service_healthy
+      portal-export:
+        condition: service_started
+    environment:
+      PORTAL_BIND: ${PORTAL_TAILSCALE_IP:?Set PORTAL_TAILSCALE_IP in private hosting/.env}
+      PORTAL_PORT: ${PORTAL_PORT:-8085}
+    volumes:
+      - portal-public:/public:ro
+    user: "10001:10001"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    cpus: 0.25
+    mem_limit: 64m
+    healthcheck:
+      test: [CMD, python3, -c, "import os,urllib.request; urllib.request.urlopen('http://'+os.environ['PORTAL_BIND']+':'+os.environ['PORTAL_PORT']+'/healthz',timeout=2).close()"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+volumes:
+  rival-state:
+  portal-public:
