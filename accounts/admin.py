@@ -27,7 +27,12 @@ def configure_files(private, origin, source, owner=None):
     Config.load(origin,source)
     outputs=(private/'google-client.json',private/'identity.key')
     if any(p.exists() or p.is_symlink() for p in outputs):raise ValueError('Existing account secrets must be preserved')
-    private.mkdir(parents=True,exist_ok=True);private.chmod(0o700)
+    private.mkdir(parents=True,mode=0o700,exist_ok=True)
+    # Image-seeded volumes already belong to the runtime UID and are mode 700.
+    # Root with only CHOWN/DAC_OVERRIDE cannot chmod another UID's directory;
+    # avoid requiring FOWNER for an operation that would not change its mode.
+    if private.stat().st_mode & 0o777 != 0o700:
+        private.chmod(0o700)
     created=[]
     try:
         for path,raw in zip(outputs,(source.read_bytes(),secrets.token_bytes(32))):
