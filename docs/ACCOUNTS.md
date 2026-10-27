@@ -128,6 +128,22 @@ python -B hosting/backend_verify.py --run --image outlands-t6:accounts-dev \
   --case mp_raid:dom --seconds 60 --ui --accounts
 ```
 
+The Linux CI job also builds the rootless account image and exercises the real
+configure/enroll/start/restart sequence with synthetic OAuth configuration in
+new disposable volumes. It rejects repeated bootstrap, checks mode-600 secrets
+and database, verifies anonymous API refusal and removes its fixture resources.
+To reproduce without real credentials or live server data:
+
+```sh
+docker build -f accounts/Dockerfile -t outlands-bo2-accounts:dev .
+python -B hosting/account_verify.py --run --image outlands-bo2-accounts:dev
+```
+
+Without `--run`, the verifier prints its plan and creates nothing. It uses only
+a locally built image, no network and no published ports. Reports remain private.
+This catches deployment ownership/capability errors that in-process fixtures
+cannot reproduce.
+
 CI explicitly imports the pinned verification dependencies before tests so RSA
 signature cases cannot silently skip. Fixtures cover two-account isolation,
 concurrent code claims, reconnect/replay, expiry, revision conflicts, native
