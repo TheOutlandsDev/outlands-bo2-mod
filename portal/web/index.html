@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111416">
+<meta name="description" content="Outlands BO2 Operations. Live matches, team contracts and persistent AI rivals over your Tailscale network.">
+<title>Outlands / Operations</title>
+<link rel="stylesheet" href="/app.css">
+<script src="/app.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<div class="shell">
+<header class="topbar">
+<a class="brand" href="#match" aria-label="Outlands Operations home"><span class="mark" aria-hidden="true"><i></i><i></i></span><span>OUTLANDS<small>BLACK OPS II / OPERATIONS</small></span></a>
+<div class="connection"><span class="led" id="led"></span><span id="connection">CONNECTING</span></div>
+<button class="ghost" id="fullscreen" type="button">Full screen <span aria-hidden="true">⛶</span></button>
+</header>
+<div class="workspace">
+<aside class="sidebar">
+<div class="eyebrow section-label">OPERATIONS CENTER</div>
+<nav aria-label="Main navigation">
+<a href="#match" aria-current="page"><span class="nav-number">01</span> LIVE MATCH <span class="nav-arrow">↗</span></a>
+<a href="#contracts"><span class="nav-number">02</span> CONTRACTS <span class="nav-arrow">↗</span></a>
+<a href="#rivals"><span class="nav-number">03</span> AI RIVALS <span class="nav-arrow">↗</span></a>
+<a href="#armory"><span class="nav-number">04</span> ARMORY <span class="nav-arrow">↗</span></a>
+<a href="#career"><span class="nav-number">05</span> CAREER <span class="nav-arrow">↗</span></a>
+</nav>
+<div class="side-bottom"><span class="mini-mark">//</span><p>CLASSIC COMBAT.<br>A DEEPER CAREER.</p><small>YOUR TAILNET · YOUR SERVER</small></div>
+</aside>
+<main id="content" tabindex="-1">
+<div class="page-top"><span class="eyebrow">OUTLANDS / <span id="breadcrumb">LIVE MATCH</span></span><span class="timestamp" id="updated">Waiting for server</span></div>
+<section id="match" class="page" aria-labelledby="match-title">
+<div class="hero">
+<div class="hero-grid" aria-hidden="true"></div><div class="hero-slash" aria-hidden="true">//</div>
+<div class="eyebrow amber">MULTIPLAYER / LIVE OPERATIONS</div>
+<h1 id="match-title">STAND BY<span class="period">.</span></h1>
+<p class="hero-sub" id="mode">Waiting for a fresh server signal</p>
+<div class="hero-bottom"><span id="match-state" class="tag">AWAITING TELEMETRY</span><span class="dim">BO2 COMBAT. OUTLANDS IDENTITY.</span></div>
+</div>
+<div class="stats-grid">
+<article class="stat"><span class="eyebrow">PLAYERS</span><strong id="players">—</strong><small id="population">Waiting for live counts</small></article>
+<article class="stat"><span class="eyebrow">ALLIES</span><strong id="allies-score">—</strong><small id="allies-count">Team score / players</small></article>
+<article class="stat"><span class="eyebrow">AXIS</span><strong id="axis-score">—</strong><small id="axis-count">Team score / players</small></article>
+</div>
+<div class="two-col"><article class="panel join-panel"><div class="panel-heading"><h2>JOIN THE FIGHT</h2><span class="eyebrow">PLUTONIUM T6</span></div><p>Connect to Tailscale, open BO2 Multiplayer, then paste this into the game console.</p><div class="command-line"><code id="join-command">Waiting for server address</code><button id="copy-join" class="button compact" type="button" disabled>Copy</button></div><small>One Outlands server. This same address is used by every player.</small></article>
+<article class="panel"><div class="panel-heading"><h2>YOUR NEXT MOVE</h2><span class="eyebrow">FIELD NOTES</span></div><p>Follow the match here, coordinate around team contracts, and get to know the AI rivals who keep coming back.</p><a class="text-link" href="#contracts">VIEW ACTIVE CONTRACTS <span aria-hidden="true">→</span></a><a class="text-link" href="#armory">OPEN THE ARMORY GUIDE <span aria-hidden="true">→</span></a></article></div>
+</section>
+<section id="contracts" class="page" hidden aria-labelledby="contracts-title">
+<div class="intro"><div class="eyebrow amber">SHARED OBJECTIVES</div><h1 id="contracts-title">TEAM CONTRACTS<span class="period">.</span></h1><p>Live team progress from this match. Work together. Finish the assignment.</p></div>
+<div class="section-heading"><h2>CURRENT ASSIGNMENTS</h2><span class="tag" id="contract-time">WAITING FOR SIGNAL</span></div>
+<div class="two-col" id="contract-cards"></div>
+<div class="notice">Contracts are match-local. Commendations belong to the Outlands system; native BO2 XP and unlocks still follow the game’s own rules.</div>
+</section>
+<section id="rivals" class="page" hidden aria-labelledby="rivals-title">
+<div class="intro"><div class="eyebrow amber">PERSISTENT PERSONALITIES</div><h1 id="rivals-title">FAMILIAR RIVALS<span class="period">.</span></h1><p>A cast that grows with the server. Every name here belongs to a fictional AI player.</p></div>
+<div class="section-heading"><h2>THE OUTLANDS ROSTER</h2><label class="filter">ROLE <select id="role-filter"><option value="all">All roles</option><option value="rusher">Rusher</option><option value="assault">Assault</option><option value="objective">Objective</option><option value="support">Support</option><option value="marksman">Marksman</option></select></label></div>
+<p class="dim small">Persistent career records, including earlier matches. This is not the current lobby roster.</p><div class="rival-grid" id="rival-cards"></div>
+</section>
+<section id="armory" class="page" hidden aria-labelledby="armory-title">
+<div class="intro"><div class="eyebrow amber">BUILD YOUR NEXT LIFE</div><h1 id="armory-title">FIELD ARMORY<span class="period">.</span></h1><p>Your classes. Your unlocked equipment. Edit them through the full-screen in-game menu.</p></div>
+<div class="two-col"><article class="panel feature-panel"><span class="eyebrow amber">IN-GAME CLASS EDITOR</span><h2>MAKE IT YOURS.</h2><p>Open in-game chat and send:</p><div class="command-line"><code>!outlands armory</code><button class="button compact copy-command" data-command="!outlands armory">Copy</button></div><p>Choose a primary, secondary, lethal, tactical, and three perk slots. The editor checks your native unlocks and point allocation before saving.</p><div class="notice inset">The browser shows the guide. Personal classes are edited and saved inside BO2, where your player identity and unlocks are verified.</div></article>
+<article class="panel"><div class="panel-heading"><h2>MENU CONTROLS</h2><span class="eyebrow">YOUR EXISTING BINDS</span></div><dl class="controls"><div><dt>Aim / Fire</dt><dd>Previous / next row</dd></div><div><dt>Tactical / Lethal</dt><dd>Previous / next item</dd></div><div><dt>Use / Reload</dt><dd>Save class</dd></div><div><dt>Jump</dt><dd>Equip saved class</dd></div><div><dt>Melee</dt><dd>Close menu</dd></div></dl><p class="small dim">Close chat and the console after opening the menu. Release held buttons once. Damage, death and respawn also close it; you remain vulnerable while editing.</p></article></div>
+</section>
+<section id="career" class="page" hidden aria-labelledby="career-title">
+<div class="intro"><div class="eyebrow amber">THE LONG GAME</div><h1 id="career-title">YOUR CAREER<span class="period">.</span></h1><p>Keep the classic BO2 climb. Add an Outlands career alongside it.</p></div>
+<div class="two-col"><article class="panel feature-panel"><span class="eyebrow amber">BROKEN SIGNAL / OPERATIONS</span><h2>CHOOSE YOUR FOCUS.</h2><p>Assault, Objective or Support. Track personal contributions and milestones through your private in-game career.</p><div class="command-line"><code>!outlands</code><button class="button compact copy-command" data-command="!outlands">Copy</button></div><p class="small dim">Aim or Fire changes pages. Use cycles your focus. Jump opens Armory. Melee closes the menu.</p></article>
+<article class="panel"><div class="panel-heading"><h2>QUICK COMMANDS</h2><span class="eyebrow">IN-GAME CHAT</span></div><div class="quick-command"><code>!career</code><span>Private career summary</span></div><div class="quick-command"><code>!track assault</code><span>Assault focus</span></div><div class="quick-command"><code>!track objective</code><span>Objective focus</span></div><div class="quick-command"><code>!track support</code><span>Support focus</span></div><div class="notice inset">Your personal XP, identity, unlocks and saved classes are never published in this shared browser view.</div></article></div>
+</section>
+<footer><span>OUTLANDS <b>//</b> OPERATIONS</span><span>PRIVATE TAILNET ACCESS · READ-ONLY SERVER VIEW</span></footer>
+</main>
+</div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body></html>
