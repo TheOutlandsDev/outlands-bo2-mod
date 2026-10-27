@@ -54,6 +54,11 @@ def feature_observed(stage=0, mode='dom', **changes):
 
 
 class ExpansionReportTests(unittest.TestCase):
+    def test_native_crashes_are_distinct_from_gsc_compile_errors(self):
+        for text in ("A critical exception occured!", "Exception Code: 0xC0000005", "Oops! Plutonium ran into a problem and must be closed."):
+            self.assertIsNotNone(verify.NATIVE_FAILURE.search(text))
+        self.assertIsNone(verify.NATIVE_FAILURE.search("OUTLANDS_EXPANSION_V1|pass"))
+
     def test_native_formatter_proof_requires_all_four_numbered_turns(self):
         prefix='OUTLANDS_DIALOGUE_FIXTURE_V1|OUTLANDS_CHAT_V3|'
         context='contract|allies|none|-1|none|combined_score|1|1000|1000|1|40'
