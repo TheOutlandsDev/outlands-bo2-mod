@@ -299,12 +299,19 @@ watch_public_chat()
         if ( message.size > 1 && getsubstr( message, 1, 2 ) == "/" )
             continue;
         public_text = safe_field( message, 240 );
-        if ( public_text == "!career" || public_text == "!track assault" || public_text == "!track objective" || public_text == "!track support" )
+        if ( ui_command( public_text ) )
             continue;
         if ( public_text == "" )
             continue;
         queue_human_reply( player, public_text );
     }
+}
+
+ui_command( text )
+{
+    if ( text == "!career" || text == "!track assault" || text == "!track objective" || text == "!track support" || text == "!outlands" )
+        return true;
+    return text.size > 9 && getsubstr( text, 0, 10 ) == "!outlands ";
 }
 
 periodic_banter()
