@@ -54,6 +54,7 @@ MOD_PAYLOADS = (
     Path("scripts/mp/outlands_contracts.gsc"),
     Path("scripts/mp/outlands_operations.gsc"),
     Path("scripts/mp/outlands_ui.gsc"),
+    Path("scripts/mp/outlands_armory.gsc"),
     Path("outlands_ui_keys.cfg"),
 )
 

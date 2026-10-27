@@ -47,6 +47,8 @@ verify_native_match()
         level thread verify_expansion();
     if ( getdvarint( "outlands_verify_ui" ) )
         level thread verify_ui();
+    if ( getdvarint( "outlands_verify_armory" ) )
+        level thread verify_armory();
 
     duration = getdvarint( "outlands_verify_seconds" );
     if ( duration < 30 )
@@ -673,6 +675,95 @@ verify_expansion()
 
 // Calls production presenters/HUD methods with actual native bots. It never
 // changes their identity/type or inserts a synthetic human career observation.
+verify_armory()
+{
+    level endon( "game_ended" );
+    inspect_fn = getfunction( "scripts/mp/outlands_armory", "inspect_native_slot" );
+    stage_fn = getfunction( "scripts/mp/outlands_armory", "stage_native_reference" );
+    eligible_fn = getfunction( "scripts/mp/outlands_armory", "eligible" );
+    slot_fn = getfunction( "scripts/mp/outlands_armory", "valid_slot" );
+    if ( !isdefined( inspect_fn ) || !isdefined( stage_fn ) || !isdefined( eligible_fn ) || !isdefined( slot_fn ) )
+    {
+        println( "OUTLANDS_ARMORY_V1|failed|missing_adapter" );
+        return;
+    }
+    wait 5;
+    selected = undefined;
+    selected_view = undefined;
+    valid = 0;
+    foreach ( bot in get_players() )
+    {
+        if ( !isdefined( bot ) || !bot istestclient() || !isalive( bot ) || bot.sessionstate != "playing" )
+            continue;
+        for ( index = 0; index < 5; index++ )
+        {
+            view = [[ inspect_fn ]]( bot, index );
+            if ( !view.ready || !isdefined( bot.curclass ) || bot.curclass == "CLASS_CUSTOM" + ( index + 1 ) )
+                continue;
+            if ( view.primary == "weapon_null_mp" || view.primary == "" )
+                continue;
+            selected = bot;
+            selected_view = view;
+            break;
+        }
+        if ( isdefined( selected ) )
+            break;
+    }
+    if ( !isdefined( selected ) )
+    {
+        println( "OUTLANDS_ARMORY_V1|failed|no_eligible_native_slot" );
+        return;
+    }
+    for ( index = 0; index < 5; index++ )
+    {
+        view = [[ inspect_fn ]]( selected, index );
+        if ( view.ready )
+            valid++;
+    }
+    invalid_low = [[ inspect_fn ]]( selected, -1 );
+    invalid_high = [[ inspect_fn ]]( selected, 5 );
+    excluded = ![[ eligible_fn ]]( selected ) && !invalid_low.ready && !invalid_high.ready && ![[ slot_fn ]]( 1.5 );
+    before = selected getcurrentweapon();
+    before_ammo = selected getweaponammoclip( before );
+    staged = [[ stage_fn ]]( selected, selected_view.index );
+    unchanged = before == ( selected getcurrentweapon() ) && before_ammo == ( selected getweaponammoclip( before ) );
+    expected = "CLASS_CUSTOM" + ( selected_view.index + 1 );
+    selected.outlands_armory_probe_spawned = 0;
+    selected thread observe_armory_spawn();
+    wait 0.05;
+    selected suicide();
+    attempts = 0;
+    while ( !selected.outlands_armory_probe_spawned && attempts < 200 )
+    {
+        wait 0.1;
+        attempts++;
+    }
+    spawned = selected.outlands_armory_probe_spawned && isalive( selected );
+    matched = spawned && selected.curclass == expected && selected hasweapon( selected_view.primary );
+    if ( matched && selected_view.secondary != "weapon_null_mp" && selected_view.secondary != "" )
+        matched = selected hasweapon( selected_view.secondary );
+    if ( matched )
+    {
+        if ( selected.specialty.size != selected_view.perks.size )
+            matched = false;
+        else
+            for ( i = 0; i < selected_view.perks.size; i++ )
+                if ( selected.specialty[i] != selected_view.perks[i] )
+                    matched = false;
+    }
+    if ( valid > 0 && staged && unchanged && spawned && matched && excluded )
+        println( "OUTLANDS_ARMORY_V1|pass|" + valid + "|1|1|1|1|1" );
+    else
+        println( "OUTLANDS_ARMORY_V1|failed|" + valid + "|" + staged + "|" + unchanged + "|" + spawned + "|" + matched + "|" + excluded );
+}
+
+observe_armory_spawn()
+{
+    self endon( "disconnect" );
+    self waittill( "spawned_player" );
+    self.outlands_armory_probe_spawned = 1;
+}
+
 verify_ui()
 {
     level endon( "game_ended" );
