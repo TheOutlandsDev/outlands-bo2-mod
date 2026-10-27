@@ -14,6 +14,7 @@ init()
 
 parse_action( text )
 {
+    text = scripts\mp\outlands_ui::normalize_command( text );
     if ( text == "!outlands armory" )
         return "toggle";
     if ( text == "!outlands up" )
@@ -41,13 +42,11 @@ chat_editor()
     for (;;)
     {
         level waittill( "say", text, player, hidden, team_chat );
-        if ( !scripts\mp\outlands_ui::eligible( player ) || !isdefined( text ) || !isdefined( team_chat ) || team_chat )
+        if ( !scripts\mp\outlands_ui::eligible( player ) )
             continue;
-        if ( text.size > 1 && getsubstr( text, 0, 1 ) != "!" )
-            text = getsubstr( text, 1 );
         action = parse_action( text );
         if ( action != "none" )
-            dispatch( player, action );
+            scripts\mp\outlands_ui::command_result( player, "armory", action, dispatch( player, action ) );
     }
 }
 
@@ -75,7 +74,7 @@ listen_editor( action )
     for (;;)
     {
         self waittill( "outlands_armory_" + action );
-        dispatch( self, action );
+        scripts\mp\outlands_ui::command_result( self, "armory", action, dispatch( self, action ) );
     }
 }
 

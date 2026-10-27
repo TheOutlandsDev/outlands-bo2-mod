@@ -17,6 +17,7 @@ init()
     level thread manage();
     level thread chat_commands();
     level thread finish();
+    println( "Outlands commands ready: normalized chat ingress" );
 }
 
 eligible( player )
@@ -122,8 +123,57 @@ bar_width( value, maximum )
     return int( value * 330.0 / maximum );
 }
 
+// T6 can prepend two transport control bytes to both sayall and sayteam.
+// Strip only a bounded non-printable prefix, then normalize command spacing.
+// Never remove printable junk or evaluate any part of a message as code.
+normalize_command( text )
+{
+    if ( !isdefined( text ) || text.size < 1 || text.size > 160 )
+        return "";
+    printable = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\t\r\n";
+    offset = 0;
+    while ( offset < 2 && offset < text.size && !issubstr( printable, getsubstr( text, offset, offset + 1 ) ) )
+        offset++;
+    text = getsubstr( text, offset );
+    words = strtok( tolower( text ), " \t\r\n" );
+    if ( words.size < 1 )
+        return "";
+    text = words[0];
+    if ( text.size > 1 && getsubstr( text, 0, 1 ) == "/" )
+        text = getsubstr( text, 1 );
+    for ( i = 1; i < words.size; i++ )
+        text += " " + words[i];
+    return text;
+}
+
+// Fixed, identity-free diagnostics. UI acceptance is distinct from a durable
+// Operations/Armory save; those modules still own their acknowledgements.
+command_result( player, domain, action, accepted )
+{
+    if ( !eligible( player ) )
+        return;
+    result = "rejected";
+    if ( accepted )
+        result = "accepted";
+    println( "OUTLANDS_COMMAND_V1|" + domain + "|" + action + "|" + result );
+    if ( accepted )
+        return;
+    if ( isdefined( player.outlands_command_notice ) && gettime() - player.outlands_command_notice < 2000 )
+        return;
+    player.outlands_command_notice = gettime();
+    if ( domain == "ui" && !getdvarint( "outlands_ui" ) )
+        player iprintln( "Outlands: Career/Contracts HUD is disabled on this server." );
+    else if ( domain == "armory" && !getdvarint( "outlands_armory" ) )
+        player iprintln( "Outlands: Armory is disabled on this server." );
+    else if ( domain == "operations" && !getdvarint( "outlands_operations" ) )
+        player iprintln( "Outlands: Operations is disabled on this server." );
+    else
+        player iprintln( "Outlands: not ready or busy. Spawn, wait a moment, then retry. !outlands help" );
+}
+
 parse_action( text )
 {
+    text = normalize_command( text );
     if ( text == "!outlands" )
         return "toggle";
     if ( text == "!outlands career" )
@@ -134,6 +184,10 @@ parse_action( text )
         return "close";
     if ( text == "!outlands focus" )
         return "focus";
+    if ( text == "!outlands next" )
+        return "next";
+    if ( text == "!outlands help" )
+        return "help";
     return "none";
 }
 
@@ -143,15 +197,13 @@ chat_commands()
     for (;;)
     {
         level waittill( "say", text, player, hidden, team_chat );
-        if ( !eligible( player ) || !isdefined( text ) || !isdefined( team_chat ) || team_chat )
+        if ( !eligible( player ) )
             continue;
-        // Native chat can prefix a control byte. Hidden /!outlands is accepted
-        // without forwarding the private command to the chat/model worker.
-        if ( text.size > 1 && getsubstr( text, 0, 1 ) != "!" )
-            text = getsubstr( text, 1 );
+        // Local commands reply only to their sender. They do not depend on
+        // optional privacy flags and never enter the model request path.
         action = parse_action( text );
         if ( action != "none" )
-            dispatch( player, action );
+            command_result( player, "ui", action, dispatch( player, action ) );
     }
 }
 
@@ -179,7 +231,7 @@ listen( event, action )
     for (;;)
     {
         self waittill( event );
-        dispatch( self, action );
+        command_result( self, "ui", action, dispatch( self, action ) );
     }
 }
 
@@ -199,7 +251,15 @@ close_on( event )
 
 dispatch( player, action )
 {
-    if ( !eligible( player ) || !getdvarint( "outlands_ui" ) )
+    if ( !eligible( player ) )
+        return false;
+    if ( action == "help" )
+    {
+        player iprintln( "Outlands: !outlands career | !outlands contracts | !outlands armory | !outlands close" );
+        player iprintln( "Career: !career | !track assault/objective/support. Console: say !outlands" );
+        return true;
+    }
+    if ( !getdvarint( "outlands_ui" ) )
         return false;
     if ( action != "toggle" && action != "next" && action != "focus" && action != "close" && action != "career" && action != "contracts" )
         return false;

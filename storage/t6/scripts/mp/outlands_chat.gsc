@@ -289,7 +289,7 @@ watch_public_chat()
         if ( !isdefined( player ) || !isplayer( player ) || player istestclient() )
             continue;
         // Fail closed if the runtime does not supply privacy-mode flags.
-        if ( !isdefined( was_hidden ) || was_hidden || !isdefined( is_team_chat ) || is_team_chat )
+        if ( !public_chat_allowed( was_hidden, is_team_chat ) )
             continue;
         if ( !isdefined( message ) || message.size < 1 )
             continue;
@@ -309,9 +309,20 @@ watch_public_chat()
 
 ui_command( text )
 {
-    if ( text == "!career" || text == "!track assault" || text == "!track objective" || text == "!track support" || text == "!outlands" )
+    if ( isdefined( text ) && text.size > 160 )
+        text = getsubstr( text, 0, 160 );
+    text = scripts\mp\outlands_ui::normalize_command( text );
+    if ( text == "!career" || text == "!track" || text == "!outlands" )
+        return true;
+    if ( text.size > 6 && getsubstr( text, 0, 7 ) == "!track " )
         return true;
     return text.size > 9 && getsubstr( text, 0, 10 ) == "!outlands ";
+}
+
+public_chat_allowed( was_hidden, is_team_chat )
+{
+    // Missing flags are never interpreted as consent to forward public chat.
+    return isdefined( was_hidden ) && !was_hidden && isdefined( is_team_chat ) && !is_team_chat;
 }
 
 periodic_banter()
