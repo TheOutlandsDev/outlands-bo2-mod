@@ -48,6 +48,8 @@ jobs:
         run: '& ./tests/test_windows_client.ps1'
       - name: Test portable Armory rules
         run: python -B -m unittest discover -s ai/tests -p "test_armory*.py" -v
+      - name: Test portable weighted rotation
+        run: python -B -m unittest discover -s tests -p test_rotation.py -v
       - name: Validate source and record acceptance boundaries
         run: python -B tools/validate_system.py --report-dir runtime/validation
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
