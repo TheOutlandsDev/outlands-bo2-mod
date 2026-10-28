@@ -7,6 +7,7 @@ import threading
 import unittest
 import urllib.error
 import urllib.request
+from urllib.parse import urlencode
 from accounts.google_login import Config,GoogleLogin
 from accounts.service import AccountServer,SESSION_COOKIE,LOGIN_COOKIE
 from accounts.store import AccountStore
@@ -78,6 +79,29 @@ class AccountHttpTests(unittest.TestCase):
         for path in ('/','/account.js','/app.css'):
             with self.request(path,auth=False) as response:self.assertEqual(response.status,200)
         with self.assertRaises(ValueError):AccountServer(('0.0.0.0',8087),self.store,self.login)
+
+    def test_google_callback_accepts_exact_authorization_response_issuer(self):
+        with self.request('/auth/google/start',auth=False) as response:
+            cookie=SimpleCookie(response.headers['Set-Cookie'])[LOGIN_COOKIE].value
+        state,entry=next(iter(self.login.pending.items()))
+        self.login.verify=lambda *args:{'iss':ISSUER,'aud':self.login.config.client_id,'sub':SUBJECT,'nonce':entry['nonce']}
+        query=urlencode({'state':state,'code':'fixture-code','iss':ISSUER,'scope':'openid','authuser':'0','prompt':'consent'})
+        with self.request('/auth/google/callback?'+query,auth=False,headers={'Cookie':LOGIN_COOKIE+'='+cookie}) as response:
+            self.assertEqual(response.status,303)
+            self.assertTrue(any(SESSION_COOKIE in value for value in response.headers.get_all('Set-Cookie')))
+        with self.request('/auth/google/callback?'+query,auth=False,headers={'Cookie':LOGIN_COOKIE+'='+cookie}) as response:
+            self.assertEqual(response.status,400)
+
+    def test_google_callback_rejects_wrong_blank_duplicate_and_unknown_issuer_fields(self):
+        def no_exchange(*args):self.fail('Invalid callback reached the token exchange')
+        self.login.exchange=no_exchange
+        with self.request('/auth/google/start',auth=False) as response:
+            cookie=SimpleCookie(response.headers['Set-Cookie'])[LOGIN_COOKIE].value
+        state=next(iter(self.login.pending))
+        base=urlencode({'state':state,'code':'fixture-code'})
+        for suffix in ('&iss=https%3A%2F%2Fevil.invalid','&iss=','&iss='+ISSUER+'&iss='+ISSUER,'&issuer='+ISSUER):
+            with self.subTest(suffix=suffix),self.request('/auth/google/callback?'+base+suffix,auth=False,headers={'Cookie':LOGIN_COOKIE+'='+cookie}) as response:
+                self.assertEqual(response.status,400)
 
     def test_native_ingress_requires_enrolled_worker_not_browser_cookie(self):
         event={'session':'synthetic_session_001','sequence':1,'kind':'link','profile_reference':'a12b34','stats':{'rank_xp':5000}}
