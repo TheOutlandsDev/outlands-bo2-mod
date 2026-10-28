@@ -173,7 +173,7 @@ class Docker:
 
     def call(self, *args: str, input_text: str | None = None, check: bool = True) -> str:
         log_stream = bool(args and args[0] == "logs")
-        result = subprocess.run([str(self.wrapper), *args], input=input_text, text=True,
+        result = subprocess.run(["bash", str(self.wrapper), *args], input=input_text, text=True,
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT if log_stream else subprocess.PIPE)
         if check and result.returncode:
@@ -305,6 +305,17 @@ def assess_air_response(text):
             'script_entity_fixture': True, 'actual_aircraft_combat': False}
 
 
+def assess_ground_response(text):
+    markers = [line.strip() for line in ANSI.sub('', text).splitlines()]
+    expected = 'OUTLANDS_GROUND_POLICY_V1|pass'
+    receipts = [line for line in markers if line.startswith('OUTLANDS_GROUND_POLICY_V1|')]
+    input_receipts = [line for line in markers if line.startswith('OUTLANDS_GROUND_INPUT_V1|')]
+    passed = receipts == [expected] and input_receipts == ['OUTLANDS_GROUND_INPUT_V1|pass']
+    return {'passed': passed, 'reasons': [] if passed else ['native ground support policy/equipment/throw checks did not pass'],
+            'native_turret_fixture': True, 'native_input_cleanup': passed, 'actual_guardian_combat': False,
+            'human_unlock_acceptance': False}
+
+
 def assess_expansion(text):
     markers = [line.strip() for line in ANSI.sub('', text).splitlines()]
     fixtures = [Event.parse(line.removeprefix('OUTLANDS_DIALOGUE_FIXTURE_V1|'), 0) for line in markers if line.startswith('OUTLANDS_DIALOGUE_FIXTURE_V1|')]
@@ -375,7 +386,7 @@ def assess_armory(text, restart=False):
 
 
 def config_for(case: Case, seconds: int, restart: bool, careers: bool,
-               squads: bool = False, contracts: bool = False, switches: bool = False, chat_context: bool = False, lobby_balance: bool = False, air_response: bool = False, expansion: bool = False, ui: bool = False, armory: bool = False, armory_editor: bool = False, ambient_chat: bool = False, accounts: bool = False) -> str:
+               squads: bool = False, contracts: bool = False, switches: bool = False, chat_context: bool = False, lobby_balance: bool = False, air_response: bool = False, expansion: bool = False, ui: bool = False, armory: bool = False, armory_editor: bool = False, ambient_chat: bool = False, accounts: bool = False, ground_response: bool = False) -> str:
     cfg = (ROOT / "storage/t6/outlands_t6.cfg").read_text()
     cfg = re.sub(r'^sv_maprotation .*$', f'sv_maprotation "gametype {case.mode} execgts outlands_{case.mode}.cfg map {case.map_name}"', cfg, flags=re.M)
     return cfg + (f'\nset outlands_backend_verification 1\nset outlands_verify_seconds {seconds}\n'
@@ -392,6 +403,7 @@ def config_for(case: Case, seconds: int, restart: bool, careers: bool,
                   ('set outlands_verify_chat_context 1\nset outlands_chat_tactical 1\n' if chat_context else '')+
                   ('set outlands_verify_lobby 1\nset outlands_coop_teams 1\nset outlands_balance_teams 1\nset scr_teambalance 1\n' if lobby_balance else '')+
                   ('set outlands_verify_air 1\n' if air_response else '')+
+                  ('set outlands_verify_ground 1\n' if ground_response else '')+
                   ('set outlands_verify_expansion 1\n' if expansion else '')+
                   ('set outlands_ui 1\nset outlands_verify_ui 1\n' if ui else '')+
                   ('set outlands_verify_armory 1\n' if armory else '')+
@@ -418,7 +430,7 @@ def require_map_asset(docker: Docker, image: str, case: Case):
 
 def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool, directory: Path,
              careers: bool = False, worker_image: str = "outlands-bo2-chat:rivals-dev",
-             process_restart: bool = False, squads: bool = False, contracts: bool = False, switches: bool = False, chat_context: bool = False, lobby_balance: bool = False, air_response: bool = False, expansion: bool = False, ui: bool = False, armory: bool = False, armory_editor: bool = False, ambient_chat: bool = False, accounts: bool = False) -> dict:
+             process_restart: bool = False, squads: bool = False, contracts: bool = False, switches: bool = False, chat_context: bool = False, lobby_balance: bool = False, air_response: bool = False, expansion: bool = False, ui: bool = False, armory: bool = False, armory_editor: bool = False, ambient_chat: bool = False, accounts: bool = False, ground_response: bool = False) -> dict:
     require_map_asset(docker, image, case)
     resource = "outlands-backend-" + uuid.uuid4().hex
     volume = resource + "-state"
@@ -439,7 +451,7 @@ def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool
                 "x=json.load(sys.stdin);(p/'scripts/mp').mkdir(parents=True,exist_ok=True)\n"
                 "(p/'outlands_t6.cfg').write_text(x['cfg'])\n"
                 "(p/'scripts/mp/outlands_backend_verification.gsc').write_text(x['gsc'])\n")
-        payload = json.dumps({"cfg": config_for(case, seconds, restart, careers, squads, contracts, switches, chat_context, lobby_balance, air_response, expansion, ui, armory, armory_editor, ambient_chat, accounts),
+        payload = json.dumps({"cfg": config_for(case, seconds, restart, careers, squads, contracts, switches, chat_context, lobby_balance, air_response, expansion, ui, armory, armory_editor, ambient_chat, accounts, ground_response),
                               "gsc": (ROOT / "hosting/verification.gsc").read_text()})
         docker.call("run", "--rm", "-i", "--network", "none", "--cap-drop", "ALL",
                     "--security-opt", "no-new-privileges:true", "-v", volume + ":/data",
@@ -552,6 +564,11 @@ def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool
             if not report["expansion"]["passed"]:
                 report["passed"] = False
                 report["reasons"].extend(report["expansion"]["reasons"])
+        if ground_response:
+            report['ground_response'] = assess_ground_response(all_logs)
+            if not report['ground_response']['passed']:
+                report['passed'] = False
+                report['reasons'].extend(report['ground_response']['reasons'])
         if air_response:
             report['air_response'] = assess_air_response(all_logs)
             if not report['air_response']['passed']:
@@ -676,6 +693,7 @@ def main(argv=None) -> int:
     parser.add_argument("--squads", action="store_true", help="verify native coordinated squad roles/goals; unsupported modes must remain native")
     parser.add_argument("--contracts", action="store_true", help="verify team contracts from native counters using disposable short thresholds")
     parser.add_argument("--switches", action="store_true", help="also disable and resume both modules during one isolated objective match")
+    parser.add_argument('--ground-response', action='store_true', help='verify encountered turret policy, one EMP specialist and native equipment/throw in isolated bot fixtures; not Guardian combat')
     parser.add_argument('--air-response', action='store_true', help='verify bot-only air target gate with private script entities, not actual aircraft combat')
     parser.add_argument('--lobby-balance',action='store_true',help='verify native bot refill, imbalance repair and count-only cooperative side policy; no humans fabricated')
     parser.add_argument('--chat-context',action='store_true',help='capture native task snapshots and verify human-presence/context guards; native speech primitive is tested separately')
@@ -706,12 +724,14 @@ def main(argv=None) -> int:
             raise ValueError("Switch acceptance requires both modules, one objective case, at least 90 seconds and no restart flags")
         if args.chat_context and (not args.contracts or any(c.mode in OBJECTIVE_MODES for c in cases) and not args.squads):
             raise ValueError('Chat context acceptance needs contracts and objective squads where supported')
+        if args.ground_response and (args.seconds < 90 or args.restart or args.process_restart or args.air_response or args.ui or args.armory or args.armory_editor or args.lobby_balance or args.ambient_chat or args.switches or args.accounts or any(c.mode == 'dm' for c in cases)):
+            raise ValueError('Ground-response needs team modes, at least 90 seconds and no restart or overlapping air/UI/Armory/lobby/account/chat fixtures')
         if args.air_response and (args.seconds < 60 or args.restart or args.process_restart):
             raise ValueError('Air-response fixture requires at least 60 seconds and no restart flags')
         if args.lobby_balance and (any(c.mode=='dm' for c in cases) or args.seconds<90 or args.switches or args.process_restart or args.restart):
             raise ValueError('Lobby verification needs team modes, at least 90 seconds and no restart/switch flags')
         plan = {"server_process_restart": args.process_restart, "careers": args.careers, "squads": args.squads, "contracts": args.contracts, "contract_test_thresholds": args.contracts, "cases": [asdict(case) for case in cases], "seconds": args.seconds,
-                "accounts":args.accounts, "native_restart": args.restart, "native_restart_method": "same_map_reload" if args.restart else None, "runtime_switches": args.switches, "chat_context":args.chat_context, "lobby_balance":args.lobby_balance, "air_response":args.air_response, "expansion":args.expansion, "ui":args.ui, "armory":args.armory, "armory_editor":args.armory_editor, "network_mode": "none", "published_ports": False,
+                "accounts":args.accounts, "native_restart": args.restart, "native_restart_method": "same_map_reload" if args.restart else None, "runtime_switches": args.switches, "chat_context":args.chat_context, "lobby_balance":args.lobby_balance, "air_response":args.air_response, "ground_response":args.ground_response, "expansion":args.expansion, "ui":args.ui, "armory":args.armory, "armory_editor":args.armory_editor, "network_mode": "none", "published_ports": False,
                 "human_clients": False, "live_state": False, "ambient_chat": args.ambient_chat}
         if not args.run:
             print(json.dumps(plan, indent=2))
@@ -724,7 +744,7 @@ def main(argv=None) -> int:
         docker = Docker(ROOT / "hosting/docker.sh")
         reports = []
         for case in cases:
-            report = run_case(docker, args.image, case, args.seconds, args.restart, directory, args.careers, args.worker_image, args.process_restart, args.squads, args.contracts, args.switches,args.chat_context,args.lobby_balance,args.air_response,args.expansion,args.ui,args.armory,args.armory_editor,args.ambient_chat,args.accounts)
+            report = run_case(docker, args.image, case, args.seconds, args.restart, directory, args.careers, args.worker_image, args.process_restart, args.squads, args.contracts, args.switches,args.chat_context,args.lobby_balance,args.air_response,args.expansion,args.ui,args.armory,args.armory_editor,args.ambient_chat,args.accounts,args.ground_response)
             reports.append(report)
             (directory / "report.json").write_text(json.dumps({"plan": plan, "results": reports}, indent=2) + "\n")
             print(f"{'PASS' if report['passed'] else 'FAIL'}: {case.map_name}/{case.mode}", flush=True)
