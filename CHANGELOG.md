@@ -2,6 +2,10 @@
 
 ## Unreleased — cooperative lobbies, grounded task chat, squads, contracts and rivals
 
+- Accept Google's optional authorization-response `iss` field only when it
+  exactly matches the fixed Google issuer. Retain state, browser binding, PKCE,
+  signed-token and nonce checks; reject wrong, empty or duplicate issuer fields
+  before token exchange. Add callback and replay regressions.
 - Fix offline account bootstrap on runtime-owned mode-700 volumes without
   adding FOWNER capability. Add a disposable configure/enroll/start/restart
   container assay to Linux CI, including overwrite refusal, private permissions,
