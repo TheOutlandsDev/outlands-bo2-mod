@@ -2,6 +2,10 @@
 
 ## Unreleased — cooperative lobbies, grounded task chat, squads, contracts and rivals
 
+- Exercise the account worker's real log follower, HTTP ingress and private UDP
+  mailbox together with synthetic profiles. Verify start-at-EOF, worker restart,
+  absolute XP updates, one-use browser pairing, reconnect confirmation and
+  two-account isolation without using live identities or game saves.
 - Accept Google's optional authorization-response `iss` field only when it
   exactly matches the fixed Google issuer. Retain state, browser binding, PKCE,
   signed-token and nonce checks; reject wrong, empty or duplicate issuer fields
