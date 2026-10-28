@@ -11,10 +11,10 @@ from urllib.parse import parse_qs,urlsplit
 
 try:
     from .store import AccountStore,Refused,BROWSER,BROWSER_SECONDS
-    from .google_login import Config,GoogleLogin,LoginRefused
+    from .google_login import Config,GoogleLogin,LoginRefused,ISSUER
 except ImportError:
     from store import AccountStore,Refused,BROWSER,BROWSER_SECONDS
-    from google_login import Config,GoogleLogin,LoginRefused
+    from google_login import Config,GoogleLogin,LoginRefused,ISSUER
 
 ROOT=Path(__file__).resolve().parent
 SESSION_COOKIE='__Host-outlands_session'
@@ -85,7 +85,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(302,{},location=pending['url'],cookies=[self.state_cookie(LOGIN_COOKIE,pending['cookie'],300)])
             if path=='/auth/google/callback':
                 query=parse_qs(parsed.query,keep_blank_values=True)
-                if len(self.path)>4096 or not {'state','code'}<=set(query) or bool(set(query)-{'state','code','scope','authuser','prompt','hd'}) or any(len(v)!=1 for v in query.values()):raise LoginRefused('Google sign-in could not be confirmed')
+                if len(self.path)>4096 or not {'state','code'}<=set(query) or bool(set(query)-{'state','code','scope','authuser','prompt','hd','iss'}) or any(len(v)!=1 for v in query.values()):raise LoginRefused('Google sign-in could not be confirmed')
+                # Google may identify the authorization-response issuer. Check
+                # its exact fixed value before any confidential token exchange;
+                # signed-token issuer/audience/nonce verification still follows.
+                if 'iss' in query and query['iss']!=[ISSUER]:raise LoginRefused('Google sign-in could not be confirmed')
                 identity=self.server.login.finish(query['state'][0],self.cookie(LOGIN_COOKIE),query['code'][0])
                 self.server.store.provision(identity['issuer'],identity['subject'],'Outlander_'+secrets.token_hex(3))
                 credential=self.server.store.start_browser_session(identity['issuer'],identity['subject'])
