@@ -177,6 +177,16 @@ class HostStateTests(unittest.TestCase):
         self.assertEqual(self.value("outlands_chat_max_per_minute"), "4")
         self.assertEqual(self.stats.read_bytes(), self.original_stats)
 
+    def test_ground_support_default_migrates_and_preserves_explicit_off(self):
+        source = self.mod / host.CFG_NAME
+        source.write_text(source.read_text() + 'set outlands_bot_ground_support 1\n')
+        host.configure_mod(None)
+        self.assertEqual(self.value('outlands_bot_ground_support'), '1')
+        self.cfg.write_text(self.cfg.read_text().replace('outlands_bot_ground_support 1', 'outlands_bot_ground_support 0'))
+        host.configure_mod(None)
+        self.assertEqual(self.value('outlands_bot_ground_support'), '0')
+        self.assertEqual(self.stats.read_bytes(), self.original_stats)
+
     def test_air_response_defaults_migrate_without_overwriting_tuning(self):
         source = self.mod / host.CFG_NAME
         source.write_text(source.read_text() + 'set outlands_bot_air_reaction_ms 2500\nset outlands_bot_air_response_chance 80\n')

@@ -41,6 +41,8 @@ verify_native_match()
     sample( "sample" );
     if ( getdvarint( "outlands_verify_lobby" ) )
         level thread verify_lobby_balance();
+    if ( getdvarint( "outlands_verify_ground" ) )
+        level thread verify_ground_response();
     if ( getdvarint( "outlands_verify_air" ) )
         level thread verify_air_response();
     if ( getdvarint( "outlands_verify_expansion" ) )
@@ -1262,4 +1264,249 @@ verify_menu_input( players )
         result = "pass";
     println( "OUTLANDS_MENU_INPUT_V2|" + result + "|" + native_actions + "|" + restored + "|" + excluded );
     return ok;
+}
+
+
+// Engine fixture only: no real players, earned streak or human save is used.
+verify_ground_response()
+{
+    level endon( "game_ended" );
+    wait 25;
+    bots = [];
+    enemy = undefined;
+    candidates = get_players();
+    if ( !isdefined( level.outlands_ground_emp ) )
+    {
+        println( "OUTLANDS_GROUND_POLICY_V1|failed" );
+        return;
+    }
+    // Native ranks vary; choose eligible real test clients, never raise rank
+    // or grant an unlock to make the positive equipment case pass.
+    foreach ( seed in candidates )
+    {
+        if ( !isdefined( seed ) || !isplayer( seed ) || !seed istestclient() || !isalive( seed ) || !isdefined( seed.team ) || seed isitemlocked( level.outlands_ground_emp_index ) )
+            continue;
+        bots = [];
+        foreach ( player in candidates )
+        {
+            if ( !isdefined( player ) || !isplayer( player ) || !player istestclient() || !isalive( player ) || !isdefined( player.team ) )
+                continue;
+            if ( player.team != seed.team )
+                enemy = player;
+            else if ( !player isitemlocked( level.outlands_ground_emp_index ) )
+                bots[bots.size] = player;
+        }
+        if ( bots.size >= 2 && isdefined( enemy ) )
+            break;
+    }
+    if ( bots.size < 2 || !isdefined( enemy ) )
+    {
+        println( "OUTLANDS_GROUND_POLICY_V1|failed" );
+        return;
+    }
+    bot = bots[0];
+    other = bots[1];
+    // A live combat roster can kill a subject during the timed equipment check.
+    // Protect only these actual test clients via the native damage callback;
+    // all other players retain the prior callback. This code is fixture-only.
+    level.outlands_verify_previous_damage = level.onplayerdamage;
+    level.onplayerdamage = ::verify_ground_damage;
+    bot.outlands_verify_ground_protected = 1;
+    other.outlands_verify_ground_protected = 1;
+    enemy.outlands_verify_ground_protected = 1;
+    // Isolate the throwing subject from ordinary player combat using stock
+    // per-entity ignore deadlines and an owned stationary goal, not fake input.
+    bot.outlands_verify_ignore_old = [];
+    deadline = gettime() + 30000;
+    foreach ( player in candidates )
+    {
+        index = player getentitynumber();
+        bot.outlands_verify_ignore_old[index] = bot.bot.ignore_entity[index];
+        bot.bot.ignore_entity[index] = deadline;
+    }
+    clear_enemy = getfunction( "maps/mp/bots/_bot_combat", "bot_clear_enemy" );
+    bot [[ clear_enemy ]]();
+    bot addgoal( bot.origin, 24, 4, "outlands_verify_ground" );
+
+    // Stop only the new per-life routine; the real native helper is tested below.
+    bot notify( "outlands_ground_life" );
+    other notify( "outlands_ground_life" );
+    turret = spawnturret( "auto_turret", bot.origin + ( 120, 0, 0 ), "microwave_turret_mp" );
+    turret.turrettype = "microwave";
+    turret setmodel( "t6_wpn_turret_ads_world" );
+    turret.owner = enemy;
+    turret setturrettype( "microwave" );
+    turret setturretowner( enemy );
+    turret setturretteam( enemy.team );
+    turret.team = enemy.team;
+    turret.turret_active = 1;
+    turret.carried = 0;
+    turret.dead = 0;
+    turret.dangerous_nodes = [];
+    turret.health = 100000;
+    turret.maxhealth = 100000;
+    hostile = bot scripts\mp\outlands_bot_profiles::ground_hostile( turret );
+    turret.owner = bot;
+    friendly = !bot scripts\mp\outlands_bot_profiles::ground_hostile( turret );
+    turret.owner = enemy;
+    turret.carried = 1;
+    carried = !bot scripts\mp\outlands_bot_profiles::ground_hostile( turret );
+    turret.carried = 0;
+    turret.dead = 1;
+    dead = !bot scripts\mp\outlands_bot_profiles::ground_hostile( turret );
+    turret.dead = 0;
+    turret.turret_active = 0;
+    inactive = !bot scripts\mp\outlands_bot_profiles::ground_hostile( turret );
+    turret.turret_active = 1;
+    turret.owner = undefined;
+    unowned = !bot scripts\mp\outlands_bot_profiles::ground_hostile( turret );
+    turret.owner = enemy;
+    turret.turrettype = "sentry";
+    sentry = bot scripts\mp\outlands_bot_profiles::ground_hostile( turret );
+    turret.turrettype = "microwave";
+    not_player = !bot scripts\mp\outlands_bot_profiles::ground_hostile( enemy );
+    level.outlands_ground_threats[bot.team] = undefined;
+    bot scripts\mp\outlands_bot_profiles::remember_ground_turret( turret );
+    record = level.outlands_ground_threats[bot.team];
+    delayed = !isdefined( bot scripts\mp\outlands_bot_profiles::ground_record() );
+    ready = record.ready;
+    wait 1;
+    bot scripts\mp\outlands_bot_profiles::remember_ground_turret( turret );
+    stable = record.ready == ready;
+    wait 4;
+    ready_ok = isdefined( bot scripts\mp\outlands_bot_profiles::ground_record() );
+    // Native default rank and unlock policy are observed, never elevated.
+    unlocked = !bot isitemlocked( level.outlands_ground_emp_index );
+    println( "OUTLANDS_GROUND_CHECK|native_unlock|" + unlocked + "|" + level.outlands_ground_emp_index );
+    println( "OUTLANDS_GROUND_CHECK|native_grenade_policy|" + getdvar( "bot_AllowGrenades" ) + "|" + getdvar( "bot_MinGrenadeTime" ) + "|" + getdvar( "bot_MaxGrenadeTime" ) );
+    foreach ( subject in array( bot, other ) )
+    {
+        if ( isdefined( subject.grenadetypesecondary ) )
+            subject takeweapon( subject.grenadetypesecondary );
+        foreach ( tactical in array( "emp_grenade_mp", "flash_grenade_mp", "concussion_grenade_mp", "willy_pete_mp" ) )
+            subject takeweapon( tactical );
+        subject setoffhandsecondaryclass( "concussion_grenade_mp" );
+        subject giveweapon( "concussion_grenade_mp" );
+        subject setweaponammoclip( "concussion_grenade_mp", 1 );
+        subject.grenadetypesecondary = "concussion_grenade_mp";
+    }
+    level.outlands_ground_specialists[bot.team] = undefined;
+    println( "OUTLANDS_GROUND_CHECK|before_equip|" + isalive( bot ) + "|" + bot getweaponammoclip( "concussion_grenade_mp" ) + "|" + bot getweaponammostock( "concussion_grenade_mp" ) );
+    equipped = bot scripts\mp\outlands_bot_profiles::ground_equip();
+    println( "OUTLANDS_GROUND_CHECK|after_equip|" + bot getweaponammoclip( "emp_grenade_mp" ) + "|" + bot getweaponammostock( "emp_grenade_mp" ) );
+    single = !other scripts\mp\outlands_bot_profiles::ground_equip();
+    swapped = !bot hasweapon( "concussion_grenade_mp" ) && bot scripts\mp\outlands_bot_profiles::ground_ammo() == 1;
+    println( "OUTLANDS_GROUND_CHECK|equip|" + equipped + "|" + single + "|" + swapped );
+    record.next_emp = gettime() + 6000;
+    cooldown = !bot scripts\mp\outlands_bot_profiles::ground_emp_throw( turret.origin );
+    cooldown = cooldown && bot scripts\mp\outlands_bot_profiles::ground_ammo() == 1;
+    baseline = 0;
+    if ( isdefined( bot.outlands_ground_emp_requests ) )
+        baseline = bot.outlands_ground_emp_requests;
+    record.next_emp = 0;
+    // Use a visible native path node; an arbitrary offset can be inside a wall.
+    nodes = getnodesinradiussorted( bot.origin, 768, 300, 128, "Path" );
+    foreach ( node in nodes )
+    {
+        if ( bullettracepassed( bot.origin + ( 0, 0, 48 ), node.origin + ( 0, 0, 32 ), 0, bot ) )
+        {
+            turret setorigin( node.origin + ( 0, 0, 8 ) );
+            break;
+        }
+    }
+    projectiles = 0;
+    bot.outlands_ground_last_projectiles = 0;
+    thrown = false;
+    // Native throw requests can refuse while aiming/firing; retry as combat
+    // does, instead of treating a single refused request as a projectile.
+    attempts = 0;
+    while ( !thrown && attempts < 80 )
+    {
+        record.entity = turret;
+        record.seen = gettime();
+        bot scripts\mp\outlands_bot_profiles::ground_emp_throw( turret.origin );
+        // Native combat can win the same request between probe ticks. Observe
+        // the real production counter for either caller, never a fake throw.
+        if ( isdefined( bot.outlands_ground_emp_requests ) && bot.outlands_ground_emp_requests > baseline )
+        {
+            thrown = true;
+            projectiles = bot.outlands_ground_last_projectiles;
+        }
+        attempts++;
+        wait 0.1;
+    }
+    // Native Hard bots may hold an accepted throw for up to four seconds.
+    wait 6;
+    projectiles = bot.outlands_ground_last_projectiles;
+    consumed = bot scripts\mp\outlands_bot_profiles::ground_ammo() == 0 && isdefined( projectiles ) && projectiles == 1;
+    record.seen = gettime();
+    level.outlands_ground_specialists[bot.team] = undefined;
+    no_refill = !bot scripts\mp\outlands_bot_profiles::ground_equip() && bot scripts\mp\outlands_bot_profiles::ground_ammo() == 0;
+    // Owned input must survive a stale release, then clear normally and after
+    // a real native death. The projectile check above cannot be earned here.
+    input_ok = false;
+    if ( consumed )
+    {
+        token = spawnstruct();
+        stale = spawnstruct();
+        bot.outlands_ground_smoke_owner = token;
+        bot botbuttonoverride( "+smoke" );
+        wait 0.05;
+        bot scripts\mp\outlands_bot_profiles::ground_release_smoke( stale );
+        owned = isdefined( bot.outlands_ground_smoke_owner ) && bot.outlands_ground_smoke_owner == token && bot secondaryoffhandbuttonpressed();
+        bot scripts\mp\outlands_bot_profiles::ground_release_smoke( token );
+        wait 0.05;
+        released = !isdefined( bot.outlands_ground_smoke_owner ) && !bot secondaryoffhandbuttonpressed();
+        bot.outlands_ground_smoke_owner = token;
+        bot botbuttonoverride( "+smoke" );
+        bot suicide();
+        wait 0.5;
+        death_clean = !isdefined( bot.outlands_ground_smoke_owner ) && !isdefined( bot.outlands_ground_emp_pending ) && !bot secondaryoffhandbuttonpressed();
+        input_ok = owned && released && death_clean;
+    }
+    input_result = "failed";
+    if ( input_ok )
+        input_result = "pass";
+    println( "OUTLANDS_GROUND_INPUT_V1|" + input_result );
+    println( "OUTLANDS_GROUND_CHECK|projectiles|" + projectiles );
+    println( "OUTLANDS_GROUND_CHECK|throw|" + thrown + "|" + consumed + "|" + cooldown + "|" + no_refill );
+    record.seen = gettime() - 21000;
+    expired = !isdefined( bot scripts\mp\outlands_bot_profiles::ground_record() );
+    setting = getdvar( "outlands_bot_ground_support" );
+    setdvar( "outlands_bot_ground_support", 0 );
+    disabled = !bot scripts\mp\outlands_bot_profiles::ground_enabled() && !bot scripts\mp\outlands_bot_profiles::ground_equip();
+    setdvar( "outlands_bot_ground_support", setting );
+    foreach ( node in turret.dangerous_nodes )
+        foreach ( team in level.teams )
+            if ( team != turret.owner.team )
+                node setdangerous( team, 0 );
+    turret delete();
+    level.outlands_ground_threats[bot.team] = undefined;
+    level.outlands_ground_specialists[bot.team] = undefined;
+    bot cancelgoal( "outlands_verify_ground" );
+    foreach ( player in candidates )
+    {
+        if ( !isdefined( player ) )
+            continue;
+        index = player getentitynumber();
+        if ( isdefined( bot.bot.ignore_entity[index] ) && bot.bot.ignore_entity[index] == deadline )
+            bot.bot.ignore_entity[index] = bot.outlands_verify_ignore_old[index];
+    }
+    bot.outlands_verify_ignore_old = undefined;
+    level.onplayerdamage = level.outlands_verify_previous_damage;
+    bot.outlands_verify_ground_protected = undefined;
+    other.outlands_verify_ground_protected = undefined;
+    enemy.outlands_verify_ground_protected = undefined;
+    result = "failed";
+    if ( input_ok && inactive && unowned && hostile && friendly && carried && dead && sentry && not_player && delayed && stable && ready_ok && unlocked && equipped && single && swapped && cooldown && thrown && consumed && no_refill && expired && disabled )
+        result = "pass";
+    println( "OUTLANDS_GROUND_CHECK|policy|" + hostile + "|" + friendly + "|" + carried + "|" + dead + "|" + sentry + "|" + not_player + "|" + delayed + "|" + stable + "|" + ready_ok + "|" + expired + "|" + disabled );
+    println( "OUTLANDS_GROUND_POLICY_V1|" + result );
+}
+
+verify_ground_damage( inflictor, attacker, damage, flags, means, weapon, point, dir, hitloc, offset )
+{
+    if ( isdefined( self ) && isplayer( self ) && self istestclient() && isdefined( self.outlands_verify_ground_protected ) && self.outlands_verify_ground_protected )
+        return 0;
+    return self [[ level.outlands_verify_previous_damage ]]( inflictor, attacker, damage, flags, means, weapon, point, dir, hitloc, offset );
 }

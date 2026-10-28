@@ -2,6 +2,13 @@
 
 ## Unreleased — cooperative lobbies, grounded task chat, squads, contracts and rivals
 
+- Add encountered-ground-streak support: retain native Guardian/sentry danger
+  marking, give one eligible bot per team a next-spawn EMP tactical replacement,
+  and bound response timing and team throw cooldowns. Use owned real tactical
+  input and native grenade confirmation, preserving unlocks, throw physics,
+  equipment limits and damage. Add isolated equipment/projectile/input checks;
+  real Guardian combat and lane movement remain player acceptance gates.
+
 - Exercise the account worker's real log follower, HTTP ingress and private UDP
   mailbox together with synthetic profiles. Verify start-at-EOF, worker restart,
   absolute XP updates, one-use browser pairing, reconnect confirmation and

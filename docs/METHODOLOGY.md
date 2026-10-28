@@ -209,6 +209,45 @@ actual engine timing, interleaved targets, participation extremes, stock overrid
 and native-ignore precedence; they do not establish real aircraft lifetime or
 human-perceived balance. Those remain a gameplay test with earned streaks.
 
+## Ground-streak EMP support
+
+The optional `outlands_bot_ground_support` hook retains native Guardian/sentry
+navigation danger marking. An actual native turret encounter starts a
+team-shared, four-second reaction timer. Sightings expire after twenty seconds;
+friendly, unowned, carried, inactive and destroyed turrets are excluded.
+
+After pressure is established, one living bot per team can replace an existing
+flash, concussion or smoke tactical with one EMP on its next spawn. Native
+item unlock and equipment rules must permit it. Empty tactical slots and spent
+grenades are never replenished. Human loadouts, stats and unlocks are untouched;
+existing native EMP classes retain their allocation.
+
+The responder requests a native flank node at priority two, below immediate
+combat/cover behavior. Within nine hundred game units and line of sight, it
+turns through native look controls and requests the real secondary-tactical
+input. It yields to living player threats, remote streak control, planting,
+defusing and flag carrying. It never overrides global danger nodes, teleports,
+applies direct damage or invents a grenade. Normal offhand animation, projectile
+physics, ammunition consumption and streak damage remain native.
+
+The stock EMP helper uses `emp_mp`, while the MP inventory uses
+`emp_grenade_mp`. Native helper requests did not reliably produce projectiles in
+the isolated engine. The guarded ground-target path uses a short, owned tactical
+button press instead. Native `grenade_fire` with the correct weapon and a real
+entity confirms delivery. A six-second shared cooldown applies to requests and
+confirmed throws; pending requests expire without spending or refilling ammo.
+Input ownership survives stale cleanup attempts and releases on firing, normal
+completion, death, respawn, timeout and match end. Only bot-owned tactical input
+is released. Other targets and the feature off switch use the original helper.
+
+Per-map request/projectile counters and the last per-bot projectile count support
+backend diagnostics without publishing names, positions or player data. Set
+`outlands_bot_ground_support 0` to restore stock behavior. Disabling profiles or
+native bots also bypasses the feature. Configuration migration preserves an
+explicit operator setting. This is one adaptive equipment role per team; it
+cannot promise a counter when native unlocks, tactical allocation, active combat
+or survival prevent one. Lane movement and effectiveness require playtesting.
+
 ## Responsive casual chat
 
 Ambient openers default to thirty seconds and a second bot may answer after

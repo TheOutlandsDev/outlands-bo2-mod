@@ -189,6 +189,32 @@ class BackendReportTests(unittest.TestCase):
         present=FakeDocker('true')
         verify.require_map_asset(present,'synthetic-image',verify.Case('mp_village','koth'))
 
+    def test_source_archive_wrapper_does_not_require_executable_permissions(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            wrapper = Path(temporary) / 'docker wrapper.sh'
+            wrapper.write_text("#!/usr/bin/env bash\nprintf '%s\\n' \"$@\"\n")
+            wrapper.chmod(0o644)
+            result = verify.Docker(wrapper).call('synthetic', 'argument with spaces')
+            self.assertEqual(result, 'synthetic\nargument with spaces')
+            self.assertEqual(wrapper.stat().st_mode & 0o777, 0o644)
+
+    def test_ground_response_receipt_requires_exact_single_native_success(self):
+        marker = 'OUTLANDS_GROUND_POLICY_V1|pass\nOUTLANDS_GROUND_INPUT_V1|pass'
+        result = verify.assess_ground_response(marker)
+        self.assertTrue(result['passed'])
+        self.assertFalse(result['actual_guardian_combat'])
+        self.assertFalse(result['human_unlock_acceptance'])
+        for bad in ('', 'Player: '+marker, marker+'\n'+marker,
+                    marker+'\nOUTLANDS_GROUND_POLICY_V1|failed', marker+'|extra',
+                    'OUTLANDS_GROUND_POLICY_V1|pass',
+                    marker+'\nOUTLANDS_GROUND_INPUT_V1|pass',
+                    marker.replace('GROUND_INPUT_V1|pass', 'GROUND_INPUT_V1|failed')):
+            self.assertFalse(verify.assess_ground_response(bad)['passed'])
+        self.assertTrue(verify.assess_ground_response('\x1b[38;2;255;255;255m'+marker)['passed'])
+        cfg = verify.config_for(verify.Case('mp_raid', 'dom'), 90, False, False, ground_response=True)
+        self.assertIn('set outlands_verify_ground 1', cfg)
+        self.assertNotIn('set outlands_verify_ground 1', verify.config_for(verify.Case('mp_raid', 'dom'), 90, False, False))
+
     def test_air_response_report_distinguishes_script_policy_from_aircraft_combat(self):
         marker = 'OUTLANDS_AIR_POLICY_V1|pass'
         result = verify.assess_air_response(marker)
@@ -336,14 +362,15 @@ class BackendReportTests(unittest.TestCase):
     def test_docker_logs_preserve_stream_order_and_do_not_corrupt_json(self):
         with tempfile.TemporaryDirectory() as temporary:
             wrapper = Path(temporary) / 'synthetic-wrapper'
-            wrapper.write_text('#!' + sys.executable + '\nimport sys\n'
-                               'if sys.argv[1] == "logs":\n'
-                               ' print("first", flush=True)\n'
-                               ' print("second", file=sys.stderr, flush=True)\n'
-                               ' print("third", flush=True)\n'
-                               'else:\n'
-                               ' print(\'{"running":true}\', flush=True)\n'
-                               ' print("private diagnostic", file=sys.stderr, flush=True)\n')
+            wrapper.write_text("#!/usr/bin/env bash\n"
+                               "if [ \"$1\" = logs ]; then\n"
+                               " printf '%s\\n' first\n"
+                               " printf '%s\\n' second >&2\n"
+                               " printf '%s\\n' third\n"
+                               "else\n"
+                               " printf '%s\\n' '{\"running\":true}'\n"
+                               " printf '%s\\n' 'private diagnostic' >&2\n"
+                               "fi\n")
             wrapper.chmod(0o700)
             docker = verify.Docker(wrapper)
             self.assertEqual(docker.call('logs', 'synthetic'), 'first\nsecond\nthird\n')

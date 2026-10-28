@@ -225,6 +225,47 @@ Compare time to first bot rocket and streak survival with default tuning versus
 ground combat. Adjust these small values based on playtest feedback.
 
 
+## Ground-streak EMP support
+
+Run a private native image containing the candidate source with:
+
+```sh
+python3 -B hosting/backend_verify.py --run --image your-private-candidate \
+  --case mp_raid:dom --seconds 90 --ground-response \
+  --report-dir hosting/logs/ground-response-check
+```
+
+Use a fresh report directory. The harness creates disposable, network-isolated
+state with no published ports, human identities or saves. Selected native bot
+subjects receive a temporary damage guard during timed equipment checks. Stock
+ignore deadlines and an owned hold goal isolate one subject from player combat;
+the previous damage handler, ignore entries and goal are restored afterward.
+These are controlled engine fixtures, not normal match or lane-movement proof.
+
+The fixture needs a team mode, ninety seconds and no restart, air, UI, Armory,
+lobby, account or ambient-chat fixture. Require native hostile/friendly/unowned/
+inactive/carried/destroyed/sentry/player classification, stable reaction timing,
+natural item unlock eligibility, one adapted specialist and a one-for-one
+tactical replacement. Require an actual native EMP `grenade_fire` entity and
+consumed ammunition, cooldown refusal, no refill after use, stale-target expiry
+and the off switch. Verify stale input ownership, normal release and cleanup
+after a real bot suicide. No input diagnostic can substitute for the production
+responder's projectile. Missing, malformed or duplicate receipts fail acceptance.
+
+The turret entity has a native model and metadata; its earned Guardian beam is
+not activated. Streak destruction and native beam avoidance remain unverified
+by this fixture. Re-run `--air-response` separately for aircraft timing policy.
+The harness invokes its shell wrapper through Bash, including source archives
+that do not retain executable bits.
+
+Real-client acceptance remains necessary: earn and place a Guardian on a busy
+lane, observe the next eligible bot spawn and approach, verify its EMP effect
+and native Guardian survival/destruction, and try repeated Guardians and sentries.
+Check that objectives, natural movement and the existing mild anti-air tuning
+remain comfortable. Confirm bot responders cannot refill tacticals in one life
+and that player loadouts and saved progression remain unchanged.
+
+
 ## Outlands Operations acceptance
 
 Run the regression suites and `ai/conversation_benchmark.py --mode fallback`
