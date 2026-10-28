@@ -151,6 +151,24 @@ protocol bounds, fixed mailbox transport, failed private-file writes and actual
 RSA signature rejection using fixture keys. These do not authenticate real
 Google users or establish real client usability.
 
+`test_account_agent.py` also runs the actual worker main loop against a temporary
+console log, the real loopback account HTTP server and a loopback UDP receiver.
+Only its private fixture paths and wait/stop boundary are substituted. It checks
+that old logs are skipped, fresh observations survive worker restart, native XP
+can decrease without being merged, one-use codes reach only the fixed mailbox,
+and another browser account cannot view or claim an owned profile after reconnect.
+The test uses synthetic principals and does not promote a native bot to a human.
+Both CI platforms include this test through the account test discovery command.
+
+For preparation from a phone, validate the account page and Google login while
+connected to the host's tailnet, then complete the distinct second-account
+privacy test with another consenting identity. Keep native linking disabled
+until a controlled game-client test is ready. At that test, sign in on the phone,
+join the game on the PC, type `!outlands link` in game chat and enter the private
+code on the account page. Check actual XP/level/prestige, reconnect and confirm
+again. Phone-width browser checks and synthetic worker transport do not establish
+in-game code readability, real-device access or player-stat correctness.
+
 Required enablement gates:
 
 1. Review the concrete HTTPS origin/proxy and private credentials; test the real
