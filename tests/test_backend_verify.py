@@ -123,6 +123,24 @@ class BackendReportTests(unittest.TestCase):
         for bad in ('Player: '+good,good.replace('|2|','|18|'),good.replace('rifle,','rifle;quit,'),good+',extra'):
             verify.service_armory_mailboxes(docker,'worker',bad,set())
         self.assertEqual(len(docker.calls),1)
+    def test_account_fixture_uses_production_queue_and_requires_recovery_from_both_losses(self):
+        class FakeDocker:
+            def __init__(self):self.calls=[]
+            def call(self,*args,**kwargs):
+                self.calls.append((args,kwargs))
+                return 'synthetic_private_password' if 'print(Path' in args[-1] else ''
+        docker=FakeDocker();now=[0.];guard='OUTLANDS_ACCOUNT_GUARD_V1|1'
+        self.assertIsNone(verify.service_account_canary(docker,'fixture','',None,lambda:now[0]))
+        state=verify.service_account_canary(docker,'fixture',guard,None,lambda:now[0])
+        self.assertTrue(state['dropped_datagram']);self.assertEqual(state['delivery'].attempts,1)
+        now[0]=.8;verify.service_account_canary(docker,'fixture',guard,state)
+        ack='OUTLANDS_ACCOUNT_ACK_V1|synthetic_session_001_1'
+        now[0]=1.6;verify.service_account_canary(docker,'fixture',guard+'\n'+ack,state)
+        self.assertTrue(state['dropped_ack']);self.assertEqual(state['delivery'].attempts,3)
+        verify.service_account_canary(docker,'fixture',guard+'\n'+ack+'\n'+ack,state)
+        self.assertEqual(state['delivery'].consumed,1);self.assertIsNone(state['delivery'].active)
+        sends=[c for c in docker.calls if '-i' in c[0]];self.assertEqual(len(sends),2)
+        self.assertEqual(sends[0][1]['input_text'],sends[1][1]['input_text'])
     def test_armory_proof_requires_native_staging_and_next_spawn_but_not_humans(self):
         good = 'OUTLANDS_ARMORY_V1|pass|5|1|1|1|1|1'
         result = verify.assess_armory(good)

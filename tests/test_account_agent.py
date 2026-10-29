@@ -7,6 +7,7 @@ from pathlib import Path
 import socket
 import tempfile
 import threading
+import time
 from types import SimpleNamespace
 import unittest
 import urllib.error
@@ -69,6 +70,56 @@ class WorkerTests(unittest.TestCase):
             with self.assertRaises(ValueError):enroll_file(store,'synthetic_server_001',output)
             with store.connection() as db:self.assertEqual(store.server(db,output.read_text()),'synthetic_server_001')
 
+class PairingDeliveryTests(unittest.TestCase):
+    def setUp(self):
+        self.now=0.;self.sent=[]
+        self.delivery=agent.PairingDelivery(lambda packet,address:self.sent.append((packet,address)),lambda:self.now)
+        self.event=parse_event(LINE);self.result={'code':'A'*32};self.password='synthetic_private_password'
+    def add(self,event=None):self.delivery.add(event or self.event,self.result,self.password,4977)
+    def ack(self,event=None):return 'OUTLANDS_ACCOUNT_ACK_V1|'+agent.request_key(event or self.event)
+    def test_loss_of_packet_and_ack_retries_same_code_and_stops_after_ack(self):
+        self.add();self.delivery.service();self.assertEqual(len(self.sent),1)
+        self.now=.5;self.delivery.service();self.assertEqual(len(self.sent),1)
+        self.now=.8;self.delivery.service();self.assertEqual(len(self.sent),2) # first packet lost
+        self.now=1.6;self.delivery.service();self.assertEqual(len(self.sent),3) # first ACK lost
+        self.assertTrue(all(p==self.sent[0] for p in self.sent))
+        self.assertTrue(self.delivery.acknowledge(self.ack()))
+        self.now=3.;self.delivery.service();self.assertEqual(len(self.sent),3)
+    def test_only_one_mailbox_writer_and_wrong_or_duplicate_ack_cannot_advance(self):
+        other={**self.event,'slot':4,'session':'synthetic_other_session_002'}
+        self.add();self.add(other);self.delivery.service()
+        self.assertEqual(len(self.sent),1);self.assertIn(b'|3|',self.sent[0][0])
+        self.assertFalse(self.delivery.acknowledge(self.ack(other)))
+        self.assertFalse(self.delivery.acknowledge('chat '+self.ack()))
+        self.assertTrue(self.delivery.acknowledge(self.ack()));self.delivery.service()
+        self.assertEqual(len(self.sent),2);self.assertIn(b'|4|',self.sent[1][0])
+        self.assertFalse(self.delivery.acknowledge(self.ack()))
+        self.assertTrue(self.delivery.acknowledge(self.ack(other)))
+    def test_expiry_retry_limit_and_reconnect_cancel_without_replaying_codes(self):
+        self.add();self.delivery.service();self.now=8
+        self.assertFalse(self.delivery.acknowledge(self.ack()));self.delivery.service()
+        self.assertEqual(len(self.sent),1);self.assertEqual(self.delivery.expired,1)
+        self.add()
+        for _ in range(8):self.delivery.service();self.now+=1
+        self.assertEqual(len(self.sent),1+self.delivery.MAX_ATTEMPTS)
+        self.now=20;self.add();self.delivery.service()
+        self.delivery.observe({**self.event,'kind':'hello','session':'synthetic_reconnect_002'})
+        before=len(self.sent);self.now+=1;self.delivery.service();self.assertEqual(len(self.sent),before)
+        self.add();self.delivery.clear();self.now+=1;self.delivery.service();self.assertEqual(len(self.sent),before)
+    def test_superseding_code_cancels_old_request_and_late_queued_item_expires(self):
+        self.add();new={**self.event,'sequence':2};self.add(new);self.delivery.service()
+        self.assertIn(b'_2|3|',self.sent[0][0]);self.assertFalse(self.delivery.acknowledge(self.ack()))
+        self.assertTrue(self.delivery.acknowledge(self.ack(new)))
+        self.delivery.add(self.event,self.result,self.password,4977,received=-9);self.delivery.service()
+        self.assertEqual(len(self.sent),1)
+    def test_transport_errors_are_bounded_and_invalid_fields_never_reach_socket(self):
+        def unavailable(*args):raise OSError('fixture')
+        self.delivery.sender=unavailable;self.add()
+        for _ in range(10):self.delivery.service();self.now+=1
+        self.assertEqual(self.delivery.attempts,self.delivery.MAX_ATTEMPTS)
+        for event in ({**self.event,'session':'bad;quit'},{**self.event,'slot':True},{**self.event,'sequence':0}):
+            with self.assertRaises(ValueError):self.add(event)
+
 class WorkerTransportTests(unittest.TestCase):
     """Real follower/main loop, loopback HTTP and UDP with synthetic identities.
 
@@ -108,9 +159,9 @@ class WorkerTransportTests(unittest.TestCase):
             with self.log.open('a') as stream:stream.write('\n'.join(lines)+'\n')
         original_secret=agent.secret;output=io.StringIO()
         environment={'OUTLANDS_ACCOUNT_API':self.url,'OUTLANDS_ACCOUNT_ORIGIN':self.origin,'T6_PORT':str(self.receiver.getsockname()[1])}
-        with patch.dict(os.environ,environment),patch.object(agent,'secret',side_effect=lambda path:original_secret(self.paths[path])),patch.object(agent,'LogFollower',side_effect=lambda path:LogFollower(self.log)),patch.object(agent,'time',SimpleNamespace(sleep=tick)),redirect_stdout(output):
+        with patch.dict(os.environ,environment),patch.object(agent,'secret',side_effect=lambda path:original_secret(self.paths[path])),patch.object(agent,'LogFollower',side_effect=lambda path:LogFollower(self.log)),patch.object(agent,'time',SimpleNamespace(sleep=tick,monotonic=time.monotonic)),redirect_stdout(output):
             with self.assertRaises(StopLoop):agent.main()
-        self.assertEqual(ticks,[1,1])
+        self.assertEqual(ticks,[.25,.25])
         return output.getvalue()
     def response_code(self,session,sequence):
         packet,address=self.receiver.recvfrom(2048)
@@ -157,6 +208,42 @@ class WorkerTransportTests(unittest.TestCase):
         with self.request('/api/link',{'code':code}) as response:self.assertEqual(response.status,200)
         profile=self.view()['profiles'][0];self.assertTrue(profile['live']);self.assertEqual(profile['stats']['rank_xp'],2000)
         for private in (code,'a123b456',session,reconnect,self.credential,self.password):self.assertNotIn(private,json.dumps(self.view()))
+
+    def test_main_loop_recovers_udp_losses_and_serializes_two_profile_codes(self):
+        class StopLoop(Exception):pass
+        first='synthetic_simultaneous_001';second='synthetic_simultaneous_002'
+        now=[0.];ticks=[0];packets=[];codes={};output=io.StringIO()
+        def append(lines):
+            with self.log.open('a') as stream:stream.write('\n'.join(lines)+'\n')
+        def receive(session):
+            packet,_=self.receiver.recvfrom(2048);packets.append(packet)
+            value=packet.split(b' set outlands_account_response "',1)[1][:-1].decode()
+            request,slot,code=value.split('|');self.assertEqual(request,session+'_2');codes[session]=code
+            return packet
+        def tick(seconds):
+            ticks[0]+=1;now[0]+=1
+            if ticks[0]==1:
+                append([f'OUTLANDS_ACCOUNT_V1|{s}|{q}|{kind}|{slot}|{guid}|{xp}|3|0'
+                        for s,slot,guid,xp in ((first,3,'a123b456',1500),(second,4,'b123b456',2500))
+                        for q,kind in ((1,'hello'),(2,'link'))])
+            elif ticks[0]==2:receive(first) # discard first packet
+            elif ticks[0]==3:receive(first) # consume retry but discard ACK
+            elif ticks[0]==4:
+                receive(first);self.assertEqual(packets[0],packets[1]);self.assertEqual(packets[1],packets[2])
+                append(['OUTLANDS_ACCOUNT_ACK_V1|'+first+'_2'])
+            elif ticks[0]==5:
+                receive(second);append(['OUTLANDS_ACCOUNT_ACK_V1|'+second+'_2'])
+            else:raise StopLoop()
+        original_secret=agent.secret
+        environment={'OUTLANDS_ACCOUNT_API':self.url,'OUTLANDS_ACCOUNT_ORIGIN':self.origin,'T6_PORT':str(self.receiver.getsockname()[1])}
+        with patch.dict(os.environ,environment),patch.object(agent,'secret',side_effect=lambda path:original_secret(self.paths[path])),patch.object(agent,'LogFollower',side_effect=lambda path:LogFollower(self.log)),patch.object(agent,'time',SimpleNamespace(sleep=tick,monotonic=lambda:now[0])),redirect_stdout(output):
+            with self.assertRaises(StopLoop):agent.main()
+        self.assertEqual(len(packets),4)
+        with self.request('/api/link',{'code':codes[first]},owner=0) as response:self.assertEqual(response.status,200)
+        with self.request('/api/link',{'code':codes[second]},owner=1) as response:self.assertEqual(response.status,200)
+        self.assertEqual(self.view(0)['profiles'][0]['stats']['rank_xp'],1500)
+        self.assertEqual(self.view(1)['profiles'][0]['stats']['rank_xp'],2500)
+        for private in (*codes.values(),self.password,self.credential):self.assertNotIn(private,output.getvalue())
 
 
 if __name__=='__main__':unittest.main()
