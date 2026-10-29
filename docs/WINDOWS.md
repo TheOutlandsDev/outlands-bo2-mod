@@ -6,6 +6,8 @@ commands use example paths and player names; enter connection details locally.
 
 ## Video guide
 
+For a same-PC bot trial, see [local Windows play and its matching commands](#try-the-core-bots-on-one-windows-pc).
+
 [Watch the beginner guide: setup files, joining and Linux hosting](https://youtu.be/DYRYgX5y2HM)
 (10 minutes). It shows Windows file locations, ZIP extraction, profile backup and
 illustrated setup, joining and hosting commands. Applied client setup, a live
@@ -76,6 +78,126 @@ $manifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $backu
 
 Keep this backup and manifest private. A backup does not establish gameplay or
 progression acceptance, and setup does not reset or copy player stats.
+
+## Try the core bots on one Windows PC
+
+[Watch: Try the Mod Locally on Windows - Developer vs AI Bots](https://youtu.be/4iWX_50ocBE)
+(4 minutes). The recorded trial demonstrates a local map load, player spawn,
+native bot population adjustment, and disconnect/rejoin. It uses source
+revision `2ab198fdb40898c0a88e2743115999958a8dbcbd`. Saved progression, optional
+external workers and connections from another computer were not validated by
+this trial. The narration is AI-generated from the developer's own voice.
+
+The core fill controller requires a **dedicated server**, including for this
+same-PC trial. Starting only a normal Custom Game does not start that controller.
+This procedure is for local play; friends hosting has separate requirements.
+
+### Install the source files
+
+Use an owned BO2 multiplayer installation and an installed, updated official
+Plutonium runtime. Install Python 3 if needed. Close the game and preserve the
+complete active `storage` directory using the backup procedure above. Review
+other installed bot controllers before combining mods.
+
+Open PowerShell in the extracted Outlands source folder. Replace the example
+runtime path with the active installation you actually use. Preview, then apply:
+
+```powershell
+py -3 tools/install_files.py --plutonium-dir "D:\Tools\Plutonium"
+py -3 tools/install_files.py --plutonium-dir "D:\Tools\Plutonium" --apply
+```
+
+The installer stops when an existing source file differs. Review that conflict
+before replacing files. An existing `outlands_t6.cfg` is retained; check its
+settings, including `outlands_native_bots 1`, rather than assuming defaults
+were reapplied.
+
+### Save a separate local configuration
+
+In Notepad, save the following as `outlands_local_trial.cfg` in the active
+runtime's `storage\t6` folder, for example
+`D:\Tools\Plutonium\storage\t6\outlands_local_trial.cfg`. Select **All files**
+and **UTF-8**. Enable file name extensions in Explorer and check that the name
+does not end in `.cfg.txt`.
+
+```text
+exec outlands_t6.cfg
+set net_ip "127.0.0.1"
+set net_port 14977
+g_password ""
+sv_hostname "OUTLANDS | Local Tutorial Trial"
+set sv_voice 0
+set outlands_rotation 0
+set outlands_bot_fill 8
+set outlands_bot_idle_fill 8
+set outlands_chat_enabled 0
+set outlands_bot_careers 0
+set g_log "outlands_local_trial_games.log"
+sv_maprotation "gametype tdm execgts outlands_tdm.cfg map mp_raid"
+```
+
+The loopback address `127.0.0.1` points to this computer. Keep it for this trial;
+the empty game password is intentional only for this loopback example. No
+router port forwarding is needed for this same-PC connection. The target is
+eight players **total**, including humans and bots, not eight additional bots.
+
+### Start the client, then the server
+
+In **PowerShell window 1**, use your own game/runtime paths and a stable local
+player name. Start the client first and wait for its menu:
+
+```powershell
+$game = "D:\Games\Black Ops II"
+$runtime = "D:\Tools\Plutonium"
+$exe = "$runtime\bin\plutonium-bootstrapper-win32.exe"
+$launch = 't6mp "' + $game + '\." '
+$launch += '+name "PlayerOne" -lan +set fs_game "" +set net_port 14976'
+Start-Process $exe -ArgumentList $launch -WorkingDirectory $runtime
+```
+
+In **PowerShell window 2**, start the local dedicated server. Keep this window
+open so its `$server` variable is available when finishing:
+
+```powershell
+$game = "D:\Games\Black Ops II"
+$runtime = "D:\Tools\Plutonium"
+$exe = "$runtime\bin\plutonium-bootstrapper-win32.exe"
+$launch = 't6mp "' + $game + '\." -dedicated -lan '
+$launch += '+set fs_game "" +set net_ip 127.0.0.1 +set net_port 14977 '
+$launch += '+set logfile 2 +exec outlands_local_trial.cfg +map_rotate'
+$server = Start-Process $exe -ArgumentList $launch -WorkingDirectory $runtime `
+  -WindowStyle Hidden -PassThru
+```
+
+These literal argument strings preserve the empty `fs_game ""` value in
+Windows PowerShell 5.1. The client uses port `14976`; the server uses `14977`.
+See the [official same-PC server notes](https://plutonium.pw/docs/server/t6/setting-up-a-server/)
+for the client-first order and distinct-port requirement.
+
+### Join and check the session
+
+Open the in-game console (`~`; keyboard layouts differ). Enter separately:
+
+```text
+password ""
+connect 127.0.0.1:14977
+```
+
+Wait for Raid, choose a class and spawn. Check bot population, teams and combat.
+The recorded trial reached one human plus seven native bots, with four players
+per team, and adjusted population after disconnect/rejoin. A menu or a running
+server process alone does not establish a successful join.
+
+Quit the client normally. Then, in window 2, stop only the server launched here:
+
+```powershell
+Stop-Process -Id $server.Id
+```
+
+Saved progression requires its own acceptance check: finish a match, quit
+normally, rejoin with the same name and compare rank/weapon results. Do not
+treat the successful local connection as proof of persistence or remote hosting.
+
 
 ## Configure the connection
 
