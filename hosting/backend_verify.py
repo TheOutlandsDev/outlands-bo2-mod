@@ -8,6 +8,7 @@ raw logs remain private under hosting/logs unless an explicit destination is set
 from __future__ import annotations
 
 import argparse
+import base64
 from dataclasses import dataclass, asdict
 import json
 from pathlib import Path
@@ -18,7 +19,9 @@ import uuid
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(ROOT))
 sys.path.insert(0, str(ROOT / 'ai'))
+from accounts.agent import PairingDelivery
 from tactics import Tactical
 from bridge import Event, ChatAck
 LABEL = "org.outlands.backend-verification"
@@ -368,6 +371,36 @@ def service_armory_mailboxes(docker, worker, text, sent):
     return sent
 
 
+def service_account_canary(docker,container,text,state,clock=None):
+    """Production queue with one lost datagram and one lost consumption ACK.
+
+    The fixed unmatched canary never opens a human session or account profile.
+    Only disposable credentials travel over private stdin, never command args.
+    """
+    if state is None:
+        if 'OUTLANDS_ACCOUNT_GUARD_V1|1' not in text:return None
+        password=docker.call('exec',container,'python3','-c',"from pathlib import Path;print(Path('/data/private/outlands_rcon_password').read_text().strip())").strip()
+        state={'datagrams':0,'dropped_datagram':False,'dropped_ack':False,'ack_lines':0}
+        def sender(packet,address):
+            assert address==('127.0.0.1',14977)
+            state['datagrams']+=1
+            if not state['dropped_datagram']:
+                state['dropped_datagram']=True;return
+            script="import base64,socket,sys;p=base64.b64decode(sys.stdin.read());s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.sendto(p,('127.0.0.1',14977));s.close()"
+            docker.call('exec','-i',container,'python3','-c',script,input_text=base64.b64encode(packet).decode())
+        state['delivery']=PairingDelivery(sender,clock)
+        state['delivery'].add({'kind':'link','session':'synthetic_session_001','sequence':1,'slot':0},
+                              {'code':'C'*32},password,14977)
+    acks=[line.strip() for line in ANSI.sub('',text).splitlines() if line.strip().startswith('OUTLANDS_ACCOUNT_ACK_V1|')]
+    for line in acks[state['ack_lines']:]:
+        if line=='OUTLANDS_ACCOUNT_ACK_V1|synthetic_session_001_1' and not state['dropped_ack']:
+            state['dropped_ack']=True
+        else:state['delivery'].acknowledge(line)
+    state['ack_lines']=len(acks)
+    state['delivery'].service()
+    return state
+
+
 def assess_armory_editor(text, restart=False):
     markers = [line.strip() for line in ANSI.sub('', text).splitlines() if line.strip().startswith('OUTLANDS_ARMORY_EDITOR_V2|')]
     passed = markers == ['OUTLANDS_ARMORY_EDITOR_V2|pass|7|25|6|2|0'] * (2 if restart else 1)
@@ -478,19 +511,13 @@ def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool
         timeout = 180 + seconds * (2 if restart else 1)
         observed = False
         armory_mailboxes = set()
-        account_mailbox_sent = False
+        account_delivery = None
         while time.monotonic() - started < timeout:
             all_logs = docker.call("logs", container, check=False)
             if armory_editor and worker:
                 armory_mailboxes = service_armory_mailboxes(docker, worker, all_logs, armory_mailboxes)
-            if accounts and not account_mailbox_sent and 'OUTLANDS_ACCOUNT_GUARD_V1|1' in all_logs:
-                probe = ("from pathlib import Path;import socket,time; "
-                         "p=Path('/data/private/outlands_rcon_password').read_bytes().strip(); "
-                         "s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM); "
-                         "s.sendto(b'\\xff\\xff\\xff\\xffrcon '+p+b' set outlands_account_response \"synthetic_session_001_1|0|"+'C'*32+"\"',('127.0.0.1',14977)); "
-                         "s.close();time.sleep(1)")
-                docker.call('exec',container,'python3','-c',probe)
-                account_mailbox_sent = True
+            if accounts:
+                account_delivery=service_account_canary(docker,container,all_logs,account_delivery)
             samples = parse_samples(all_logs)
             if FAILURE.search(all_logs) or NATIVE_FAILURE.search(all_logs):
                 break
@@ -537,15 +564,23 @@ def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool
             expected = 2 if restart else 1
             console_private = json.loads(docker.call('exec',container,'python3','-c',
                 "import json;from pathlib import Path;print(json.dumps("+repr('C'*32)+" not in Path('/data/plutonium/console.log').read_text(errors='replace')))"))
-            account_passed = (account_mailbox_sent and all_logs.count('OUTLANDS_ACCOUNT_READY_V1') == expected
+            delivery=account_delivery['delivery'] if account_delivery else None
+            ack_count=all_logs.count('OUTLANDS_ACCOUNT_ACK_V1|synthetic_session_001_1')
+            guards=(all_logs.count('OUTLANDS_ACCOUNT_GUARD_V1|1')==expected and 'OUTLANDS_ACCOUNT_V1|' not in all_logs)
+            recovered=(delivery is not None and delivery.consumed==1 and not delivery.active and not delivery.pending
+                       and delivery.expired==0 and account_delivery['dropped_datagram'] and account_delivery['dropped_ack']
+                       and 3<=delivery.attempts<=delivery.MAX_ATTEMPTS and 2<=ack_count<=delivery.MAX_ATTEMPTS-1)
+            account_passed = (recovered and all_logs.count('OUTLANDS_ACCOUNT_READY_V1') == expected
                               and all_logs.count('OUTLANDS_ACCOUNT_GUARD_V1|1') == expected
-                              and all_logs.count('OUTLANDS_ACCOUNT_MAILBOX_V1') == 1
+                              and all_logs.count('OUTLANDS_ACCOUNT_MAILBOX_V1') == ack_count
                               and 'OUTLANDS_ACCOUNT_V1|' not in all_logs and 'C'*32 not in all_logs and console_private)
             report['accounts'] = {'passed':account_passed,'native_enabled':True,
-                'bot_identities_excluded':account_passed,'unmatched_mailbox_sent':account_mailbox_sent,
+                'bot_identities_excluded':guards,'unmatched_mailbox_sent':account_delivery is not None,
                 'canary_absent_from_container_logs':'C'*32 not in all_logs,
                 'canary_absent_from_console_log':console_private,
-                'native_mailbox_received':all_logs.count('OUTLANDS_ACCOUNT_MAILBOX_V1') == 1,
+                'native_mailbox_received':ack_count>=1,'native_consumption_receipts':ack_count,
+                'delivery_attempts':delivery.attempts if delivery else 0,
+                'production_delivery_queue':True,'lost_datagram_and_ack_recovered':bool(recovered),
                 'actual_human_pairing':False,'actual_google_login':False}
             if not account_passed:
                 report['passed'] = False
