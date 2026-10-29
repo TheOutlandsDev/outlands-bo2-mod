@@ -134,14 +134,22 @@ consume()
         slot = int( fields[1] );
         if ( slot < 0 || slot > 17 || fields[1] != "" + slot )
             continue;
-        record = level.outlands_account_records[slot];
-        if ( !same( record ) || !isdefined( record.request ) || fields[0] != record.request || gettime() - record.requested > 10000 )
-            continue;
         valid = true;
+        if ( fields[0].size < 18 || fields[0].size > 111 )
+            valid = false;
+        for ( i = 0; i < fields[0].size; i++ )
+            if ( !issubstr( "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-", getsubstr( fields[0], i, i + 1 ) ) )
+                valid = false;
         for ( i = 0; i < fields[2].size; i++ )
             if ( !issubstr( "0123456789ABCDEF", getsubstr( fields[2], i, i + 1 ) ) )
                 valid = false;
         if ( !valid )
+            continue;
+        // Acknowledge consumption, including an unmatched or duplicate request.
+        // Never print the code. Worker retries cannot bypass native ownership.
+        println( "OUTLANDS_ACCOUNT_ACK_V1|" + fields[0] );
+        record = level.outlands_account_records[slot];
+        if ( !same( record ) || !isdefined( record.request ) || fields[0] != record.request || gettime() - record.requested > 10000 )
             continue;
         record.request = undefined;
         record.player iprintln( "Private Outlands pairing code: " + fields[2] );
