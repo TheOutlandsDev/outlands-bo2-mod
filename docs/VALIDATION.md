@@ -6,6 +6,14 @@ rendered badges, movement quality or compatibility across every map and runtime.
 This guide contains reusable procedures; keep individual playtest records,
 identities, addresses, profiles and raw logs outside the public repository.
 
+Account mailbox delivery must pass the combined native fixture with the same
+script and worker protocol intended for the host. Its production retry queue
+must recover a deliberately dropped datagram and dropped consumption ACK while
+Armory/career responses are active. A single successful UDP send is insufficient.
+Receipts contain only the opaque request nonce, never its pairing code. The
+readable private code, real player ownership and observed rank after reconnect
+remain separate client acceptance checks; never fabricate a human native profile.
+
 ## Automated source checks
 
 From the project root:

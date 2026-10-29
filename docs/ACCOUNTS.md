@@ -160,6 +160,29 @@ and another browser account cannot view or claim an owned profile after reconnec
 The test uses synthetic principals and does not promote a native bot to a human.
 Both CI platforms include this test through the account test discovery command.
 
+Pairing delivery uses one active response at a time in the fixed native mailbox.
+The worker waits for `OUTLANDS_ACCOUNT_ACK_V1` with the exact opaque request
+nonce before advancing to the next response. That receipt confirms consumption,
+not account ownership or successful code display. It never contains the code.
+Native slot/session/sequence checks, the ten-second display window and one-use
+browser confirmation remain authoritative. A duplicate receipt cannot release a
+different pending response, and a duplicate packet cannot display a code twice.
+
+The same code may be sent at most six times, spaced by at least 0.8 seconds,
+within an eight-second delivery lifetime. At most eighteen responses may be
+pending, with one per slot; reconnect, departure, a newer request or native map
+initialization cancels superseded work. Expired work is discarded rather than
+reissuing a code through HTTP or replaying it after worker restart. A player can
+request a fresh private code if delivery times out. Start the matching native
+script and account worker together when upgrading this protocol.
+
+The native account fixture uses this production delivery queue in disposable
+state and deliberately drops its first datagram and first consumption receipt.
+Passing requires a repeated, unmatched response to be consumed and acknowledged,
+both injected losses to recover, all native bots to remain excluded and the code
+to stay absent from console/container logs. This proves bounded mailbox recovery;
+it does not establish human code readability or real profile pairing.
+
 For preparation from a phone, validate the account page and Google login while
 connected to the host's tailnet, then complete the distinct second-account
 privacy test with another consenting identity. Keep native linking disabled
