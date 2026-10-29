@@ -4,6 +4,15 @@ Use this procedure with an owned BO2 multiplayer installation, the official
 Plutonium runtime and authorized Tailscale access to the hosting peer. The
 commands use example paths and player names; enter connection details locally.
 
+## Video guide
+
+[Watch the beginner guide: setup files, joining and Linux hosting](https://youtu.be/DYRYgX5y2HM)
+(10 minutes). It shows Windows file locations, ZIP extraction, profile backup and
+illustrated setup, joining and hosting commands. Applied client setup, a live
+Linux deployment and a successful game join are separate validation stages.
+The recording uses source revision `2ab198fdb40898c0a88e2743115999958a8dbcbd`;
+follow the current written instructions when your source differs.
+
 ## Identify and check the inputs
 
 Confirm the exact owned game directory and the runtime that contains the active
