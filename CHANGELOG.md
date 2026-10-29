@@ -2,6 +2,12 @@
 
 ## Unreleased — cooperative lobbies, grounded task chat, squads, contracts and rivals
 
+- Confirm native account mailbox consumption before sending another response.
+  Retry the same one-use code with bounded age/attempts, cancel stale work on
+  reconnect or map initialization, and retain native session/display guards.
+  Add two-owner loopback transport tests and native dropped-packet/ACK recovery
+  under concurrent Armory/career fixture traffic without logging pairing codes.
+
 - Add encountered-ground-streak support: retain native Guardian/sentry danger
   marking, give one eligible bot per team a next-spawn EMP tactical replacement,
   and bound response timing and team throw cooldowns. Use owned real tactical
