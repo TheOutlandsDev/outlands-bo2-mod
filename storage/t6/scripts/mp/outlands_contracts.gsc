@@ -334,5 +334,5 @@ announce( team, text )
 
 diagnostic( event, team, record )
 {
-    println( "OUTLANDS_CONTRACT_V1|" + event + "|" + level.outlands_contracts_phase + "|" + team + "|" + record.kind + "|" + record.baseline + "|" + record.current + "|" + record.goal + "|" + record.progress + "|" + record.completed_count + "|" + record.failed_count + "|" + record.commendations + "|" + record.invalid );
+    scripts\mp\outlands_log::emit( "OUTLANDS_CONTRACT_V1|" + event + "|" + level.outlands_contracts_phase + "|" + team + "|" + record.kind + "|" + record.baseline + "|" + record.current + "|" + record.goal + "|" + record.progress + "|" + record.completed_count + "|" + record.failed_count + "|" + record.commendations + "|" + record.invalid );
 }
