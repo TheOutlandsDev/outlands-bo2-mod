@@ -41,6 +41,19 @@ class HostStateTests(unittest.TestCase):
         with patch.dict(os.environ,{'T6_ARMORY_ENABLED':'0'}):
             host.configure_mod(None)
         self.assertEqual(self.value('outlands_armory'),'0')
+    def test_rival_candidate_defaults_are_opt_in_and_existing_choices_survive(self):
+        source = self.mod / host.CFG_NAME
+        source.write_text(source.read_text() + '\nset outlands_rivals 0\nset outlands_rival_seed 0\nset outlands_rival_metrics 0\nset outlands_rival_movement 0\n')
+        self.cfg.write_text(self.cfg.read_text() + '\nset outlands_rival_seed 17\nset outlands_rival_movement 1\n')
+        host.configure_mod(None)
+        self.assertEqual(self.value('outlands_rivals'), '0')
+        self.assertEqual(self.value('outlands_rival_metrics'), '0')
+        self.assertEqual(self.value('outlands_rival_seed'), '17')
+        self.assertEqual(self.value('outlands_rival_movement'), '1')
+        self.assertEqual(self.stats.read_bytes(), self.original_stats)
+        for name in ('outlands_rivals.gsc', 'outlands_rival_catalog.gsc'):
+            self.assertIn(Path('scripts/mp') / name, host.MOD_PAYLOADS)
+
     def test_ui_payload_is_installed_without_rebinding_keys_or_overriding_host_choice(self):
         self.assertIn(Path('scripts/mp/outlands_ui.gsc'),host.MOD_PAYLOADS)
         self.assertIn(Path('outlands_ui_keys.cfg'),host.MOD_PAYLOADS)
