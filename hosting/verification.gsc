@@ -20,6 +20,8 @@ init()
     level.outlands_verify_sequence = 0;
     level thread verify_native_match();
     level thread observe_native_end();
+    if ( getdvarint( "outlands_rivals" ) ) verify_pickup_observer();
+    if ( getdvarint( "outlands_verify_streaks" ) ) level thread verify_streak_support();
 }
 
 verify_native_match()
@@ -118,7 +120,7 @@ switch_sample( phase )
         contract_score += level.outlands_contracts_delta_score[team];
         completed += level.outlands_contracts_completed[team];
     }
-    println( "OUTLANDS_SWITCH_V1|" + phase + "|" + kills + "|" + roles + "|" + owned_goals + "|" + level.outlands_contracts_active + "|" + contract_kills + "|" + contract_score + "|" + completed + "|" + level.outlands_squad_goal_calls );
+    verification_emit( "OUTLANDS_SWITCH_V1|" + phase + "|" + kills + "|" + roles + "|" + owned_goals + "|" + level.outlands_contracts_active + "|" + contract_kills + "|" + contract_score + "|" + completed + "|" + level.outlands_squad_goal_calls );
 }
 
 observe_native_end()
@@ -137,7 +139,7 @@ request_restart()
     if ( getdvarint( "outlands_verify_restart" ) && !getdvarint( "outlands_verify_restarted" ) )
     {
         setdvar( "outlands_verify_restarted", 1 );
-        println( "OUTLANDS_VERIFY_V1|restart_requested" );
+        verification_emit( "OUTLANDS_VERIFY_V1|restart_requested" );
         wait 2;
         // Full same-map reload, not a halftime/round-preserving restart.
         // map_restart variants can leave all-bot FFA occupants unspawned.
@@ -208,7 +210,7 @@ sample( kind )
     level.outlands_verify_sequence++;
     if ( getdvarint( "outlands_verify_chat_context" ) )
         sample_chat_context( players );
-    println( "OUTLANDS_VERIFY_V2|" + kind + "|" + getdvar( "mapname" ) + "|" + getdvar( "g_gametype" ) + "|" + getdvarint( "outlands_verify_restarted" ) + "|" + bots + "|" + humans + "|" + alive + "|" + playing + "|" + identities + "|" + roles + "|" + careers + "|" + kills + "|" + deaths + "|" + score + "|" + moved + "|" + prematch + "|" + invalid + "|" + pools + "|" + patrols + "|" + getgametypesetting( "scorelimit" ) + "|" + feature_fields( players ) );
+    verification_emit( "OUTLANDS_VERIFY_V2|" + kind + "|" + getdvar( "mapname" ) + "|" + getdvar( "g_gametype" ) + "|" + getdvarint( "outlands_verify_restarted" ) + "|" + bots + "|" + humans + "|" + alive + "|" + playing + "|" + identities + "|" + roles + "|" + careers + "|" + kills + "|" + deaths + "|" + score + "|" + moved + "|" + prematch + "|" + invalid + "|" + pools + "|" + patrols + "|" + getgametypesetting( "scorelimit" ) + "|" + feature_fields( players ) );
 }
 
 sample_chat_context( players )
@@ -235,25 +237,30 @@ sample_chat_context( players )
                 continue;
             seen[key] = 1;
             count++;
-            println( "OUTLANDS_CONTEXT_V1|" + ( bot getentitynumber() ) + "|" + bot.name + "|" + getdvar( "mapname" ) + "|" + getdvar( "g_gametype" ) + "|" + context.wire );
+            verification_emit( "OUTLANDS_CONTEXT_V1|" + ( bot getentitynumber() ) + "|" + bot.name + "|" + getdvar( "mapname" ) + "|" + getdvar( "g_gametype" ) + "|" + context.wire );
         }
         if ( !isdefined( level.outlands_context_primitive ) )
         {
             // Exercise the production zero-human refusal without a fake client.
             accepted = [[ request_function ]]( "banter", "match", "A current team task.", "", "contract" );
             if ( accepted || isdefined( level.outlands_chat_pending ) )
-                println( "OUTLANDS_CHAT_GUARD_V1|failed" );
+                verification_emit( "OUTLANDS_CHAT_GUARD_V1|failed" );
             else
-                println( "OUTLANDS_CHAT_GUARD_V1|rejected" );
+                verification_emit( "OUTLANDS_CHAT_GUARD_V1|rejected" );
+            casual = [[ context_function ]]( bot, "none" );
+            if ( casual.wire == "none|" + bot.pers["team"] + "|none|-1|none|none|0|0|0|0|0" )
+                verification_emit( "OUTLANDS_CHAT_GUARD_V1|casual_context" );
+            else
+                verification_emit( "OUTLANDS_CHAT_GUARD_V1|failed" );
             setting = getdvarint( "outlands_chat_tactical" );
             setdvar( "outlands_chat_tactical", 0 );
             disabled = [[ context_function ]]( bot, "contract" );
             disabled_team = [[ team_function ]]( bot );
             if ( disabled_team == bot.pers["team"] && disabled_team != "none" )
-                println( "OUTLANDS_CHAT_GUARD_V1|team_binding" );
+                verification_emit( "OUTLANDS_CHAT_GUARD_V1|team_binding" );
             setdvar( "outlands_chat_tactical", setting );
             if ( disabled.wire == "none|none|none|-1|none|none|0|0|0|0|0" )
-                println( "OUTLANDS_CHAT_GUARD_V1|context_disabled" );
+                verification_emit( "OUTLANDS_CHAT_GUARD_V1|context_disabled" );
             valid = getfunction( "scripts/mp/outlands_squads", "assignment_valid" );
             if ( isdefined( level.outlands_squads_started ) && isdefined( bot.outlands_squad_team ) && isdefined( valid ) )
             {
@@ -265,14 +272,14 @@ sample_chat_context( players )
                 stale_context = [[ context_function ]]( bot, "squad" );
                 bot.outlands_squad_team = original_team;
                 if ( !stale_valid && stale_context.topic == "none" )
-                    println( "OUTLANDS_CHAT_GUARD_V1|stale_assignment" );
+                    verification_emit( "OUTLANDS_CHAT_GUARD_V1|stale_assignment" );
                 else
-                    println( "OUTLANDS_CHAT_GUARD_V1|failed" );
+                    verification_emit( "OUTLANDS_CHAT_GUARD_V1|failed" );
             }
             // A direct native primitive test is separate from production chat.
             // This probe exists only in network-isolated disposable storage.
             bot sayall( "Checking our next contract." );
-            println( "OUTLANDS_CHAT_PRIMITIVE_V1|sayall" );
+            verification_emit( "OUTLANDS_CHAT_PRIMITIVE_V1|sayall" );
             level.outlands_context_primitive = 1;
         }
     }
@@ -329,7 +336,7 @@ feature_fields( players )
             if ( !isdefined( valid_assignment ) || bot [[ valid_assignment ]]() || bot hasgoal( "outlands_squad" ) )
                 squad_invalid++;
             else
-                println( "OUTLANDS_SQUAD_REFRESH_V1|rejected_stale_team" );
+                verification_emit( "OUTLANDS_SQUAD_REFRESH_V1|rejected_stale_team" );
             continue;
         }
         assigned++;
@@ -417,7 +424,7 @@ lobby_record( phase )
 {
     pop = getfunction( "scripts/mp/outlands_native_bots", "population" );
     counts = [[ pop ]]();
-    println( "OUTLANDS_LOBBY_V1|" + phase + "|" + counts.humans + "|" + counts.bots.size + "|" + counts.allies + "|" + counts.axis );
+    verification_emit( "OUTLANDS_LOBBY_V1|" + phase + "|" + counts.humans + "|" + counts.bots.size + "|" + counts.allies + "|" + counts.axis );
 }
 
 repair_lobby()
@@ -448,7 +455,7 @@ skew_lobby()
     bot = [[ select ]]( counts, "axis" );
     if ( !isdefined( bot ) || !bot istestclient() || !isdefined( spawn_bot ) )
         return false;
-    println( "OUTLANDS_LOBBY_DIAG_V1|selected|" + bot.sessionteam );
+    verification_emit( "OUTLANDS_LOBBY_DIAG_V1|selected|" + bot.sessionteam );
     // Replace a real axis bot using native explicit-team creation. Existing
     // ranked menus deliberately disallow manual team changes after combat.
     bot botleavegame();
@@ -463,7 +470,7 @@ skew_lobby()
         if ( counts.bots.size == 16 && counts.allies == 9 && counts.axis == 7 )
             return true;
     }
-    println( "OUTLANDS_LOBBY_DIAG_V1|skew_failed|" + counts.allies + "|" + counts.axis );
+    verification_emit( "OUTLANDS_LOBBY_DIAG_V1|skew_failed|" + counts.allies + "|" + counts.axis );
     return false;
 }
 
@@ -476,7 +483,7 @@ verify_lobby_balance()
     planner = getfunction( "scripts/mp/outlands_native_bots", "population_plan" );
     if ( !isdefined( level.outlands_team_hooks ) || !isdefined( side ) )
     {
-        println( "OUTLANDS_PARTY_POLICY_V1|failed" );
+        verification_emit( "OUTLANDS_PARTY_POLICY_V1|failed" );
         return;
     }
     // Count-only fixtures do not create or relabel human connections.
@@ -493,10 +500,10 @@ verify_lobby_balance()
     policy = policy && [[ capacity ]]( 16, -1 ) == 8;
     if ( !policy )
     {
-        println( "OUTLANDS_PARTY_POLICY_V1|failed" );
+        verification_emit( "OUTLANDS_PARTY_POLICY_V1|failed" );
         return;
     }
-    println( "OUTLANDS_PARTY_POLICY_V1|pass" );
+    verification_emit( "OUTLANDS_PARTY_POLICY_V1|pass" );
     for ( i = 0; i < 40; i++ )
     {
         counts = [[ pop ]]();
@@ -544,9 +551,9 @@ verify_lobby_balance()
     setdvar( "outlands_native_bots", 1 );
     wait 3;
     if ( restored && getdvarint( "scr_teambalance" ) == 0 )
-        println( "OUTLANDS_BALANCE_RESTORE_V1|pass" );
+        verification_emit( "OUTLANDS_BALANCE_RESTORE_V1|pass" );
     else
-        println( "OUTLANDS_BALANCE_RESTORE_V1|failed" );
+        verification_emit( "OUTLANDS_BALANCE_RESTORE_V1|failed" );
 }
 
 // Script entities test the native detour and timers, not real aircraft combat.
@@ -565,7 +572,7 @@ verify_air_response()
         }
     if ( !isdefined( bot ) || !isdefined( level.outlands_profiles_air_ignore ) )
     {
-        println( "OUTLANDS_AIR_POLICY_V1|failed" );
+        verification_emit( "OUTLANDS_AIR_POLICY_V1|failed" );
         return;
     }
     delay = getdvar( "outlands_bot_air_reaction_ms" );
@@ -600,9 +607,9 @@ verify_air_response()
     target delete();
     other delete();
     if ( delayed && multiple && resumed && stable && declined && stock && native_ignored && ground )
-        println( "OUTLANDS_AIR_POLICY_V1|pass" );
+        verification_emit( "OUTLANDS_AIR_POLICY_V1|pass" );
     else
-        println( "OUTLANDS_AIR_POLICY_V1|failed" );
+        verification_emit( "OUTLANDS_AIR_POLICY_V1|failed" );
 }
 
 
@@ -670,14 +677,14 @@ verify_expansion()
                 request.turn_limit = 4;
                 // Exercise the production formatter without requesting speech,
                 // inventing human connections or entering the worker transport.
-                println( "OUTLANDS_DIALOGUE_FIXTURE_V1|" + [[ formatter ]]( request, speaker, text, context ) );
+                verification_emit( "OUTLANDS_DIALOGUE_FIXTURE_V1|" + [[ formatter ]]( request, speaker, text, context ) );
             }
         }
     }
     if ( ok )
-        println( "OUTLANDS_EXPANSION_V1|pass" );
+        verification_emit( "OUTLANDS_EXPANSION_V1|pass" );
     else
-        println( "OUTLANDS_EXPANSION_V1|failed" );
+        verification_emit( "OUTLANDS_EXPANSION_V1|failed" );
 }
 
 // Calls production presenters/HUD methods with actual native bots. It never
@@ -695,7 +702,7 @@ verify_armory_editor()
         }
     if ( !isdefined( selected ) || !scripts\mp\outlands_armory::enabled() )
     {
-        println( "OUTLANDS_ARMORY_EDITOR_V1|failed|hooks_or_player" );
+        verification_emit( "OUTLANDS_ARMORY_EDITOR_V1|failed|hooks_or_player" );
         return;
     }
     refs = scripts\mp\outlands_armory::empty_refs();
@@ -704,7 +711,7 @@ verify_armory_editor()
     {
         slot = level.outlands_armory_slots[i];
         choices = level.outlands_armory_choices[slot];
-        println( "OUTLANDS_ARMORY_EDITOR_CHECK|catalog|" + slot + "|" + choices.size );
+        verification_emit( "OUTLANDS_ARMORY_EDITOR_CHECK|catalog|" + slot + "|" + choices.size );
         foreach ( ref in choices )
             if ( ref != "none" && scripts\mp\outlands_armory::item_unlocked( selected, ref, slot ) )
             {
@@ -761,7 +768,7 @@ verify_armory_editor()
     pending.sent = gettime();
     record.command = "cancel";
     level.outlands_armory_pending = pending;
-    println( "OUTLANDS_ARMORY_MAILBOX_V1|" + pending.id + "|" + record.slot + "|" + scripts\mp\outlands_armory::join_refs( refs ) );
+    verification_emit( "OUTLANDS_ARMORY_MAILBOX_V1|" + pending.id + "|" + record.slot + "|" + scripts\mp\outlands_armory::join_refs( refs ) );
     attempts = 0;
     while ( isdefined( level.outlands_armory_pending ) && attempts < 100 )
     {
@@ -771,7 +778,7 @@ verify_armory_editor()
     remote_ok = !isdefined( level.outlands_armory_pending ) && record.status == "OUTLANDS CLASS CANCELLED / STOCK CLASS ACTIVE";
     mailbox_ok = mailbox_ok && remote_ok;
     if ( remote_ok )
-        println( "OUTLANDS_ARMORY_MAILBOX_ACK_V1|" + pending.id );
+        verification_emit( "OUTLANDS_ARMORY_MAILBOX_ACK_V1|" + pending.id );
     record.command = "none";
     record.queued = scripts\mp\outlands_armory::copy_refs( refs );
     record.queued_spawn = 0;
@@ -830,9 +837,9 @@ verify_armory_editor()
             second = record.fixture_matched && record.fixture_grants == 2 && record.spawn == 2;
     }
     if ( catalog_ok && view.valid && view.points == 7 && !invalid.valid && !wrong.valid && excluded && hud_ok && unchanged && first && second && mailbox_ok && invalid_ok )
-        println( "OUTLANDS_ARMORY_EDITOR_V2|pass|7|25|6|2|0" );
+        verification_emit( "OUTLANDS_ARMORY_EDITOR_V2|pass|7|25|6|2|0" );
     else
-        println( "OUTLANDS_ARMORY_EDITOR_V2|failed|" + catalog_ok + "|" + view.valid + "|" + view.points + "|" + excluded + "|" + hud_ok + "|" + unchanged + "|" + first + "|" + second + "|" + mailbox_ok );
+        verification_emit( "OUTLANDS_ARMORY_EDITOR_V2|failed|" + catalog_ok + "|" + view.valid + "|" + view.points + "|" + excluded + "|" + hud_ok + "|" + unchanged + "|" + first + "|" + second + "|" + mailbox_ok );
     scripts\mp\outlands_armory::cancel_record( record, "FIXTURE FINISHED" );
     level.outlands_armory_records[record.slot] = undefined;
 }
@@ -846,7 +853,7 @@ verify_armory()
     slot_fn = getfunction( "scripts/mp/outlands_armory", "valid_slot" );
     if ( !isdefined( inspect_fn ) || !isdefined( stage_fn ) || !isdefined( eligible_fn ) || !isdefined( slot_fn ) )
     {
-        println( "OUTLANDS_ARMORY_V1|failed|missing_adapter" );
+        verification_emit( "OUTLANDS_ARMORY_V1|failed|missing_adapter" );
         return;
     }
     wait 5;
@@ -873,7 +880,7 @@ verify_armory()
     }
     if ( !isdefined( selected ) )
     {
-        println( "OUTLANDS_ARMORY_V1|failed|no_eligible_native_slot" );
+        verification_emit( "OUTLANDS_ARMORY_V1|failed|no_eligible_native_slot" );
         return;
     }
     for ( index = 0; index < 5; index++ )
@@ -914,9 +921,9 @@ verify_armory()
                     matched = false;
     }
     if ( valid > 0 && staged && unchanged && spawned && matched && excluded )
-        println( "OUTLANDS_ARMORY_V1|pass|" + valid + "|1|1|1|1|1" );
+        verification_emit( "OUTLANDS_ARMORY_V1|pass|" + valid + "|1|1|1|1|1" );
     else
-        println( "OUTLANDS_ARMORY_V1|failed|" + valid + "|" + staged + "|" + unchanged + "|" + spawned + "|" + matched + "|" + excluded );
+        verification_emit( "OUTLANDS_ARMORY_V1|failed|" + valid + "|" + staged + "|" + unchanged + "|" + spawned + "|" + matched + "|" + excluded );
 }
 
 observe_armory_spawn()
@@ -951,7 +958,7 @@ verify_ui()
     ok = isdefined( career_fn ) && isdefined( task_fn ) && isdefined( create_fn ) && isdefined( draw_fn ) && isdefined( destroy_fn ) && isdefined( eligible_fn ) && isdefined( page_fn ) && isdefined( goal_fn ) && isdefined( width_fn ) && isdefined( queue_fn ) && isdefined( command_fn );
     if ( !ok || players.size != 16 )
     {
-        println( "OUTLANDS_UI_V1|failed|missing_helpers" );
+        verification_emit( "OUTLANDS_UI_V1|failed|missing_helpers" );
         return;
     }
     foreach ( bot in players )
@@ -967,17 +974,17 @@ verify_ui()
                 account_ok = false;
         account_ok = account_ok && [[ account_command ]]( "!outlands link" ) && ![[ account_command ]]( "!outlands link;quit" ) && ![[ account_command ]]( "!outlands" );
     }
-    println( "OUTLANDS_ACCOUNT_GUARD_V1|" + account_ok );
+    verification_emit( "OUTLANDS_ACCOUNT_GUARD_V1|" + account_ok );
     ok = ok && account_ok;
     ok = ok && [[ page_fn ]]( "!outlands" ) == "toggle" && [[ page_fn ]]( "!outlands contracts" ) == "contracts" && [[ page_fn ]]( "!outlands focus" ) == "focus" && [[ page_fn ]]( "!outlands career;quit" ) == "none";
     ok = ok && [[ command_fn ]]( "!outlands" ) && [[ command_fn ]]( "!outlands contracts" ) && [[ command_fn ]]( "!track objective" ) && ![[ command_fn ]]( "good round" ) && ![[ command_fn ]]( "!outlandsjunk" );
     ok = ok && [[ goal_fn ]]( 24, "assault" ) == 25 && [[ goal_fn ]]( 25, "assault" ) == 100 && [[ goal_fn ]]( 100, "assault" ) == 250 && [[ goal_fn ]]( 999, "assault" ) == 250 && [[ goal_fn ]]( 3, "support" ) == 10;
     ok = ok && [[ width_fn ]]( 0, 25 ) == 0 && [[ width_fn ]]( 25, 25 ) == 330 && [[ width_fn ]]( 1000000000, 25 ) == 330 && [[ width_fn ]]( 1, 0 ) == 0;
-    println( "OUTLANDS_UI_CHECK|commands_goals|" + ok );
+    verification_emit( "OUTLANDS_UI_CHECK|commands_goals|" + ok );
     loading = [[ career_fn ]]( undefined, 1000, 1 );
     disabled = [[ career_fn ]]( undefined, 1000, 0 );
     ok = ok && !loading.ready && loading.status == "LOADING CAREER" && !disabled.ready && disabled.status == "OPERATIONS DISABLED";
-    println( "OUTLANDS_UI_CHECK|loading|" + ok );
+    verification_emit( "OUTLANDS_UI_CHECK|loading|" + ok );
     record = spawnstruct();
     record.restored = 1;
     record.acknowledged = 1000;
@@ -986,11 +993,11 @@ verify_ui()
     record.command = "none";
     career = [[ career_fn ]]( record, 1000, 1 );
     ok = ok && career.ready && career.milestones == 1 && career.selected == "objective";
-    println( "OUTLANDS_UI_CHECK|career|" + ok );
+    verification_emit( "OUTLANDS_UI_CHECK|career|" + ok );
     stale = [[ career_fn ]]( record, 46001, 1 );
     future = [[ career_fn ]]( record, 999, 1 );
     ok = ok && !stale.ready && !future.ready && !isdefined( stale.totals );
-    println( "OUTLANDS_UI_CHECK|freshness|" + ok );
+    verification_emit( "OUTLANDS_UI_CHECK|freshness|" + ok );
     record.selected = "injected";
     invalid = [[ career_fn ]]( record, 1000, 1 );
     ok = ok && !invalid.ready;
@@ -1004,7 +1011,7 @@ verify_ui()
     record.totals = array( -1, 3, 3 );
     invalid = [[ career_fn ]]( record, 1000, 1 );
     ok = ok && !invalid.ready;
-    println( "OUTLANDS_UI_CHECK|career_states|" + ok );
+    verification_emit( "OUTLANDS_UI_CHECK|career_states|" + ok );
     contract = spawnstruct();
     contract.kind = "team_points";
     contract.progress = 7;
@@ -1013,7 +1020,7 @@ verify_ui()
     contract.observed = 1000;
     task = [[ task_fn ]]( contract, 1000, 31000, 1, 1 );
     ok = ok && task.ready && task.seconds == 30 && task.progress == 7 && task.goal == 12;
-    println( "OUTLANDS_UI_CHECK|contract|" + ok );
+    verification_emit( "OUTLANDS_UI_CHECK|contract|" + ok );
     stale_task = [[ task_fn ]]( contract, 6001, 31000, 1, 1 );
     ffa = [[ task_fn ]]( contract, 1000, 31000, 1, 0 );
     expired = [[ task_fn ]]( contract, 31000, 31000, 1, 1 );
@@ -1024,11 +1031,11 @@ verify_ui()
     contract.progress = 12;
     completed_task = [[ task_fn ]]( contract, 1000, 31000, 1, 1 );
     ok = ok && completed_task.ready && completed_task.status == "TEAM CONTRACT COMPLETE";
-    println( "OUTLANDS_UI_CHECK|contract_states|" + ok );
+    verification_emit( "OUTLANDS_UI_CHECK|contract_states|" + ok );
     for ( cycle = 0; cycle < 6; cycle++ )
     {
         state = [[ create_fn ]]( players[0] );
-        println( "OUTLANDS_UI_CHECK|allocation|" + state.elements.size );
+        verification_emit( "OUTLANDS_UI_CHECK|allocation|" + state.elements.size );
         if ( state.elements.size != 29 || !state.open )
             ok = false;
         [[ draw_fn ]]( state, loading, ffa );
@@ -1079,9 +1086,9 @@ verify_ui()
     }
     ok = verify_menu_input( players ) && ok;
     if ( ok )
-        println( "OUTLANDS_UI_V1|pass|29|6|16|0" );
+        verification_emit( "OUTLANDS_UI_V1|pass|29|6|16|0" );
     else
-        println( "OUTLANDS_UI_V1|failed|presenter_or_cleanup" );
+        verification_emit( "OUTLANDS_UI_V1|failed|presenter_or_cleanup" );
 }
 
 
@@ -1094,7 +1101,7 @@ verify_command_ingress()
     players = get_players();
     if ( players.size < 1 || !players[0] istestclient() )
     {
-        println( "OUTLANDS_COMMAND_INGRESS_V1|failed|no_bot" );
+        verification_emit( "OUTLANDS_COMMAND_INGRESS_V1|failed|no_bot" );
         return;
     }
     fixture = spawnstruct();
@@ -1146,7 +1153,7 @@ verify_command_ingress()
     result = "failed";
     if ( passed )
         result = "pass";
-    println( "OUTLANDS_COMMAND_INGRESS_V1|" + result + "|" + fixture.received + "|" + fixture.matched + "|" + fixture.legacy_failed + "|" + fixture.flags + "|" + normalize_ok + "|" + privacy_ok + "|" + fixture.bot_accepted );
+    verification_emit( "OUTLANDS_COMMAND_INGRESS_V1|" + result + "|" + fixture.received + "|" + fixture.matched + "|" + fixture.legacy_failed + "|" + fixture.flags + "|" + normalize_ok + "|" + privacy_ok + "|" + fixture.bot_accepted );
 }
 
 observe_command_ingress( fixture )
@@ -1161,7 +1168,7 @@ observe_command_ingress( fixture )
         normalized = scripts\mp\outlands_ui::normalize_command( text );
         if ( normalized != fixture.texts[i] )
         {
-            println( "OUTLANDS_COMMAND_INGRESS_CHECK|normalization_failed|" + i );
+            verification_emit( "OUTLANDS_COMMAND_INGRESS_CHECK|normalization_failed|" + i );
             continue;
         }
         fixture.received++;
@@ -1183,7 +1190,7 @@ observe_command_ingress( fixture )
             fixture.flags++;
         if ( scripts\mp\outlands_ui::dispatch( player, "toggle" ) || scripts\mp\outlands_armory_ui::dispatch( player, "toggle" ) || scripts\mp\outlands_operations::queue_command( player, "show", "none" ) )
             fixture.bot_accepted++;
-        println( "OUTLANDS_COMMAND_INGRESS_CHECK|native_event|" + i + "|" + fixture.matched );
+        verification_emit( "OUTLANDS_COMMAND_INGRESS_CHECK|native_event|" + i + "|" + fixture.matched );
     }
 }
 
@@ -1216,7 +1223,7 @@ verify_menu_input( players )
         }
     if ( !isdefined( bot ) )
     {
-        println( "OUTLANDS_MENU_INPUT_V1|failed|no_native_bot" );
+        verification_emit( "OUTLANDS_MENU_INPUT_V1|failed|no_native_bot" );
         return false;
     }
     // Explicit low-level control fixture, never a human dispatch or identity.
@@ -1249,7 +1256,7 @@ verify_menu_input( players )
         wait 0.15;
         if ( scripts\mp\outlands_ui::read_menu_action( bot, "ui" ) == expected_ui[i] && scripts\mp\outlands_ui::read_menu_action( bot, "armory" ) == expected_armory[i] )
             native_actions++;
-        println( "OUTLANDS_MENU_INPUT_CHECK|native_action|" + i + "|" + native_actions );
+        verification_emit( "OUTLANDS_MENU_INPUT_CHECK|native_action|" + i + "|" + native_actions );
         bot botbuttonoverride( "-" + buttons[i] );
     }
     scripts\mp\outlands_ui::destroy_hud( state );
@@ -1262,7 +1269,7 @@ verify_menu_input( players )
     result = "failed";
     if ( ok )
         result = "pass";
-    println( "OUTLANDS_MENU_INPUT_V2|" + result + "|" + native_actions + "|" + restored + "|" + excluded );
+    verification_emit( "OUTLANDS_MENU_INPUT_V2|" + result + "|" + native_actions + "|" + restored + "|" + excluded );
     return ok;
 }
 
@@ -1277,7 +1284,7 @@ verify_ground_response()
     candidates = get_players();
     if ( !isdefined( level.outlands_ground_emp ) )
     {
-        println( "OUTLANDS_GROUND_POLICY_V1|failed" );
+        verification_emit( "OUTLANDS_GROUND_POLICY_V1|failed" );
         return;
     }
     // Native ranks vary; choose eligible real test clients, never raise rank
@@ -1301,7 +1308,7 @@ verify_ground_response()
     }
     if ( bots.size < 2 || !isdefined( enemy ) )
     {
-        println( "OUTLANDS_GROUND_POLICY_V1|failed" );
+        verification_emit( "OUTLANDS_GROUND_POLICY_V1|failed" );
         return;
     }
     bot = bots[0];
@@ -1377,8 +1384,8 @@ verify_ground_response()
     ready_ok = isdefined( bot scripts\mp\outlands_bot_profiles::ground_record() );
     // Native default rank and unlock policy are observed, never elevated.
     unlocked = !bot isitemlocked( level.outlands_ground_emp_index );
-    println( "OUTLANDS_GROUND_CHECK|native_unlock|" + unlocked + "|" + level.outlands_ground_emp_index );
-    println( "OUTLANDS_GROUND_CHECK|native_grenade_policy|" + getdvar( "bot_AllowGrenades" ) + "|" + getdvar( "bot_MinGrenadeTime" ) + "|" + getdvar( "bot_MaxGrenadeTime" ) );
+    verification_emit( "OUTLANDS_GROUND_CHECK|native_unlock|" + unlocked + "|" + level.outlands_ground_emp_index );
+    verification_emit( "OUTLANDS_GROUND_CHECK|native_grenade_policy|" + getdvar( "bot_AllowGrenades" ) + "|" + getdvar( "bot_MinGrenadeTime" ) + "|" + getdvar( "bot_MaxGrenadeTime" ) );
     foreach ( subject in array( bot, other ) )
     {
         if ( isdefined( subject.grenadetypesecondary ) )
@@ -1391,12 +1398,12 @@ verify_ground_response()
         subject.grenadetypesecondary = "concussion_grenade_mp";
     }
     level.outlands_ground_specialists[bot.team] = undefined;
-    println( "OUTLANDS_GROUND_CHECK|before_equip|" + isalive( bot ) + "|" + bot getweaponammoclip( "concussion_grenade_mp" ) + "|" + bot getweaponammostock( "concussion_grenade_mp" ) );
+    verification_emit( "OUTLANDS_GROUND_CHECK|before_equip|" + isalive( bot ) + "|" + bot getweaponammoclip( "concussion_grenade_mp" ) + "|" + bot getweaponammostock( "concussion_grenade_mp" ) );
     equipped = bot scripts\mp\outlands_bot_profiles::ground_equip();
-    println( "OUTLANDS_GROUND_CHECK|after_equip|" + bot getweaponammoclip( "emp_grenade_mp" ) + "|" + bot getweaponammostock( "emp_grenade_mp" ) );
+    verification_emit( "OUTLANDS_GROUND_CHECK|after_equip|" + bot getweaponammoclip( "emp_grenade_mp" ) + "|" + bot getweaponammostock( "emp_grenade_mp" ) );
     single = !other scripts\mp\outlands_bot_profiles::ground_equip();
     swapped = !bot hasweapon( "concussion_grenade_mp" ) && bot scripts\mp\outlands_bot_profiles::ground_ammo() == 1;
-    println( "OUTLANDS_GROUND_CHECK|equip|" + equipped + "|" + single + "|" + swapped );
+    verification_emit( "OUTLANDS_GROUND_CHECK|equip|" + equipped + "|" + single + "|" + swapped );
     record.next_emp = gettime() + 6000;
     cooldown = !bot scripts\mp\outlands_bot_profiles::ground_emp_throw( turret.origin );
     cooldown = cooldown && bot scripts\mp\outlands_bot_profiles::ground_ammo() == 1;
@@ -1467,9 +1474,9 @@ verify_ground_response()
     input_result = "failed";
     if ( input_ok )
         input_result = "pass";
-    println( "OUTLANDS_GROUND_INPUT_V1|" + input_result );
-    println( "OUTLANDS_GROUND_CHECK|projectiles|" + projectiles );
-    println( "OUTLANDS_GROUND_CHECK|throw|" + thrown + "|" + consumed + "|" + cooldown + "|" + no_refill );
+    verification_emit( "OUTLANDS_GROUND_INPUT_V1|" + input_result );
+    verification_emit( "OUTLANDS_GROUND_CHECK|projectiles|" + projectiles );
+    verification_emit( "OUTLANDS_GROUND_CHECK|throw|" + thrown + "|" + consumed + "|" + cooldown + "|" + no_refill );
     record.seen = gettime() - 21000;
     expired = !isdefined( bot scripts\mp\outlands_bot_profiles::ground_record() );
     setting = getdvar( "outlands_bot_ground_support" );
@@ -1500,8 +1507,8 @@ verify_ground_response()
     result = "failed";
     if ( input_ok && inactive && unowned && hostile && friendly && carried && dead && sentry && not_player && delayed && stable && ready_ok && unlocked && equipped && single && swapped && cooldown && thrown && consumed && no_refill && expired && disabled )
         result = "pass";
-    println( "OUTLANDS_GROUND_CHECK|policy|" + hostile + "|" + friendly + "|" + carried + "|" + dead + "|" + sentry + "|" + not_player + "|" + delayed + "|" + stable + "|" + ready_ok + "|" + expired + "|" + disabled );
-    println( "OUTLANDS_GROUND_POLICY_V1|" + result );
+    verification_emit( "OUTLANDS_GROUND_CHECK|policy|" + hostile + "|" + friendly + "|" + carried + "|" + dead + "|" + sentry + "|" + not_player + "|" + delayed + "|" + stable + "|" + ready_ok + "|" + expired + "|" + disabled );
+    verification_emit( "OUTLANDS_GROUND_POLICY_V1|" + result );
 }
 
 verify_ground_damage( inflictor, attacker, damage, flags, means, weapon, point, dir, hitloc, offset )
@@ -1509,4 +1516,98 @@ verify_ground_damage( inflictor, attacker, damage, flags, means, weapon, point, 
     if ( isdefined( self ) && isplayer( self ) && self istestclient() && isdefined( self.outlands_verify_ground_protected ) && self.outlands_verify_ground_protected )
         return 0;
     return self [[ level.outlands_verify_previous_damage ]]( inflictor, attacker, damage, flags, means, weapon, point, dir, hitloc, offset );
+}
+
+// Disposable functional inventory fixture only; no score, XP or human data.
+verify_streak_support()
+{
+    level endon( "game_ended" );
+    wait 25;
+    radius = getdvarfloat( "player_useRadius" );
+    verification_emit( "OUTLANDS_STREAK_USE_RADIUS_V1|" + int( radius * radius ) );
+    chosen = undefined;
+    foreach ( bot in get_players() )
+    {
+        if ( !isdefined( bot ) || !bot istestclient() || !isalive( bot ) || !isdefined( bot.spawntime ) ) continue;
+        planned = 0;
+        if ( isdefined( bot.killstreak ) ) planned = bot.killstreak.size;
+        verification_emit( "OUTLANDS_STREAK_LOADOUT_V1|" + ( bot getentitynumber() ) + "|" + planned + "|" + level.loadoutkillstreaksenabled + "|" + ( gettime() - bot.spawntime ) );
+        // Actor selection happens below; do not force a combat interruption.
+    }
+    deadline = gettime() + 15000;
+    while ( !isdefined( chosen ) && gettime() < deadline )
+    {
+        chosen = streak_fixture_candidate();
+        if ( !isdefined( chosen ) ) wait 0.5;
+    }
+    if ( !isdefined( chosen ) ) { verification_emit( "OUTLANDS_STREAK_FIXTURE_V1|no_candidate" ); return; }
+    casual = scripts\mp\outlands_chat::task_context( chosen, "none" );
+    clean = casual.wire == "none|" + chosen.pers["team"] + "|none|-1|none|none|0|0|0|0|0";
+    verification_emit( "OUTLANDS_CHAT_CASUAL_V1|" + clean );
+    chosen thread streak_fixture_landing();
+    // Native inventory grant only in disposable state. Not proof of earned play.
+    // Match the native scorestreak quantity path without fabricating score/XP.
+    marker = maps\mp\killstreaks\_killstreaks::getkillstreakweapon( "supply_drop_mp" );
+    chosen maps\mp\killstreaks\_killstreaks::changekillstreakquantity( marker, 1 );
+    verification_emit( "OUTLANDS_STREAK_FIXTURE_V1|grant|" + ( chosen getentitynumber() ) );
+
+    verification_emit( "OUTLANDS_STREAK_INVENTORY_V1|" + ( chosen getentitynumber() ) + "|" + marker + "|" + ( chosen getweaponammoclip( marker ) ) + "|" + ( chosen scripts\mp\outlands_streaks::charges( marker ) ) + "|" + ( chosen getinventoryweapon() == marker ) );
+}
+streak_fixture_landing()
+{
+    self endon( "disconnect" ); level endon( "game_ended" );
+    self waittill( "bot_crate_landed", crate );
+    verification_emit( "OUTLANDS_STREAK_FIXTURE_V1|landed|" + ( self getentitynumber() ) );
+    crate waittill( "captured", player );
+    owner = 0;
+    if ( isdefined( player ) && player == self ) owner = 1;
+    verification_emit( "OUTLANDS_STREAK_FIXTURE_V1|captured|" + owner );
+}
+
+verification_emit( text )
+{
+    println( "\n" + text + "\n" );
+}
+
+// Read-only bounded actor selection gives the auxiliary retrieval task a chance
+// to execute. Combat, positions, health, scores and enemy visibility stay native.
+streak_fixture_candidate()
+{
+    foreach ( bot in get_players() )
+    {
+        if ( !isdefined( bot ) || !bot istestclient() || !isalive( bot ) || !isdefined( bot.bot ) || !isdefined( bot.spawntime ) || gettime() - bot.spawntime <= 6000 ) continue;
+        if ( isdefined( bot.bot.threat ) && isdefined( bot.bot.threat.entity ) ) continue;
+        if ( isdefined( bot.outlands_streak_retrieving ) ) continue;
+        if ( bot hasweapon( "supplydrop_mp" ) && bot scripts\mp\outlands_streaks::charges( "supplydrop_mp" ) > 0 ) continue;
+        return bot;
+    }
+    return undefined;
+}
+
+// Read-only native pickup evidence distinguishes a legal mid-life weapon swap
+// from a failed spawn grant. The original handler remains responsible for pickup.
+verify_pickup_observer()
+{
+    pointer = getfunction( "maps/mp/gametypes/_weapons", "watchpickup" );
+    if ( !isdefined( pointer ) || isdefined( getdetour( pointer ) ) ) return;
+    level.outlands_verify_pickup_native = pointer;
+    replacefunc( pointer, ::verify_pickup_handler );
+}
+
+verify_pickup_handler()
+{
+    self thread verify_pickup_event();
+    disabledetouronce( level.outlands_verify_pickup_native );
+    self [[ level.outlands_verify_pickup_native ]]();
+}
+
+verify_pickup_event()
+{
+    self endon( "death" ); level endon( "game_ended" );
+    weapon = self maps\mp\gametypes\_weapons::getitemweaponname();
+    self waittill( "trigger", player, dropped );
+    if ( !isdefined( player ) || !isplayer( player ) || !player istestclient() ) return;
+    old = "none";
+    if ( isdefined( dropped ) ) old = dropped maps\mp\gametypes\_weapons::getitemweaponname();
+    verification_emit( "OUTLANDS_VERIFY_PICKUP_V1|" + getdvarint( "outlands_verify_restarted" ) + "|" + ( player getentitynumber() ) + "|" + gettime() + "|" + weapon + "|" + old );
 }

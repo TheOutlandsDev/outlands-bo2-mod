@@ -36,7 +36,7 @@ services:
       retries: 6
     restart: unless-stopped
   chat:
-    image: outlands-bo2-chat:local
+    image: ${T6_CHAT_IMAGE:-outlands-bo2-chat:local}
     build:
       context: ../ai
     network_mode: service:tailscale

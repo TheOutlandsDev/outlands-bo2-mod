@@ -24,13 +24,15 @@ sys.path.insert(0, str(ROOT / 'ai'))
 from accounts.agent import PairingDelivery
 from tactics import Tactical
 from bridge import Event, ChatAck
+from rivals import plan as rival_plan, hash_text as rival_hash, match_seed as rival_seed_value, load_profiles as rival_profiles, position_cost as rival_position_cost, favorite_weight as rival_favorite_weight
 LABEL = "org.outlands.backend-verification"
 MODES = frozenset(("dm", "tdm", "ctf", "dem", "dom", "koth", "hq", "conf"))
 CASE = re.compile(r"(mp_[a-z0-9_]{1,40}):(dm|tdm|ctf|dem|dom|koth|hq|conf)\Z")
 FAILURE = re.compile(r"(?:terminal\s+)?script(?:\s+(?:compile|runtime))?\s+error|could not resolve function|unresolved external|unknown function|error compiling", re.I)
 NATIVE_FAILURE = re.compile(r"A critical exception occu(?:r|rr)ed!|Exception Code: 0x[0-9a-f]+|Oops! Plutonium ran into a problem", re.I)
 ANSI = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
-SCORE_LIMITS = {"tdm": 200, "dm": 60, "conf": 150, "ctf": 6, "dem": 4, "dom": 200, "hq": 500, "koth": 500}
+# Native BO2 mode defaults, verified through getgametypesetting in offline matches.
+SCORE_LIMITS = {"tdm": 75, "dm": 30, "conf": 75, "ctf": 3, "dem": 2, "dom": 200, "hq": 250, "koth": 250}
 FIELDS = ("stage", "bots", "humans", "alive", "playing", "identities", "roles", "careers", "kills", "deaths", "score", "moved", "prematch", "invalid", "pools", "patrols", "scorelimit")
 OBJECTIVE_MODES = frozenset(("ctf", "dem", "dom", "koth", "hq"))
 CONTRACT_MODES = MODES - {"dm"}
@@ -100,7 +102,7 @@ def assess(samples: list[dict], case: Case, restart: bool, careers: bool = False
         if final["bots"] != 16 or final["identities"] != 16 or final["roles"] != 16:
             reasons.append(f"stage {stage}: bot population/identity/role incomplete")
         if final["scorelimit"] != SCORE_LIMITS[case.mode]:
-            reasons.append(f"stage {stage}: native score limit differs from the shipped mode wrapper")
+            reasons.append(f"stage {stage}: native score limit differs from the native BO2 mode defaults")
         if final["prematch"] != 0:
             reasons.append(f"stage {stage}: native match remained in prematch")
         pairs = list(zip(stage_samples, stage_samples[1:]))
@@ -232,7 +234,7 @@ def assess_chat_context(text, case):
     markers=set(line.strip() for line in clean.splitlines())
     reasons=[]
     if not expected<=topics or invalid:reasons.append('native task context was missing or malformed')
-    if 'OUTLANDS_CHAT_GUARD_V1|rejected' not in markers or 'OUTLANDS_CHAT_GUARD_V1|context_disabled' not in markers or 'OUTLANDS_CHAT_GUARD_V1|team_binding' not in markers or 'OUTLANDS_CHAT_GUARD_V1|failed' in markers:
+    if 'OUTLANDS_CHAT_GUARD_V1|casual_context' not in markers or 'OUTLANDS_CHAT_GUARD_V1|rejected' not in markers or 'OUTLANDS_CHAT_GUARD_V1|context_disabled' not in markers or 'OUTLANDS_CHAT_GUARD_V1|team_binding' not in markers or 'OUTLANDS_CHAT_GUARD_V1|failed' in markers:
         reasons.append('zero-human refusal or context off switch was not verified')
     if case.mode in OBJECTIVE_MODES and 'OUTLANDS_CHAT_GUARD_V1|stale_assignment' not in markers:
         reasons.append('stale squad assignment was not rejected by native steering and task context')
@@ -269,7 +271,7 @@ def assess_ambient_chat(text):
     if not any(s['bots'] == 16 and s['playing'] >= 14 for s in samples):
         reasons.append('production controller did not fill an idle native match')
     return {'passed': not reasons, 'reasons': reasons, 'native_deliveries': len(accepted),
-            'bot_reply_deliveries': len(pairs), 'topics': sorted({e.tactical.topic for e in accepted if e.tactical}),
+            'bot_reply_deliveries': len(pairs), 'casual_bot_reply_deliveries': sum(e.tactical is None or e.tactical.topic == 'none' for e in pairs), 'topics': sorted({e.tactical.topic for e in accepted if e.tactical}),
             'production_transport': True, 'model_mode': 'fallback', 'actual_client_rendering': False}
 
 
@@ -419,14 +421,18 @@ def assess_armory(text, restart=False):
 
 
 def config_for(case: Case, seconds: int, restart: bool, careers: bool,
-               squads: bool = False, contracts: bool = False, switches: bool = False, chat_context: bool = False, lobby_balance: bool = False, air_response: bool = False, expansion: bool = False, ui: bool = False, armory: bool = False, armory_editor: bool = False, ambient_chat: bool = False, accounts: bool = False, ground_response: bool = False) -> str:
+               squads: bool = False, contracts: bool = False, switches: bool = False, chat_context: bool = False, lobby_balance: bool = False, air_response: bool = False, expansion: bool = False, ui: bool = False, armory: bool = False, armory_editor: bool = False, ambient_chat: bool = False, accounts: bool = False, ground_response: bool = False, rivals: bool = False, rival_seed: int = 1, rival_metrics: bool = False, rival_movement: bool = False, humanize: bool = False, human_metrics: bool = False, objective_roam: bool = False, ai_preset: str = "mixed", streaks: bool = False, loadouts: bool = False, ai_quality: bool = False) -> str:
+    from ai.bot_settings import selected_preset
+    selected_preset(ai_preset)
     cfg = (ROOT / "storage/t6/outlands_t6.cfg").read_text()
     cfg = re.sub(r'^sv_maprotation .*$', f'sv_maprotation "gametype {case.mode} execgts outlands_{case.mode}.cfg map {case.map_name}"', cfg, flags=re.M)
-    return cfg + (f'\nset outlands_backend_verification 1\nset outlands_verify_seconds {seconds}\n'
+    return cfg + (f'\nset outlands_backend_verification 1\nset outlands_verify_quality {int(ai_quality)}\nset outlands_verify_seconds {seconds}\n'
                   f'set outlands_verify_restart {int(restart)}\nset outlands_verify_restarted 0\n'
                   f'set outlands_rotation 0\nset outlands_bot_idle_fill {16 if ambient_chat else 0}\n'
                   f'set outlands_chat_without_humans {int(ambient_chat)}\nset outlands_verify_ambient_chat {int(ambient_chat)}\n'
                   f'set outlands_bot_careers {int(careers)}\n'
+                  f'set outlands_bot_loadout_variety {int(loadouts)}\nset outlands_bot_streaks {int(streaks)}\nset outlands_verify_streaks {int(streaks)}\nset outlands_ai_preset {ai_preset}\nset outlands_bot_humanize {int(humanize)}\nset outlands_bot_objective_roam {int(objective_roam)}\nset outlands_human_metrics {int(humanize or human_metrics or objective_roam)}\n'
+                  f'set outlands_rival_movement {int(rival_movement)}\nset outlands_rivals {int(rivals)}\nset outlands_rival_seed {rival_seed}\nset outlands_rival_metrics {int(rivals or rival_metrics)}\n'
                   f'set outlands_squads {int(squads)}\nset outlands_squad_attackers 4\nset outlands_squad_defenders 2\n'
                   f'set outlands_contracts {int(contracts)}\n' +
                   # Short thresholds are confined to disposable verification
@@ -441,6 +447,101 @@ def config_for(case: Case, seconds: int, restart: bool, careers: bool,
                   ('set outlands_ui 1\nset outlands_verify_ui 1\n' if ui else '')+
                   ('set outlands_verify_armory 1\n' if armory else '')+
                   ('set outlands_verify_armory_editor 1\n' if armory_editor else ''))
+
+
+RIVAL_METRICS = ("stage", "ticks", "bots", "planned", "unique_weapons", "allies_standouts", "axis_standouts", "moving", "travel_intent", "stationary_travel_candidates", "near_teammate_pairs", "goal_changes", "duty_changes", "measurement_ms", "invalid_primary")
+
+
+def assess_rivals(text, case, enabled, seed, movement=False):
+    """Compare real native plans/weighted draws against independent Python rules."""
+    reasons, metrics, latest, class_draws, routes, first_spawns = [], [], {}, [], [], {}
+    bad = 0
+    catalog = rival_profiles()
+    for raw in text.splitlines():
+        fields = ANSI.sub('', raw).strip().split('|')
+        if fields[0] == 'OUTLANDS_RIVAL_METRICS_V1':
+            if len(fields) != 16 or not all(re.fullmatch(r'[0-9]{1,9}', x) for x in fields[1:]):
+                bad += 1; continue
+            row = dict(zip(RIVAL_METRICS, map(int, fields[1:])))
+            if any(row[k] > 18 for k in ('bots','planned','unique_weapons','allies_standouts','axis_standouts','moving','travel_intent','stationary_travel_candidates','invalid_primary')):
+                bad += 1; continue
+            metrics.append(row)
+        elif fields[0] == 'OUTLANDS_RIVAL_SPAWN_V1':
+            allowed = {'custom'+str(i) for i in range(5)} | {'class_'+x for x in ('smg','cqb','assault','lmg','sniper')}
+            if len(fields) != 7 or fields[1] not in ('0','1') or not re.fullmatch(r'[0-9]{1,2}',fields[2]) or int(fields[2])>17 or fields[3] not in catalog or fields[4] not in allowed or fields[5]!='1' or not re.fullmatch(r'[0-9]{1,6}',fields[6]):
+                bad += 1; continue
+            first_spawns[(int(fields[1]),int(fields[2]),fields[3],int(fields[6]))] = int(fields[6])
+        elif fields[0] == 'OUTLANDS_RIVAL_ROUTE_V1':
+            try:
+                if len(fields) != 11 or not all(re.fullmatch(r'-?[0-9]{1,10}', x) for x in fields[1:]): raise ValueError('Malformed route receipt')
+                slot, attempts, reachable, nearby, danger, route, travel, target, cost, elapsed = map(int, fields[1:])
+                if not 0 <= slot <= 17 or not 1 <= reachable <= attempts <= 6 or elapsed < 0 or cost != rival_position_cost(travel,target,route,nearby,danger): raise ValueError('Invalid route receipt')
+                routes.append({'reachable':reachable,'evaluated':attempts,'nearby':nearby,'danger_seconds':danger,'cost':cost,'measurement_ms':elapsed})
+            except ValueError: bad += 1
+        elif fields[0] == 'OUTLANDS_RIVAL_PLAN_V1':
+            if len(fields) != 15 or fields[1:3] != [case.map_name, case.mode] or not all(re.fullmatch(r'[0-9]{1,5}', fields[i]) for i in (3,4,10,11,12,13,14)):
+                bad += 1; continue
+            if int(fields[3]) != seed or int(fields[4]) > 17:
+                bad += 1; continue
+            latest[int(fields[4])] = fields
+        elif fields[0] == 'OUTLANDS_RIVAL_CLASS_V1':
+            if len(fields) != 7 or not all(re.fullmatch(r'[0-9]{1,9}', fields[i]) for i in (1,2,4)):
+                bad += 1; continue
+            try:
+                entries = [x.split(':') for x in fields[6].split(',')]
+                if any(len(x)!=4 for x in entries): raise ValueError('Invalid class candidate shape')
+                pool = [(x[0],int(x[3])) for x in entries]
+                if fields[3] not in catalog or any(int(x[3]) != rival_favorite_weight(catalog[fields[3]],x[1],int(x[2])) for x in entries): raise ValueError('Native favorite weights differ')
+                allowed = {'custom'+str(i) for i in range(5)} | {'class_'+x for x in ('smg','cqb','assault','lmg','sniper')}
+                if not 1 <= len(pool) <= 10 or any(name not in allowed or not 1 <= weight <= 40 for name,weight in pool) or int(fields[1]) != seed or int(fields[2]) > 17 or fields[3] not in catalog or not 1 <= int(fields[4]) <= 1000000:
+                    raise ValueError('Invalid native class pool')
+                roll = rival_hash(fields[3]+':class:'+fields[4], rival_seed_value(seed, case.map_name, case.mode)) % sum(w for _,w in pool)
+                selected = None
+                for name, weight in pool:
+                    if roll < weight: selected = name; break
+                    roll -= weight
+                if selected != fields[5]: raise ValueError('Native weighted draw differs')
+                class_draws.append(fields[5])
+            except (ValueError, IndexError): bad += 1
+    if movement and not routes: reasons.append('No accepted reachable defensive-position selection')
+    if not movement and routes: reasons.append('Disabled movement experiment submitted a position')
+    if bad: reasons.append('Malformed or non-replayable native rival evidence')
+    if len(metrics) < 10 or max((m['bots'] for m in metrics), default=0) != 16:
+        reasons.append('Incomplete native rival observation window')
+    settled = [m for m in metrics if m['bots'] == 16 and m['ticks'] >= 10]
+    if not settled: reasons.append('No settled 16-bot telemetry')
+    if enabled:
+        for stage in {m['stage'] for m in metrics}:
+            if sum(s==stage and deaths==0 for (s,_,_,_),deaths in first_spawns.items()) < 8:
+                reasons.append('Too few independently valid classes staged before first death')
+            if sum(s==stage and deaths>0 for (s,_,_,_),deaths in first_spawns.items()) < 4:
+                reasons.append('Too few independently valid respawn class grants')
+        try:
+            expected = rival_plan([{'alias':f[5], 'slot':slot,'team':f[6]} for slot,f in latest.items()], seed, case.map_name, case.mode)
+            if len(expected['bots']) != 16: raise ValueError('Incomplete observed native roster')
+            for row in expected['bots']:
+                f = latest[row['slot']]
+                actual = [f[7],f[8],f[9],int(f[10]),int(f[11]),int(f[12]),int(f[13]),int(f[14])]
+                wanted = [row['role'],row['specialty'],row['tier'],row['aggression'],row['teamwork'],row['route'],row['commit_seconds'],int(row['standout_active'])]
+                if actual != wanted: raise ValueError('Native profile or bounded standout differs')
+        except (ValueError, TypeError, KeyError): reasons.append('Native observed-roster plan differs from portable planner')
+        if any(m['planned'] != 16 for m in settled) or not class_draws:
+            reasons.append('Native planner/class selection incomplete')
+        if any(m['allies_standouts'] > 1 or m['axis_standouts'] > 1 for m in settled):
+            reasons.append('Standout influence exceeded one per team')
+    elif latest or class_draws or first_spawns or any(m['planned'] or m['allies_standouts'] or m['axis_standouts'] for m in metrics):
+        reasons.append('Disabled planner changed native metadata')
+    if max((m['unique_weapons'] for m in settled), default=0) < 3:
+        reasons.append('Too little observed native primary variety')
+    if any(m['invalid_primary'] for m in settled):
+        reasons.append('Native primary observation invalid')
+    return {'passed':not reasons,'reasons':reasons,'planner_enabled':enabled,'seed':seed,
+            'movement_enabled':movement,'position_selections':routes,'observed_native_profiles':len(latest),'replayed_native_class_choices':len(class_draws),
+            'native_first_life_classes_staged':sum(deaths==0 for deaths in first_spawns.values()),
+            'native_respawn_classes_verified':sum(deaths>0 for deaths in first_spawns.values()),
+            'distinct_selected_classes':sorted(set(class_draws)), 'metrics':metrics,
+            'actual_human_movement_feel':False,'exact_native_roster_seeded':False,
+            'position_metrics_are_navigation_acceptance':False}
 
 
 def career_summary(docker: Docker, worker: str) -> dict:
@@ -463,7 +564,7 @@ def require_map_asset(docker: Docker, image: str, case: Case):
 
 def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool, directory: Path,
              careers: bool = False, worker_image: str = "outlands-bo2-chat:rivals-dev",
-             process_restart: bool = False, squads: bool = False, contracts: bool = False, switches: bool = False, chat_context: bool = False, lobby_balance: bool = False, air_response: bool = False, expansion: bool = False, ui: bool = False, armory: bool = False, armory_editor: bool = False, ambient_chat: bool = False, accounts: bool = False, ground_response: bool = False) -> dict:
+             process_restart: bool = False, squads: bool = False, contracts: bool = False, switches: bool = False, chat_context: bool = False, lobby_balance: bool = False, air_response: bool = False, expansion: bool = False, ui: bool = False, armory: bool = False, armory_editor: bool = False, ambient_chat: bool = False, accounts: bool = False, ground_response: bool = False, rivals: bool = False, rival_seed: int = 1, rival_metrics: bool = False, rival_movement: bool = False, humanize: bool = False, human_metrics: bool = False, objective_roam: bool = False, ai_preset: str = "mixed", streaks: bool = False, loadouts: bool = False, ai_quality: bool = False) -> dict:
     require_map_asset(docker, image, case)
     resource = "outlands-backend-" + uuid.uuid4().hex
     volume = resource + "-state"
@@ -483,9 +584,11 @@ def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool
                 "p=pathlib.Path('/data/plutonium/storage/t6');p.mkdir(parents=True,exist_ok=True)\n"
                 "x=json.load(sys.stdin);(p/'scripts/mp').mkdir(parents=True,exist_ok=True)\n"
                 "(p/'outlands_t6.cfg').write_text(x['cfg'])\n"
-                "(p/'scripts/mp/outlands_backend_verification.gsc').write_text(x['gsc'])\n")
-        payload = json.dumps({"cfg": config_for(case, seconds, restart, careers, squads, contracts, switches, chat_context, lobby_balance, air_response, expansion, ui, armory, armory_editor, ambient_chat, accounts, ground_response),
-                              "gsc": (ROOT / "hosting/verification.gsc").read_text()})
+                "(p/'scripts/mp/outlands_backend_verification.gsc').write_text(x['gsc'])\n"
+                "if x.get('quality'):(p/'scripts/mp/outlands_quality_probe.gsc').write_text(x['quality'])\n")
+        payload = json.dumps({"cfg": config_for(case, seconds, restart, careers, squads, contracts, switches, chat_context, lobby_balance, air_response, expansion, ui, armory, armory_editor, ambient_chat, accounts, ground_response, rivals, rival_seed, rival_metrics, rival_movement, humanize, human_metrics, objective_roam, ai_preset, streaks, loadouts, ai_quality),
+                              "gsc": (ROOT / "hosting/verification.gsc").read_text(),
+                              "quality": (ROOT / "hosting/quality_probe.gsc").read_text() if ai_quality else None})
         docker.call("run", "--rm", "-i", "--network", "none", "--cap-drop", "ALL",
                     "--security-opt", "no-new-privileges:true", "-v", volume + ":/data",
                     "--entrypoint", "python3", image, "-c", seed, input_text=payload)
@@ -537,6 +640,29 @@ def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool
         if switches:
             samples = [s for s in samples if s.get("squads_enabled") and s.get("contracts_enabled")]
         report = assess(samples, case, restart, careers, squads, contracts)
+        if loadouts:
+            from hosting.human_verify import assess_loadouts
+            report['loadouts'] = assess_loadouts(all_logs)
+            if not report['loadouts']['passed']:
+                report['passed'] = False
+                report['reasons'].extend(report['loadouts']['reasons'])
+        if streaks:
+            from hosting.human_verify import assess_streaks
+            report['streaks'] = assess_streaks(all_logs)
+            if not report['streaks']['passed']:
+                report['passed'] = False
+                report['reasons'].extend(report['streaks']['reasons'])
+        if humanize or human_metrics or objective_roam:
+            from hosting.human_verify import assess_humanization
+            report['humanization'] = assess_humanization(all_logs, humanize, objective_roam, case.mode, ai_preset)
+            if not report['humanization']['passed']:
+                report['passed'] = False
+                report['reasons'].extend(report['humanization']['reasons'])
+        if rivals or rival_metrics:
+            report["rivals"] = assess_rivals(all_logs, case, rivals, rival_seed, rival_movement)
+            if not report["rivals"]["passed"]:
+                report["passed"] = False
+                report["reasons"].extend(report["rivals"]["reasons"])
         if ambient_chat:
             report['ambient_chat'] = assess_ambient_chat(all_logs)
             if not report['ambient_chat']['passed']:
@@ -622,6 +748,12 @@ def run_case(docker: Docker, image: str, case: Case, seconds: int, restart: bool
             if not report["runtime_switches"]["passed"]:
                 report["passed"] = False
                 report["reasons"].extend(report["runtime_switches"]["reasons"])
+        if ai_quality:
+            from hosting.quality_verify import assess_quality
+            report['ai_quality']=assess_quality(all_logs)
+            if not report['ai_quality']['passed']:
+                report['passed']=False
+                report['reasons'].extend(report['ai_quality']['reasons'])
         report.update({"elapsed_seconds": round(time.monotonic() - started, 2),
                        "observation_completed": observed, "script_error": bool(FAILURE.search(all_logs)),
                        "native_crash": bool(NATIVE_FAILURE.search(all_logs)),
@@ -719,6 +851,10 @@ def cleanup_resources(docker, case, directory, all_logs, container, worker, volu
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run", action="store_true")
+    parser.add_argument("--rival-movement", action="store_true", help="verify separate reachable defensive-position experiment on three trial maps")
+    parser.add_argument("--rivals", action="store_true", help="verify seeded observed-roster rival classes and squad tendencies")
+    parser.add_argument("--rival-seed", type=int, default=1)
+    parser.add_argument("--rival-metrics", action="store_true", help="read-only movement/class baseline metrics with planner disabled")
     parser.add_argument("--image", default="outlands-t6:local")
     parser.add_argument("--case", action="append", default=[])
     parser.add_argument("--seconds", type=int, default=60)
@@ -737,12 +873,29 @@ def main(argv=None) -> int:
     parser.add_argument("--armory", action="store_true", help="native all-bot class-reference selection and next-spawn feasibility; no arbitrary edits or human unlock acceptance")
     parser.add_argument("--ui", action="store_true", help="verify actual native HUD creation, presenters and cleanup with bots; real client rendering/input remain pending")
     parser.add_argument("--expansion", action="store_true", help="verify native milestone helpers and bot exclusion; human commands require later client acceptance")
+    parser.add_argument('--ai-quality',action='store_true',help='read-only bot combat, target latency, objective-zone and navigation measurements in disposable matches')
+    parser.add_argument('--loadouts',action='store_true',help='verify native primary construction and actual carried gun/attachment diversity')
+    parser.add_argument('--streaks',action='store_true',help='functional native charged-marker, landing and owner-retrieval fixture; not organic earning proof')
+    parser.add_argument('--ai-preset', choices=('relaxed','mixed','competitive'), default='mixed', help='validated map-boundary AI preset')
+    parser.add_argument('--humanize', action='store_true', help='verify optional native per-rival combat tuning and filtered native look targets')
+    parser.add_argument('--human-metrics', action='store_true', help='observe native half-second yaw changes and objective holds without enabling combat changes')
+    parser.add_argument('--objective-roam', action='store_true', help='verify arrived guard repositioning within the existing native squad goal channel')
     parser.add_argument("--worker-image", default="outlands-bo2-chat:rivals-dev")
     parser.add_argument("--process-restart", action="store_true", help="also restart the actual game/worker containers with their same disposable volumes")
     parser.add_argument("--report-dir", type=Path)
     args = parser.parse_args(argv)
     try:
+        if args.ai_quality and args.seconds < 90:
+            raise ValueError('AI quality needs at least 90 seconds of disposable native observation')
         cases = [Case.parse(text) for text in args.case] or [Case("mp_raid", "dom"), Case("mp_slums", "conf")]
+        if args.rival_movement and (not args.rivals or not args.squads or any(c.mode not in ("dom","koth") or c.map_name not in ("mp_raid","mp_hijacked","mp_carrier") for c in cases)):
+            raise ValueError("Movement trial needs rivals, squads and DOM/Hardpoint on Raid/Hijacked/Carrier")
+        if args.humanize and not args.rivals:
+            raise ValueError('Humanization verification requires the fictional rival catalog')
+        if args.objective_roam and (not args.squads or any(c.mode not in ('dom','koth') for c in cases) or args.rival_movement):
+            raise ValueError('Guard roaming needs DOM/Hardpoint squads and a separate trial from rival positioning')
+        if not 1 <= args.rival_seed <= 65520:
+            raise ValueError("Rival seed must be 1-65520")
         if not 30 <= args.seconds <= 300:
             raise ValueError("Observation seconds must be between 30 and 300")
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_./:-]{0,180}", args.image):
@@ -753,6 +906,10 @@ def main(argv=None) -> int:
             raise ValueError("Account native guards require --ui")
         if args.process_restart and not args.careers:
             raise ValueError("Process restart acceptance requires --careers")
+        if args.loadouts and (not args.rivals or args.seconds < 120):
+            raise ValueError('Loadout checks require rivals and at least 120 seconds')
+        if args.streaks and (args.seconds < 120 or args.restart or args.process_restart):
+            raise ValueError('Streak functional checks require at least 120 seconds and no restart')
         if args.ambient_chat and (args.chat_context or args.process_restart or args.lobby_balance or args.seconds < 90):
             raise ValueError('Ambient chat needs at least 90 seconds and cannot combine with guard, process-restart or lobby fixtures')
         if args.switches and (not args.squads or not args.contracts or len(cases) != 1 or cases[0].mode not in OBJECTIVE_MODES or args.seconds < 90 or args.restart or args.process_restart):
@@ -767,7 +924,7 @@ def main(argv=None) -> int:
             raise ValueError('Lobby verification needs team modes, at least 90 seconds and no restart/switch flags')
         plan = {"server_process_restart": args.process_restart, "careers": args.careers, "squads": args.squads, "contracts": args.contracts, "contract_test_thresholds": args.contracts, "cases": [asdict(case) for case in cases], "seconds": args.seconds,
                 "accounts":args.accounts, "native_restart": args.restart, "native_restart_method": "same_map_reload" if args.restart else None, "runtime_switches": args.switches, "chat_context":args.chat_context, "lobby_balance":args.lobby_balance, "air_response":args.air_response, "ground_response":args.ground_response, "expansion":args.expansion, "ui":args.ui, "armory":args.armory, "armory_editor":args.armory_editor, "network_mode": "none", "published_ports": False,
-                "human_clients": False, "live_state": False, "ambient_chat": args.ambient_chat}
+                "human_clients": False, "live_state": False, "ambient_chat": args.ambient_chat, "rivals":args.rivals,"rival_seed":args.rival_seed,"rival_metrics":args.rival_metrics,"rival_movement":args.rival_movement,"loadouts":args.loadouts,"streaks":args.streaks,"ai_preset":args.ai_preset,"humanize":args.humanize,"human_metrics":args.human_metrics,"objective_roam":args.objective_roam}
         if not args.run:
             print(json.dumps(plan, indent=2))
             return 0
@@ -779,7 +936,7 @@ def main(argv=None) -> int:
         docker = Docker(ROOT / "hosting/docker.sh")
         reports = []
         for case in cases:
-            report = run_case(docker, args.image, case, args.seconds, args.restart, directory, args.careers, args.worker_image, args.process_restart, args.squads, args.contracts, args.switches,args.chat_context,args.lobby_balance,args.air_response,args.expansion,args.ui,args.armory,args.armory_editor,args.ambient_chat,args.accounts,args.ground_response)
+            report = run_case(docker, args.image, case, args.seconds, args.restart, directory, args.careers, args.worker_image, args.process_restart, args.squads, args.contracts, args.switches,args.chat_context,args.lobby_balance,args.air_response,args.expansion,args.ui,args.armory,args.armory_editor,args.ambient_chat,args.accounts,args.ground_response,args.rivals,args.rival_seed,args.rival_metrics,args.rival_movement,args.humanize,args.human_metrics,args.objective_roam,args.ai_preset,args.streaks,args.loadouts,args.ai_quality)
             reports.append(report)
             (directory / "report.json").write_text(json.dumps({"plan": plan, "results": reports}, indent=2) + "\n")
             print(f"{'PASS' if report['passed'] else 'FAIL'}: {case.map_name}/{case.mode}", flush=True)
