@@ -1,0 +1,629 @@
+{
+  "schema_version": 1,
+  "profiles": {
+    "Trailblazer": {
+      "role": "rusher",
+      "specialty": "flanker",
+      "tier": "standout",
+      "aggression": 80,
+      "teamwork": 46,
+      "route_preference": "wide",
+      "favorite_primaries": [
+        "vector_mp",
+        "mp7_mp",
+        "pdw57_mp"
+      ]
+    },
+    "MossCircuit": {
+      "role": "support",
+      "specialty": "none",
+      "tier": "experienced",
+      "aggression": 37,
+      "teamwork": 79,
+      "route_preference": "balanced",
+      "favorite_primaries": [
+        "hamr_mp",
+        "scar_mp",
+        "mk48_mp"
+      ]
+    },
+    "NightLedger": {
+      "role": "objective",
+      "specialty": "shotcaller",
+      "tier": "standout",
+      "aggression": 57,
+      "teamwork": 76,
+      "route_preference": "direct",
+      "favorite_primaries": [
+        "mp7_mp",
+        "an94_mp",
+        "tar21_mp"
+      ]
+    },
+    "CopperWren": {
+      "role": "assault",
+      "specialty": "shotcaller",
+      "tier": "standout",
+      "aggression": 59,
+      "teamwork": 84,
+      "route_preference": "direct",
+      "favorite_primaries": [
+        "an94_mp",
+        "scar_mp",
+        "tar21_mp"
+      ]
+    },
+    "StaticBloom": {
+      "role": "rusher",
+      "specialty": "flanker",
+      "tier": "standout",
+      "aggression": 70,
+      "teamwork": 44,
+      "route_preference": "wide",
+      "favorite_primaries": [
+        "mp7_mp",
+        "pdw57_mp",
+        "vector_mp"
+      ]
+    },
+    "RiftRunner": {
+      "role": "assault",
+      "specialty": "flanker",
+      "tier": "standout",
+      "aggression": 78,
+      "teamwork": 46,
+      "route_preference": "wide",
+      "favorite_primaries": [
+        "an94_mp",
+        "scar_mp",
+        "tar21_mp"
+      ]
+    },
+    "AshSignal": {
+      "role": "marksman",
+      "specialty": "none",
+      "tier": "regular",
+      "aggression": 25,
+      "teamwork": 41,
+      "route_preference": "balanced",
+      "favorite_primaries": [
+        "svu_mp",
+        "ballista_mp",
+        "dsr50_mp"
+      ]
+    },
+    "WinterByte": {
+      "role": "objective",
+      "specialty": "none",
+      "tier": "regular",
+      "aggression": 58,
+      "teamwork": 81,
+      "route_preference": "direct",
+      "favorite_primaries": [
+        "an94_mp",
+        "tar21_mp",
+        "mp7_mp"
+      ]
+    },
+    "QuietSparks": {
+      "role": "support",
+      "specialty": "shotcaller",
+      "tier": "standout",
+      "aggression": 63,
+      "teamwork": 75,
+      "route_preference": "direct",
+      "favorite_primaries": [
+        "mk48_mp",
+        "hamr_mp",
+        "scar_mp"
+      ]
+    },
+    "CometRidge": {
+      "role": "rusher",
+      "specialty": "none",
+      "tier": "experienced",
+      "aggression": 75,
+      "teamwork": 46,
+      "route_preference": "wide",
+      "favorite_primaries": [
+        "pdw57_mp",
+        "vector_mp",
+        "mp7_mp"
+      ]
+    },
+    "NovaLatch": {
+      "role": "objective",
+      "specialty": "none",
+      "tier": "developing",
+      "aggression": 62,
+      "teamwork": 83,
+      "route_preference": "direct",
+      "favorite_primaries": [
+        "an94_mp",
+        "tar21_mp",
+        "mp7_mp"
+      ]
+    },
+    "GravelPulse": {
+      "role": "marksman",
+      "specialty": "none",
+      "tier": "regular",
+      "aggression": 32,
+      "teamwork": 37,
+      "route_preference": "balanced",
+      "favorite_primaries": [
+        "ballista_mp",
+        "dsr50_mp",
+        "svu_mp"
+      ]
+    },
+    "PaperFalcon": {
+      "role": "assault",
+      "specialty": "none",
+      "tier": "regular",
+      "aggression": 51,
+      "teamwork": 57,
+      "route_preference": "balanced",
+      "favorite_primaries": [
+        "an94_mp",
+        "scar_mp",
+        "tar21_mp"
+      ]
+    },
+    "OrbitMoth": {
+      "role": "support",
+      "specialty": "none",
+      "tier": "regular",
+      "aggression": 39,
+      "teamwork": 75,
+      "route_preference": "balanced",
+      "favorite_primaries": [
+        "scar_mp",
+        "mk48_mp",
+        "hamr_mp"
+      ]
+    },
+    "CedarGhost": {
+      "role": "marksman",
+      "specialty": "none",
+      "tier": "regular",
+      "aggression": 28,
+      "teamwork": 41,
+      "route_preference": "balanced",
+      "favorite_primaries": [
+        "svu_mp",
+        "ballista_mp",
+        "dsr50_mp"
+      ]
+    },
+    "VelvetRook": {
+      "role": "objective",
+      "specialty": "none",
+      "tier": "experienced",
+      "aggression": 63,
+      "teamwork": 83,
+      "route_preference": "direct",
+      "favorite_primaries": [
+        "an94_mp",
+        "tar21_mp",
+        "mp7_mp"
+      ]
+    },
+    "IronTangent": {
+      "role": "objective",
+      "specialty": "none",
+      "tier": "experienced",
+      "aggression": 64,
+      "teamwork": 82,
+      "route_preference": "direct",
+      "favorite_primaries": [
+        "an94_mp",
+        "tar21_mp",
+        "mp7_mp"
+      ]
+    },
+    "SolarKite": {
+      "role": "assault",
+      "specialty": "none",
+      "tier": "developing",
+      "aggression": 56,
+      "teamwork": 61,
+      "route_preference": "balanced",
+      "favorite_primaries": [
+        "tar21_mp",
+        "an94_mp",
+        "scar_mp"
+      ]
+    },
+    "maple_404": {
+      "role": "support",
+      "specialty": "none",
+      "tier": "regular",
+      "aggression": 41,
+      "teamwork": 75,
+      "route_preference": "balanced",
+      "favorite_primaries": [
+        "hamr_mp",
+        "scar_mp",
+        "mk48_mp"
+      ]
+    },
+    "pocketNoodles": {
+      "role": "assault",
+      "specialty": "none",
+      "tier": "regular",
+      "aggression": 58,
+      "teamwork": 56,
+      "route_preference": "balanced",
+      "favorite_primaries": [
+        "an94_mp",
+        "scar_mp",
+        "tar21_mp"
+      ]
+    },
+    "LoFiRanger": {
+      "role": "marksman",
+      "specialty": "none",
+      "tier": "regular",
+      "aggression": 35,
+      "teamwork": 42,
+      "route_preference": "balanced",
+      "favorite_primaries": [
+        "svu_mp",
+        "ballista_mp",
+        "dsr50_mp"
+      ]
+    },
+    "driftwood77": {
+      "role": "support",
+      "specialty": "none",
+      "tier": "regular",
+      "aggression": 44,
+      "teamwork": 72,
+      "route_preference": "balanced",
+      "favorite_primaries": [
+        "hamr_mp",
+        "scar_mp",
+        "mk48_mp"
+      ]
+    },
+    "ByteSized": {
+      "role": "assault",
+      "specialty": "none",
+      "tier": "experienced",
+      "aggression": 51,
+      "teamwork": 59,
+      "route_preference": "balanced",
+      "favorite_primaries": [
+        "tar21_mp",
+        "an94_mp",
+        "scar_mp"
+      ]
+    },
+    "tundra.tom": {
+      "role": "marksman",
+      "specialty": "none",
+      "tier": "experienced",
+      "aggression": 35,
+      "teamwork": 45,
+      "route_preference": "balanced",
+      "favorite_primaries": [
+        "ballista_mp",
+        "dsr50_mp",
+        "svu_mp"
+      ]
+    },
+    "SpareBattery": {
+      "role": "rusher",
+      "specialty": "none",
+      "tier": "developing",
+      "aggression": 75,
+      "teamwork": 47,
+      "route_preference": "wide",
+      "favorite_primaries": [
+        "pdw57_mp",
+        "vector_mp",
+        "mp7_mp"
+      ]
+    },
+    "left_lane": {
+      "role": "marksman",
+      "specialty": "none",
+      "tier": "regular",
+      "aggression": 29,
+      "teamwork": 42,
+      "route_preference": "balanced",
+      "favorite_primaries": [
+        "svu_mp",
+        "ballista_mp",
+        "dsr50_mp"
+      ]
+    },
+    "CloudNine9": {
+      "role": "assault",
+      "specialty": "none",
+      "tier": "regular",
+      "aggression": 57,
+      "teamwork": 65,
+      "route_preference": "balanced",
+      "favorite_primaries": [
+        "tar21_mp",
+        "an94_mp",
+        "scar_mp"
+      ]
+    },
+    "RustyOrbit": {
+      "role": "objective",
+      "specialty": "none",
+      "tier": "regular",
+      "aggression": 64,
+      "teamwork": 83,
+      "route_preference": "direct",
+      "favorite_primaries": [
+        "tar21_mp",
+        "mp7_mp",
+        "an94_mp"
+      ]
+    },
+    "biscuitBandit": {
+      "role": "assault",
+      "specialty": "none",
+      "tier": "regular",
+      "aggression": 57,
+      "teamwork": 57,
+      "route_preference": "balanced",
+      "favorite_primaries": [
+        "scar_mp",
+        "tar21_mp",
+        "an94_mp"
+      ]
+    },
+    "PINEDROP": {
+      "role": "marksman",
+      "specialty": "none",
+      "tier": "experienced",
+      "aggression": 29,
+      "teamwork": 40,
+      "route_preference": "balanced",
+      "favorite_primaries": [
+        "svu_mp",
+        "ballista_mp",
+        "dsr50_mp"
+      ]
+    },
+    "slowmo_joe": {
+      "role": "marksman",
+      "specialty": "none",
+      "tier": "experienced",
+      "aggression": 26,
+      "teamwork": 40,
+      "route_preference": "balanced",
+      "favorite_primaries": [
+        "dsr50_mp",
+        "svu_mp",
+        "ballista_mp"
+      ]
+    },
+    "PebbleDash": {
+      "role": "rusher",
+      "specialty": "none",
+      "tier": "developing",
+      "aggression": 78,
+      "teamwork": 43,
+      "route_preference": "wide",
+      "favorite_primaries": [
+        "vector_mp",
+        "mp7_mp",
+        "pdw57_mp"
+      ]
+    },
+    "Rook.42": {
+      "role": "objective",
+      "specialty": "none",
+      "tier": "regular",
+      "aggression": 58,
+      "teamwork": 75,
+      "route_preference": "direct",
+      "favorite_primaries": [
+        "mp7_mp",
+        "an94_mp",
+        "tar21_mp"
+      ]
+    },
+    "latencyLlama": {
+      "role": "assault",
+      "specialty": "none",
+      "tier": "regular",
+      "aggression": 56,
+      "teamwork": 55,
+      "route_preference": "balanced",
+      "favorite_primaries": [
+        "scar_mp",
+        "tar21_mp",
+        "an94_mp"
+      ]
+    },
+    "teal_wolf": {
+      "role": "support",
+      "specialty": "none",
+      "tier": "regular",
+      "aggression": 37,
+      "teamwork": 72,
+      "route_preference": "balanced",
+      "favorite_primaries": [
+        "mk48_mp",
+        "hamr_mp",
+        "scar_mp"
+      ]
+    },
+    "Snowcap87": {
+      "role": "marksman",
+      "specialty": "none",
+      "tier": "regular",
+      "aggression": 27,
+      "teamwork": 38,
+      "route_preference": "balanced",
+      "favorite_primaries": [
+        "ballista_mp",
+        "dsr50_mp",
+        "svu_mp"
+      ]
+    },
+    "vanta_echo": {
+      "role": "marksman",
+      "specialty": "none",
+      "tier": "experienced",
+      "aggression": 29,
+      "teamwork": 39,
+      "route_preference": "balanced",
+      "favorite_primaries": [
+        "ballista_mp",
+        "dsr50_mp",
+        "svu_mp"
+      ]
+    },
+    "SodaCircuit": {
+      "role": "assault",
+      "specialty": "none",
+      "tier": "experienced",
+      "aggression": 59,
+      "teamwork": 55,
+      "route_preference": "balanced",
+      "favorite_primaries": [
+        "tar21_mp",
+        "an94_mp",
+        "scar_mp"
+      ]
+    },
+    "PepperPilot": {
+      "role": "rusher",
+      "specialty": "none",
+      "tier": "developing",
+      "aggression": 70,
+      "teamwork": 50,
+      "route_preference": "wide",
+      "favorite_primaries": [
+        "mp7_mp",
+        "pdw57_mp",
+        "vector_mp"
+      ]
+    },
+    "nimbus.exe": {
+      "role": "objective",
+      "specialty": "none",
+      "tier": "regular",
+      "aggression": 58,
+      "teamwork": 80,
+      "route_preference": "direct",
+      "favorite_primaries": [
+        "an94_mp",
+        "tar21_mp",
+        "mp7_mp"
+      ]
+    },
+    "SideQuestSam": {
+      "role": "assault",
+      "specialty": "none",
+      "tier": "regular",
+      "aggression": 54,
+      "teamwork": 55,
+      "route_preference": "balanced",
+      "favorite_primaries": [
+        "scar_mp",
+        "tar21_mp",
+        "an94_mp"
+      ]
+    },
+    "mellowMako": {
+      "role": "assault",
+      "specialty": "none",
+      "tier": "regular",
+      "aggression": 58,
+      "teamwork": 64,
+      "route_preference": "balanced",
+      "favorite_primaries": [
+        "tar21_mp",
+        "an94_mp",
+        "scar_mp"
+      ]
+    },
+    "RustedCompass": {
+      "role": "objective",
+      "specialty": "none",
+      "tier": "regular",
+      "aggression": 62,
+      "teamwork": 81,
+      "route_preference": "direct",
+      "favorite_primaries": [
+        "an94_mp",
+        "tar21_mp",
+        "mp7_mp"
+      ]
+    },
+    "FIZZ_23": {
+      "role": "rusher",
+      "specialty": "none",
+      "tier": "experienced",
+      "aggression": 73,
+      "teamwork": 40,
+      "route_preference": "wide",
+      "favorite_primaries": [
+        "pdw57_mp",
+        "vector_mp",
+        "mp7_mp"
+      ]
+    },
+    "tapeDeck": {
+      "role": "support",
+      "specialty": "none",
+      "tier": "experienced",
+      "aggression": 36,
+      "teamwork": 75,
+      "route_preference": "balanced",
+      "favorite_primaries": [
+        "hamr_mp",
+        "scar_mp",
+        "mk48_mp"
+      ]
+    },
+    "ParcelFox": {
+      "role": "rusher",
+      "specialty": "none",
+      "tier": "developing",
+      "aggression": 73,
+      "teamwork": 49,
+      "route_preference": "wide",
+      "favorite_primaries": [
+        "vector_mp",
+        "mp7_mp",
+        "pdw57_mp"
+      ]
+    },
+    "ember-lane": {
+      "role": "objective",
+      "specialty": "none",
+      "tier": "regular",
+      "aggression": 58,
+      "teamwork": 81,
+      "route_preference": "direct",
+      "favorite_primaries": [
+        "mp7_mp",
+        "an94_mp",
+        "tar21_mp"
+      ]
+    },
+    "MostlyMoss": {
+      "role": "support",
+      "specialty": "none",
+      "tier": "regular",
+      "aggression": 37,
+      "teamwork": 75,
+      "route_preference": "balanced",
+      "favorite_primaries": [
+        "scar_mp",
+        "mk48_mp",
+        "hamr_mp"
+      ]
+    }
+  }
+}
