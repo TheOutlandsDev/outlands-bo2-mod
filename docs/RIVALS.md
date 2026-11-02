@@ -1,5 +1,10 @@
 # Persistent AI rivals
 
+The optional [seeded match planner](RIVAL-PLANNER.md) adds stable class
+preferences, bounded tactical variation and role-aware squad selection. Its
+defensive-position experiment is independently gated and requires native tests
+and client acceptance. Exact native roster selection remains engine-owned.
+
 The optional rival system gives the fictional native-bot roster returning
 careers, consistent class roles and richer local chat context. Native combat,
 pathfinding, objectives, human XP and human unlocks remain under BO2.
@@ -38,8 +43,8 @@ aliases. It increases only after the game acknowledges native speech delivery,
 not when the worker submits an RCON packet. Human identities and chat text do
 not enter the persistent career ledger.
 
-The existing short public-chat context remains ephemeral. Native chat requires
-a human in the match; bot-only backend tests do not bypass that rule. Human
+The existing short public-chat context remains ephemeral. Optional ambient
+chat permits bot-only matches when `outlands_chat_without_humans` is enabled. Human
 replies retain priority, conversations end at their explicit two-to-four-line limit, and all rate limits,
 identity checks and off switches remain active. A model outage uses canned chat.
 The model does not control combat or learn a new pathfinder.
