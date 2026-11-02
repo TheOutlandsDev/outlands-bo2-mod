@@ -31,9 +31,13 @@ init()
     level.outlands_native_bots_controller_started = 1;
     apply_native_difficulty();
     start_team_policy();
+    start_extension( "scripts/mp/outlands_loadouts", "native gun and attachment variety" );
+    start_extension( "scripts/mp/outlands_rivals", "seeded rival tendencies" );
+    start_extension( "scripts/mp/outlands_humanize", "bounded combat and guard variation" );
     start_extension( "scripts/mp/outlands_bot_profiles", "class and patrol profiles" );
     start_extension( "scripts/mp/outlands_bot_identity", "cosmetic identities" );
     start_extension( "scripts/mp/outlands_bot_careers", "persistent bot careers" );
+    start_extension( "scripts/mp/outlands_streaks", "earned streak and package support" );
     start_extension( "scripts/mp/outlands_squads", "coordinated objective squads" );
     start_extension( "scripts/mp/outlands_contracts", "match contracts" );
     println( "Outlands native bots: single-owner command fill controller active." );

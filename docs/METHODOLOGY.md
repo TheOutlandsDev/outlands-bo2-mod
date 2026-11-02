@@ -71,8 +71,8 @@ total to avoid a remove/add loop. Configurable idle fill keeps an all-bot match
 running without humans; zero disables idle management and leaves existing bots alone.
 Both settings default on and migrate only when absent from host configuration.
 
-Each mode wrapper resets native defaults before loading its matching mode and
-applying doubled time/score targets. Native objective, overtime and round rules
+Each mode wrapper resets native defaults before loading its matching mode.
+Time and score limits inherit those native settings without overrides. Native objective, overtime and round rules
 remain authoritative. The default rotation lists the base maps plus Nuketown
 2025; operators must supply owned assets for every selected map.
 

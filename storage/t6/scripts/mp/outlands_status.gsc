@@ -82,6 +82,7 @@ watch_portal()
 {
     level endon( "game_ended" );
     wait 6;
+    println( "OUTLANDS_MATCH_LIMITS_V1|" + getdvar( "mapname" ) + "|" + getdvar( "g_gametype" ) + "|" + getgametypesetting( "timelimit" ) + "|" + getgametypesetting( "scorelimit" ) );
     for (;;)
     {
         println( portal_snapshot() );

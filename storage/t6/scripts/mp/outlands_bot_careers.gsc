@@ -128,7 +128,7 @@ emit_snapshot( record, kind )
     if ( !record.hello_sent )
         return;
     record.sequence++;
-    println( event_line( record, record.session + "_" + record.sequence, kind, record.sample ) );
+    scripts\mp\outlands_log::emit( event_line( record, record.session + "_" + record.sequence, kind, record.sample ) );
 }
 
 retire_record( record )
@@ -163,7 +163,7 @@ request_profile( record )
     request.created = gettime();
     level.outlands_careers_pending = request;
     // Retries and refreshes reuse both ID and the original baseline sample.
-    println( event_line( record, record.hello_id, "hello", record.baseline ) );
+    scripts\mp\outlands_log::emit( event_line( record, record.hello_id, "hello", record.baseline ) );
 }
 
 watch_careers()

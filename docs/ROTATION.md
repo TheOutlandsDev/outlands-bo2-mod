@@ -21,7 +21,7 @@ start at weight 1, giving every eligible map one ticket per shuffled deck.
 Map and mode weights accept 0-8; zero disables an entry. Higher values add
 more tickets, increasing long-run frequency. Mode selection has its own deck;
 a map is not permanently tied to one mode. Native gamesettings wrappers reset
-the selected mode's normal doubled limits.
+the selected mode's native BO2 time and score limits.
 
 The director avoids the last five maps and last two modes when eligible tickets
 permit it. If a deck's last tickets are all blocked, it relaxes the oldest recent
@@ -85,7 +85,7 @@ disposable state, equal map weights and a short TDM-only test override. It waits
 for a real normal match end, follows native ACKs through subsequent forced native
 `map_rotate` transitions, then restarts the process and checks saved history.
 Set steps to the number of installed eligible maps; it cannot test absent DLC.
-The production mode weights and doubled limits are not changed by these fixtures.
+The production mode weights and native limits are not changed by these fixtures.
 
 The ambient chat assay uses production idle fill, a real worker in fallback mode,
 native requests and matching native speech ACKs. It does not manually spawn bots

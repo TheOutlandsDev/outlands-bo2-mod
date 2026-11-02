@@ -32,6 +32,7 @@ init()
     level.outlands_chat_observed_contracts = [];
     level.outlands_chat_request_times = [];
     level.outlands_chat_next_request = gettime() + 15000;
+    level.outlands_chat_next_banter = gettime() + 18000;
     setdvar( "outlands_chat_response", "" );
     println( "Outlands chat: local bridge active; native AI speakers, one pending request maximum." );
     level thread watch_public_chat();
@@ -190,7 +191,7 @@ request_chat( kind, speaker, text, parent_id, topic )
     request.turn = 1;
     request.turn_limit = 2;
     request.root_id = request.id;
-    if ( kind == "banter" && randomint( 100 ) < 35 )
+    if ( kind == "banter" && randomint( 100 ) < 65 )
         request.turn_limit = bounded_seconds( "outlands_chat_turn_limit", 4, 2, 4 );
     if ( kind == "bot_reply" )
     {
@@ -217,7 +218,7 @@ request_chat( kind, speaker, text, parent_id, topic )
     bot.outlands_chat_next_request = gettime() + bot_cooldown * 1000;
     level.outlands_chat_request_times[level.outlands_chat_request_times.size] = gettime();
 
-    println( event_line( request, speaker, text, context ) );
+    scripts\mp\outlands_log::emit( event_line( request, speaker, text, context ) );
     return true;
 }
 
@@ -330,14 +331,19 @@ periodic_banter()
     level endon( "game_ended" );
     for (;;)
     {
-        interval = bounded_seconds( "outlands_chat_interval", 60, 30, 600 );
-        wait interval;
-        if ( getdvarint( "outlands_chat_enabled" ) && !isdefined( level.outlands_chat_moment ) )
+        wait 2;
+        if ( !getdvarint( "outlands_chat_enabled" ) || gettime() < level.outlands_chat_next_banter || isdefined( level.outlands_chat_moment ) || isdefined( level.outlands_chat_human_pending ) || isdefined( level.outlands_chat_dialogue_pending ) )
+            continue;
+        topics = array( "squad", "objective", "none", "contract", "none" );
+        topic = topics[level.outlands_chat_topic % topics.size];
+        hint = "A short natural team comment about your current task.";
+        if ( topic == "none" )
+            hint = "Outlands lobby banter. Ask about next-spawn classes or another match. No invented server news.";
+        if ( request_chat( "banter", "match", hint, "", topic ) )
         {
-            topics = array( "squad", "objective", "contract", "none" );
-            topic = topics[level.outlands_chat_topic % topics.size];
             level.outlands_chat_topic++;
-            request_chat( "banter", "match", "A short natural team comment about your current task.", "", topic );
+            interval = bounded_seconds( "outlands_chat_interval", 20, 15, 600 );
+            level.outlands_chat_next_banter = gettime() + interval * 1000;
         }
     }
 }
@@ -416,7 +422,7 @@ accept_response( response )
 
     level.outlands_chat_pending = undefined;
     bot sayall( fields[3] );
-    println( "OUTLANDS_CHAT_ACK_V1|" + request.id + "|" + request.slot + "|" + request.name + "|" + request.kind );
+    scripts\mp\outlands_log::emit( "OUTLANDS_CHAT_ACK_V1|" + request.id + "|" + request.slot + "|" + request.name + "|" + request.kind );
     println( "Outlands chat: native speaker delivered one bounded response. kind=" + request.kind );
     // Only an accepted native delivery can schedule the next numbered turn.
     // The hard limit, shared budgets, current state and human priority apply.
@@ -502,13 +508,20 @@ task_context( bot, topic )
         if ( topic == "contract" && kind != "none" )
             result.topic = topic;
     }
+    // Casual lobby/player replies carry no tactical claims. Unrelated job or
+    // contract changes must not cancel an otherwise current conversation.
+    if ( result.topic == "none" )
+    {
+        role = "none"; target = -1; state = "none"; kind = "none";
+        phase = 0; progress = 0; goal = 0; complete = 0; remaining = 0;
+    }
     result.wire = result.topic + "|" + result.team + "|" + role + "|" + target + "|" + state + "|" + kind + "|" + phase + "|" + progress + "|" + goal + "|" + complete + "|" + remaining;
     if ( result.topic == "contract" )
         result.key = result.topic + "|" + result.team + "|" + kind + "|" + phase + "|" + complete;
     else if ( result.topic == "squad" || result.topic == "objective" )
         result.key = result.topic + "|" + result.team + "|" + role + "|" + target + "|" + state;
     else
-        result.key = result.topic + "|" + result.team + "|" + role + "|" + target + "|" + state + "|" + kind + "|" + phase + "|" + complete;
+        result.key = result.topic + "|" + result.team;
     return result;
 }
 

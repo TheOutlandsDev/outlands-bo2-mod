@@ -268,7 +268,7 @@ class BackendReportTests(unittest.TestCase):
     def test_chat_context_requires_native_topics_guards_and_no_production_speech(self):
         prefix = 'OUTLANDS_CONTEXT_V1|3|Trailblazer|mp_raid|dom|'
         records = '\n'.join(prefix+topic+'|allies|attack|0|enemy|combined_score|1|100|1000|0|45' for topic in ('squad','objective','contract'))
-        guards = '\nOUTLANDS_CHAT_GUARD_V1|rejected\nOUTLANDS_CHAT_GUARD_V1|context_disabled\nOUTLANDS_CHAT_GUARD_V1|team_binding\nOUTLANDS_CHAT_GUARD_V1|stale_assignment\nOUTLANDS_CHAT_PRIMITIVE_V1|sayall'
+        guards = '\nOUTLANDS_CHAT_GUARD_V1|casual_context\nOUTLANDS_CHAT_GUARD_V1|rejected\nOUTLANDS_CHAT_GUARD_V1|context_disabled\nOUTLANDS_CHAT_GUARD_V1|team_binding\nOUTLANDS_CHAT_GUARD_V1|stale_assignment\nOUTLANDS_CHAT_PRIMITIVE_V1|sayall'
         good = records+guards
         case = verify.Case('mp_raid','dom')
         self.assertTrue(verify.assess_chat_context(good,case)['passed'])
@@ -454,6 +454,70 @@ class BackendReportTests(unittest.TestCase):
         # The harness is staged explicitly in disposable state, never the live payload.
         source = (verify.ROOT / 'hosting/entrypoint.py').read_text()
         self.assertNotIn('Path("scripts/mp/outlands_backend_verification.gsc")', source)
+
+
+class RivalReportTests(unittest.TestCase):
+    def fixture(self, enabled=True):
+        aliases=list(verify.rival_profiles())[:16]
+        roster=[{'alias':a,'slot':i,'team':'allies' if i<8 else 'axis'} for i,a in enumerate(aliases)]
+        result=verify.rival_plan(roster,17,'mp_raid','dom')
+        lines=[]
+        if enabled:
+            for b in result['bots']:
+                fields=['OUTLANDS_RIVAL_PLAN_V1','mp_raid','dom',17,b['slot'],b['alias'],b['team'],b['role'],b['specialty'],b['tier'],b['aggression'],b['teamwork'],b['route'],b['commit_seconds'],int(b['standout_active'])]
+                lines.append('|'.join(map(str,fields)))
+                lines.append('OUTLANDS_RIVAL_SPAWN_V1|0|'+str(b['slot'])+'|'+b['alias']+'|class_smg|1|0')
+                if b['slot'] < 4:
+                    lines.append('OUTLANDS_RIVAL_SPAWN_V1|0|'+str(b['slot'])+'|'+b['alias']+'|class_smg|1|1')
+            weight=verify.rival_favorite_weight(verify.rival_profiles()[aliases[0]],'mp7_mp',0)
+            lines.append('OUTLANDS_RIVAL_CLASS_V1|17|0|'+aliases[0]+'|1|class_smg|class_smg:mp7_mp:0:'+str(weight))
+        for tick in range(1,16):
+            m=dict(zip(verify.RIVAL_METRICS,[0,tick,16,16 if enabled else 0,5,0,0,10,5,0,2,tick,16 if enabled else 0,1,0]))
+            lines.append('OUTLANDS_RIVAL_METRICS_V1|'+'|'.join(str(m[k]) for k in verify.RIVAL_METRICS))
+        return '\n'.join(lines)
+
+    def test_native_profile_fields_and_weighted_draw_are_independently_replayed(self):
+        case=verify.Case('mp_raid','dom');text=self.fixture()
+        self.assertTrue(verify.assess_rivals(text,case,True,17)['passed'])
+        self.assertFalse(verify.assess_rivals(text.replace('|1|class_smg|','|1|class_lmg|'),case,True,17)['passed'])
+        self.assertFalse(verify.assess_rivals(text.replace('|Trailblazer|','|Unlisted human|'),case,True,17)['passed'])
+        self.assertFalse(verify.assess_rivals(text,case,True,18)['passed'])
+        self.assertFalse(verify.assess_rivals(text.replace(':mp7_mp:0:12',':mp7_mp:0:4'),case,True,17)['passed'])
+
+    def test_first_life_requires_actual_owned_primary_receipts(self):
+        case=verify.Case('mp_raid','dom');text=self.fixture()
+        self.assertFalse(verify.assess_rivals(text.replace('OUTLANDS_RIVAL_SPAWN_V1','IGNORED_SPAWN'),case,True,17)['passed'])
+        self.assertFalse(verify.assess_rivals(text.replace('|class_smg|1|0','|class_smg|0|0'),case,True,17)['passed'])
+        self.assertFalse(verify.assess_rivals(text.replace('|class_smg|1|0','|class_smg|1|1'),case,True,17)['passed'])
+
+    def test_respawn_class_grants_must_be_independently_observed(self):
+        case=verify.Case('mp_raid','dom');text=self.fixture()
+        self.assertEqual(verify.assess_rivals(text,case,True,17)['native_respawn_classes_verified'],4)
+        missing='\n'.join(x for x in text.splitlines() if not (x.startswith('OUTLANDS_RIVAL_SPAWN_V1|') and x.endswith('|1|1')))
+        self.assertFalse(verify.assess_rivals(missing,case,True,17)['passed'])
+        invalid=text.replace('|class_smg|1|1','|class_smg|0|1')
+        self.assertFalse(verify.assess_rivals(invalid,case,True,17)['passed'])
+
+    def test_baseline_requires_disabled_metadata_and_native_class_variety(self):
+        case=verify.Case('mp_raid','dom');text=self.fixture(False)
+        self.assertTrue(verify.assess_rivals(text,case,False,17)['passed'])
+        self.assertFalse(verify.assess_rivals(self.fixture(),case,False,17)['passed'])
+        self.assertFalse(verify.assess_rivals(text.replace('|16|0|5|','|16|0|1|'),case,False,17)['passed'])
+
+    def test_partial_malformed_or_extra_standouts_cannot_pass(self):
+        case=verify.Case('mp_raid','dom');text=self.fixture()
+        for changed in (text.splitlines()[0], text+'\nOUTLANDS_RIVAL_METRICS_V1|bad', text.replace('|16|16|5|0|0|','|16|16|5|2|0|')):
+            self.assertFalse(verify.assess_rivals(changed,case,True,17)['passed'])
+
+    def test_movement_evidence_requires_native_reachability_and_replayable_cost(self):
+        case=verify.Case('mp_raid','dom');text=self.fixture()
+        cost=verify.rival_position_cost(100000,100000,1,1,12)
+        route='\nOUTLANDS_RIVAL_ROUTE_V1|0|6|4|1|12|1|100000|100000|'+str(cost)+'|0'
+        self.assertTrue(verify.assess_rivals(text+route,case,True,17,True)['passed'])
+        self.assertFalse(verify.assess_rivals(text+route,case,True,17,False)['passed'])
+        self.assertFalse(verify.assess_rivals(text,case,True,17,True)['passed'])
+        self.assertFalse(verify.assess_rivals(text+route.replace('|6|4|','|6|0|'),case,True,17,True)['passed'])
+        self.assertFalse(verify.assess_rivals(text+route.replace('|'+str(cost)+'|','|99999|'),case,True,17,True)['passed'])
 
 
 if __name__ == '__main__':

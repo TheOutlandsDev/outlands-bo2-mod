@@ -35,6 +35,7 @@ def checks() -> list[tuple[str, list[str]]]:
     commands = [
         ("setup_host_release_regressions", python + ["-m", "unittest", "discover", "-s", "tests", "-v"]),
         ("career_chat_contract_regressions", python + ["-m", "unittest", "discover", "-s", "ai/tests", "-v"]),
+        ("ai_preset_catalog", python + ["ai/bot_settings.py"]),
         ("chat_configuration", python + ["ai/bridge.py", "--check"]),
         ("rival_fallback", python + ["ai/benchmark.py", "--mode", "fallback"]),
         ("conversation_fallback", python + ["ai/conversation_benchmark.py", "--mode", "fallback"]),

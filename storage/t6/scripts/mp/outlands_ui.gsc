@@ -155,7 +155,7 @@ command_result( player, domain, action, accepted )
     result = "rejected";
     if ( accepted )
         result = "accepted";
-    println( "OUTLANDS_COMMAND_V1|" + domain + "|" + action + "|" + result );
+    scripts\mp\outlands_log::emit( "OUTLANDS_COMMAND_V1|" + domain + "|" + action + "|" + result );
     if ( accepted )
         return;
     if ( isdefined( player.outlands_command_notice ) && gettime() - player.outlands_command_notice < 2000 )

@@ -1,0 +1,135 @@
+{
+  "schema_version": 1,
+  "default_preset": "mixed",
+  "presets": {
+    "relaxed": {
+      "engine": {
+        "yaw_speed": 0.7,
+        "reaction_min_ms": 800,
+        "reaction_max_ms": 1200
+      },
+      "guard": {
+        "hold_min_ms": 4000,
+        "hold_max_ms": 7000,
+        "travel_timeout_ms": 15000,
+        "min_step_units": 128
+      },
+      "combat": {
+        "developing": {
+          "difficulty": "easy",
+          "converge_ms": 3200,
+          "correction_rate": 3,
+          "aim_error": 32,
+          "smooth_ms": 420
+        },
+        "regular": {
+          "difficulty": "normal",
+          "converge_ms": 2500,
+          "correction_rate": 4,
+          "aim_error": 26,
+          "smooth_ms": 340
+        },
+        "experienced": {
+          "difficulty": "hard",
+          "converge_ms": 2200,
+          "correction_rate": 4,
+          "aim_error": 22,
+          "smooth_ms": 300
+        },
+        "standout": {
+          "difficulty": "hard",
+          "converge_ms": 1900,
+          "correction_rate": 5,
+          "aim_error": 19,
+          "smooth_ms": 260
+        }
+      }
+    },
+    "mixed": {
+      "engine": {
+        "yaw_speed": 0.85,
+        "reaction_min_ms": 650,
+        "reaction_max_ms": 1000
+      },
+      "guard": {
+        "hold_min_ms": 3000,
+        "hold_max_ms": 6000,
+        "travel_timeout_ms": 15000,
+        "min_step_units": 128
+      },
+      "combat": {
+        "developing": {
+          "difficulty": "easy",
+          "converge_ms": 2800,
+          "correction_rate": 3,
+          "aim_error": 28,
+          "smooth_ms": 360
+        },
+        "regular": {
+          "difficulty": "normal",
+          "converge_ms": 2250,
+          "correction_rate": 4,
+          "aim_error": 23,
+          "smooth_ms": 300
+        },
+        "experienced": {
+          "difficulty": "hard",
+          "converge_ms": 1950,
+          "correction_rate": 4,
+          "aim_error": 19,
+          "smooth_ms": 250
+        },
+        "standout": {
+          "difficulty": "hard",
+          "converge_ms": 1750,
+          "correction_rate": 5,
+          "aim_error": 17,
+          "smooth_ms": 220
+        }
+      }
+    },
+    "competitive": {
+      "engine": {
+        "yaw_speed": 1.0,
+        "reaction_min_ms": 450,
+        "reaction_max_ms": 800
+      },
+      "guard": {
+        "hold_min_ms": 2000,
+        "hold_max_ms": 4000,
+        "travel_timeout_ms": 15000,
+        "min_step_units": 128
+      },
+      "combat": {
+        "developing": {
+          "difficulty": "easy",
+          "converge_ms": 2500,
+          "correction_rate": 3,
+          "aim_error": 25,
+          "smooth_ms": 320
+        },
+        "regular": {
+          "difficulty": "normal",
+          "converge_ms": 2000,
+          "correction_rate": 4,
+          "aim_error": 20,
+          "smooth_ms": 260
+        },
+        "experienced": {
+          "difficulty": "hard",
+          "converge_ms": 1700,
+          "correction_rate": 4,
+          "aim_error": 17,
+          "smooth_ms": 230
+        },
+        "standout": {
+          "difficulty": "hard",
+          "converge_ms": 1550,
+          "correction_rate": 5,
+          "aim_error": 16,
+          "smooth_ms": 200
+        }
+      }
+    }
+  }
+}

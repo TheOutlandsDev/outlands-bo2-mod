@@ -132,6 +132,8 @@ reassess()
     players = get_players();
     foreach ( team in teams )
     {
+        if ( ranked_assign( team, attackers, defenders ) )
+            continue;
         ordinal = 0;
         foreach ( player in players )
         {
@@ -146,6 +148,54 @@ reassess()
             ordinal++;
         }
     }
+}
+
+ranked_assign( team, attackers, defenders )
+{
+    if ( !scripts\mp\outlands_rivals::enabled() )
+        return false;
+    players = get_players();
+    foreach ( bot in players )
+    {
+        if ( !isdefined( bot ) || !bot bot_eligible() || bot.team != team )
+            continue;
+        if ( !bot scripts\mp\outlands_rivals::apply_profile() )
+            return false;
+        bot.outlands_rival_assigned_tick = 0;
+    }
+    ordinal = 0;
+    foreach ( duty in array( "attack", "defend" ) )
+    {
+        count = attackers;
+        if ( duty == "defend" ) count = defenders;
+        for ( i = 0; i < count; i++ )
+        {
+            best = undefined;
+            best_score = -100000;
+            foreach ( bot in players )
+            {
+                if ( !isdefined( bot ) || !bot bot_eligible() || bot.team != team || bot.outlands_rival_assigned_tick )
+                    continue;
+                score = bot scripts\mp\outlands_rivals::duty_score( duty );
+                if ( isdefined( score ) && ( score > best_score || score == best_score && isdefined( best ) && bot.outlands_rival_priority < best.outlands_rival_priority ) )
+                {
+                    best = bot;
+                    best_score = score;
+                }
+            }
+            if ( !isdefined( best ) ) break;
+            best.outlands_rival_assigned_tick = 1;
+            best assign( duty, ordinal );
+            ordinal++;
+        }
+    }
+    foreach ( bot in players )
+        if ( isdefined( bot ) && bot bot_eligible() && bot.team == team && !bot.outlands_rival_assigned_tick )
+        {
+            bot assign( "support", ordinal );
+            ordinal++;
+        }
+    return true;
 }
 
 assign( role, ordinal )
@@ -167,6 +217,14 @@ assign( role, ordinal )
     changed = !isdefined( self.outlands_squad_role ) || self.outlands_squad_role != role || !isdefined( self.outlands_squad_team ) || self.outlands_squad_team != self.team || !isdefined( self.outlands_squad_target_id ) || self.outlands_squad_target_id != target_id;
     if ( changed )
     {
+        // A committed position belongs to the exact objective assignment.
+        self.outlands_rival_position_until = 0;
+        if ( scripts\mp\outlands_rivals::enabled() && isdefined( self.outlands_rival_commit ) )
+        {
+            self.outlands_rival_commit_until = gettime() + self.outlands_rival_commit * 1000;
+            if ( !isdefined( self.outlands_squad_role ) || self.outlands_squad_role != role )
+                level.outlands_rival_duty_changes++;
+        }
         self release_goal();
         self.outlands_squad_next_goal = 0;
         self.outlands_squad_goal_valid = 0;
@@ -359,8 +417,9 @@ perimeter_goal()
 {
     if ( !self assignment_valid() )
         return false;
-    // A visible/current native attacker and emergency interactions release duty.
-    if ( isdefined( self.bot.attacker ) )
+    // bot.attacker is last damage history and persists after a fight. Only a
+    // current native combat threat releases this low-priority movement duty.
+    if ( isdefined( self.bot.threat ) && isdefined( self.bot.threat.entity ) )
     {
         self release_goal();
         return false;
@@ -385,6 +444,17 @@ perimeter_goal()
     nodes = getnodesinradiussorted( origin, inner + 384, inner, 128, "Path" );
     if ( !nodes.size )
         return false;
+    candidate = undefined;
+    if ( getdvarint( "outlands_bot_objective_roam" ) )
+        candidate = self scripts\mp\outlands_humanize::roam_node( nodes, origin );
+    else
+        candidate = self scripts\mp\outlands_rivals::perimeter_node( nodes, origin );
+    if ( isdefined( candidate ) )
+    {
+        self addgoal( candidate, 32, 2, "outlands_squad" );
+        self acknowledge_goal( "outlands_squad" );
+        return self.outlands_squad_goal_valid;
+    }
     offset = ( self getentitynumber() ) % nodes.size;
     attempts = nodes.size;
     if ( attempts > 12 )
@@ -444,9 +514,18 @@ patrol_choice()
     }
     if ( level.outlands_squad_mode == "hq" )
     {
-        // Native contention checks still control whether an owned HQ is safe.
-        if ( self.outlands_squad_role == "attack" )
-            return false;
+        // Native patrol is already false for neutral, enemy or contested HQs.
+        // Forcing attackers onto an owned radio instead makes them sit there.
+        if ( native && self.outlands_squad_role == "attack" && getdvarint( "outlands_human_metrics" ) )
+        {
+            if ( !isdefined( self.outlands_hq_patrol_proofs ) ) self.outlands_hq_patrol_proofs = 0;
+            if ( self.outlands_hq_patrol_proofs < 3 )
+            {
+                scripts\mp\outlands_log::emit( "OUTLANDS_HQ_PATROL_V1|" + ( self getentitynumber() ) + "|1|1" );
+                self.outlands_hq_patrol_proofs++;
+            }
+        }
+        return native;
     }
     return native;
 }

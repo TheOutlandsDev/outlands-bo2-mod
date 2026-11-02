@@ -406,6 +406,8 @@ def scoreboard_reply_usable(event, context, line):
     if event.kind != "banter" or event.tactical is not None and event.tactical.topic != "none":
         return True
     focus = scoreboard_focus(context)
+    if event.speaker == "match" and event.text.startswith("Outlands lobby banter."):
+        return True
     if focus != "reset":
         return True
     if re.search(r"\b(?:your|youve|you've)\b",line,re.I):
@@ -418,7 +420,11 @@ def social_fallback(event, context, history):
     choices = []
     text = event.text.lower()
     if event.kind == "bot_reply":
-        if re.search(r"\b(?:rough|deaths|dying|reset|feeding|struggling)\b", text):
+        if re.search(r"\b(?:class|classes|loadout|loadouts|spawn)\b", text):
+            choices = ["Might switch mine up too.", "Try it, see how it feels.", "I'm still figuring mine out.", "Worth trying something different."]
+        elif re.search(r"another match|same lobby|after this match", text):
+            choices = ["I'm up for another round.", "Let's finish this match first.", "Yeah, keep the lobby going.", "Sounds good, run it back."]
+        elif re.search(r"\b(?:rough|deaths|dying|reset|feeding|struggling)\b", text):
             choices = ["Shake it off, next fight.", "Take a breath, then go again.", "We've got more chances.", "No worries, keep at it."]
         elif re.search(r"\b(?:nice|good|clean|done|gg)\b", text):
             choices = ["Nice, keep that going.", "Love to see it.", "That'll do.", "Yeah, feels good."]
@@ -429,6 +435,8 @@ def social_fallback(event, context, history):
     elif event.kind == "reply":
         if re.search(r"\b(?:gg|nice|thanks|good)\b", text):
             choices = ["Cheers, let's keep it going.", "Appreciate it.", "Good stuff.", "Yeah, good games."]
+    elif event.kind == "banter" and event.speaker == "match" and event.text.startswith("Outlands lobby banter."):
+        choices = ["Anyone changing classes next spawn?", "Same lobby after this match?", "Might try something different next spawn.", "Who's up for another match?", "Can't decide what to run next.", "Anyone sticking with their current class?"]
     elif event.kind == "banter":
         choices = {
             "opening": ["Let's see how this one goes.", "Anyone feeling warmed up yet?", "Here we go again.", "Time to find a rhythm."],
@@ -470,7 +478,7 @@ class Generator:
             if squad == "signal_four":
                 context["featured_character"] = {"roster": "Signal Four", "meaning": "Recurring character group, not evidence of current teammates or positions."}
             focus = scoreboard_focus(career_context)
-            if focus is not None and event.kind == "banter":
+            if focus is not None and event.kind == "banter" and not (event.speaker == "match" and event.text.startswith("Outlands lobby banter.")):
                 context["current_match_focus"] = {
                     "opening": "Your own scoreboard is still empty; a brief match opener.",
                     "reset": "Your own deaths exceed kills. React briefly to your rough match, with self-directed humor or a reset.",

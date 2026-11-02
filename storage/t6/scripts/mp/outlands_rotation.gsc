@@ -28,7 +28,7 @@ prepare_next_map()
     {
         if ( !getdvarint( "outlands_rotation" ) )
             return;
-        println( "OUTLANDS_ROTATION_V1|" + nonce + "|" + getdvar( "mapname" ) + "|" + getdvar( "g_gametype" ) );
+        scripts\mp\outlands_log::emit( "OUTLANDS_ROTATION_V1|" + nonce + "|" + getdvar( "mapname" ) + "|" + getdvar( "g_gametype" ) );
         wait 2;
         fields = strtok( getdvar( "outlands_rotation_plan" ), "|" );
         if ( fields.size != 3 || fields[0] != nonce || !contains_value( maps, fields[1] ) || !contains_value( modes, fields[2] ) )
@@ -37,7 +37,7 @@ prepare_next_map()
         setdvar( "sv_maprotationcurrent", entry );
         if ( getdvar( "sv_maprotationcurrent" ) == entry )
         {
-            println( "OUTLANDS_ROTATION_ACK_V1|" + nonce + "|" + fields[1] + "|" + fields[2] );
+            scripts\mp\outlands_log::emit( "OUTLANDS_ROTATION_ACK_V1|" + nonce + "|" + fields[1] + "|" + fields[2] );
             return;
         }
     }

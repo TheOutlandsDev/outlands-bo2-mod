@@ -57,6 +57,21 @@ class DialogueV3Tests(unittest.TestCase):
         self.assertFalse(usable(TASK,'dom','Captured B.',responding=True))
         self.assertFalse(usable(TASK,'dom','Need 2 kills.',responding=True))
 
+    def test_server_lobby_topics_and_replies_stay_contextual_without_news_claims(self):
+        e=replace(event(),tactical=None,text="Outlands lobby banter. Ask about next-spawn classes or another match. No invented server news.")
+        context={"own_public_scoreboard":{"kills":1,"deaths":6,"score":100}}
+        for _ in range(20):
+            line=bridge.social_fallback(e,context,[])
+            self.assertTrue(bridge.scoreboard_reply_usable(e,context,line))
+            self.assertTrue(bridge.model_reply_usable(e,line))
+            self.assertRegex(line.lower(),r"class|spawn|match|lobby|run next")
+            self.assertNotRegex(line.lower(),r"update|admin|restart|release|joined")
+        for previous,expected in (("Anyone changing classes next spawn?",r"mine|try|different"),("Same lobby after this match?",r"round|match|lobby|back")):
+            child=replace(e,kind="bot_reply",text=previous,turn=4)
+            line=bridge.social_fallback(child,{},[])
+            self.assertRegex(line.lower(),expected)
+            self.assertFalse(bridge.is_final_question(line))
+
     def test_rough_scoreboard_banter_rejects_unrelated_model_scene(self):
         e=replace(event(),tactical=None)
         context={"own_public_scoreboard":{"kills":1,"deaths":6,"score":100}}

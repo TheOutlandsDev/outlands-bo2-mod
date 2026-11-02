@@ -425,7 +425,7 @@ emit_request( record )
     customize = 0;
     if ( can_customize( record.player ) )
         customize = 1;
-    println( "OUTLANDS_ARMORY_V3|" + record.session + "|" + record.sequence + "|" + record.command + "|" + record.slot + "|" + record.guid + "|" + level.outlands_armory_epoch + "|" + record.spawn + "|" + allocation( record.player ) + "|" + gettime() + "|" + join_refs( refs ) + "|" + join_refs( groups ) + "|" + unlocked + "|" + customize + "|" + record.revision + "|base1" );
+    scripts\mp\outlands_log::emit( "OUTLANDS_ARMORY_V3|" + record.session + "|" + record.sequence + "|" + record.command + "|" + record.slot + "|" + record.guid + "|" + level.outlands_armory_epoch + "|" + record.spawn + "|" + allocation( record.player ) + "|" + gettime() + "|" + join_refs( refs ) + "|" + join_refs( groups ) + "|" + unlocked + "|" + customize + "|" + record.revision + "|base1" );
 }
 
 uint_text( text )

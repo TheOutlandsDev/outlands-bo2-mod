@@ -65,6 +65,26 @@ assign_profile()
 {
     if ( !self profile_enabled() )
         return;
+    if ( self scripts\mp\outlands_rivals::apply_profile() )
+    {
+        role = self.outlands_rival_role;
+        // Retain the global marksman cap; stable priorities break selection ties.
+        if ( role == "marksman" )
+        {
+            limit = 2;
+            if ( getdvar( "outlands_bot_marksman_limit" ) != "" )
+                limit = getdvarint( "outlands_bot_marksman_limit" );
+            if ( limit < 0 ) limit = 0;
+            if ( limit > 4 ) limit = 4;
+            ahead = 0;
+            foreach ( other in get_players() )
+                if ( isdefined( other ) && other != self && other scripts\mp\outlands_rivals::apply_profile() && other.outlands_rival_role == "marksman" && ( other.outlands_rival_priority < self.outlands_rival_priority || other.outlands_rival_priority == self.outlands_rival_priority && ( other getentitynumber() ) < ( self getentitynumber() ) ) )
+                    ahead++;
+            if ( ahead >= limit ) role = "assault";
+        }
+        self.outlands_profile_role = role;
+        return;
+    }
     career = getdvarint( "outlands_bot_careers" ) && isdefined( self.outlands_career_ready ) && isdefined( self.outlands_career_role ) && !isdefined( self.outlands_career_role_applied );
     if ( isdefined( self.outlands_profile_role ) && !career )
         return;
@@ -168,7 +188,8 @@ profile_class_pool()
         println( "Outlands bot class pool: slot=" + ( self getentitynumber() ) + " role=" + self.outlands_profile_role + " choices=" + choices.size + details );
         self.outlands_profile_pool_logs++;
     }
-    return choices;
+    choices = self scripts\mp\outlands_loadouts::candidate_choices( native, choices );
+    return self scripts\mp\outlands_rivals::class_pool( choices );
 }
 
 class_index( name )

@@ -13,7 +13,7 @@ init()
     level thread watch();
     level thread commands();
     level thread consume();
-    println( "OUTLANDS_ACCOUNT_READY_V1" );
+    scripts\mp\outlands_log::emit( "OUTLANDS_ACCOUNT_READY_V1" );
 }
 
 human( player )
@@ -53,7 +53,7 @@ emit( record, kind )
         record.request = record.session + "_" + record.sequence;
         record.requested = gettime();
     }
-    println( "OUTLANDS_ACCOUNT_V1|" + record.session + "|" + record.sequence + "|" + kind + "|" + record.slot + "|" + record.guid + "|" + xp + "|" + rank + "|" + prestige );
+    scripts\mp\outlands_log::emit( "OUTLANDS_ACCOUNT_V1|" + record.session + "|" + record.sequence + "|" + kind + "|" + record.slot + "|" + record.guid + "|" + xp + "|" + rank + "|" + prestige );
 }
 
 watch()
@@ -125,7 +125,7 @@ consume()
         if ( text == "" )
             continue;
         setdvar( "outlands_account_response", "" );
-        println( "OUTLANDS_ACCOUNT_MAILBOX_V1" );
+        scripts\mp\outlands_log::emit( "OUTLANDS_ACCOUNT_MAILBOX_V1" );
         if ( text.size > 220 )
             continue;
         fields = strtok( text, "|" );
@@ -147,7 +147,7 @@ consume()
             continue;
         // Acknowledge consumption, including an unmatched or duplicate request.
         // Never print the code. Worker retries cannot bypass native ownership.
-        println( "OUTLANDS_ACCOUNT_ACK_V1|" + fields[0] );
+        scripts\mp\outlands_log::emit( "OUTLANDS_ACCOUNT_ACK_V1|" + fields[0] );
         record = level.outlands_account_records[slot];
         if ( !same( record ) || !isdefined( record.request ) || fields[0] != record.request || gettime() - record.requested > 10000 )
             continue;

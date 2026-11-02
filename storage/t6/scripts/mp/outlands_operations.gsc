@@ -346,7 +346,7 @@ finish()
         if ( !same_human( record ) || !record.restored )
             continue;
         record.sequence++;
-        println( "OUTLANDS_OP_V1|" + record.session + "|" + record.sequence + "|snapshot|" + record.slot + "|" + record.guid + "|" + int( record.player.kills ) + "|" + record.objective + "|" + record.support + "|none" );
+        scripts\mp\outlands_log::emit( "OUTLANDS_OP_V1|" + record.session + "|" + record.sequence + "|snapshot|" + record.slot + "|" + record.guid + "|" + int( record.player.kills ) + "|" + record.objective + "|" + record.support + "|none" );
     }
 }
 

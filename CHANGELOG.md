@@ -1,6 +1,49 @@
 # Changelog
 
-## Unreleased — cooperative lobbies, grounded task chat, squads, contracts and rivals
+## 0.1.3 — Stable gameplay baseline
+
+- Restore native BO2 time and score settings for all eight supported modes and
+  add anonymous per-map readbacks. Wrappers take effect on the next map load.
+- Document a reproducible hosting profile with native Hard combat, cooperative
+  8v8 filling, rivals, valid class variety, squads, contracts and bounded chat.
+  Keep humanization and both positioning experiments disabled by default.
+- Add update, validation and rollback procedures; retain source-only packaging,
+  private-state exclusion and the existing Windows local-play tutorial.
+- Keep optional accounts, native HUDs and Armory previews behind their separate
+  enablement and acceptance gates. Native player saves are not transferred.
+
+### Included systems and experimental controls
+
+- Add opt-in disposable native AI quality measurements and strict evidence checks for combat, objective-zone presence and navigation tuning.
+
+- Add optional bot-only native primary diversity, bounded class exploration and
+  avoidance of repeated weapon/attachment setups. Keep the native unlocked pool,
+  attachment compatibility and Pick-10 allocation; independently compare full
+  requested and carried variants after real respawns.
+
+- Introduce a modular Outlands AI Director candidate with strict portable
+  relaxed/mixed/competitive presets and a generated native catalog. Add opt-in
+  owner-notified care-package retrieval and later-in-life charged supply-marker
+  deployment. Keep native earning, interaction and reward rules. Increase bounded
+  contextual dialogue opportunities and add grounded lobby/class conversation.
+  These are development candidates pending isolated and player acceptance.
+
+- Preserve native safe-owned Headquarters patrol for attackers, instead of
+  keeping them at the radio. Prototype opt-in native combat tiers, bounded
+  accepted-target aim filtering and short arrived guard holds. Keep native
+  target/fire/navigation authority and human saves unchanged; add independent
+  native receipts and separate baseline/candidate verification. Client feel
+  remains a playtest gate.
+
+- Add an opt-in observed-roster rival planner with stable fictional preferences,
+  bounded seeded match tendencies, native class-pool weighting, one active
+  standout specialty per eligible team and role-aware squad commitments.
+  Apply valid native class choices within each spawn window, independently
+  verify carried primaries on first lives and respawns, and retain bounded
+  inventory diagnostics. Add native/portable decision replay and movement metrics.
+  Separately gate a reachable defensive-position experiment on three maps with
+  teammate spacing and expiring personal danger. Native names, combat, aim,
+  pathfinding and human progression remain engine-owned; client feel is pending.
 
 - Confirm native account mailbox consumption before sending another response.
   Retry the same one-use code with bounded age/attempts, cancel stale work on
