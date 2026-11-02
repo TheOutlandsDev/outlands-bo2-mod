@@ -5,6 +5,10 @@ normal earned rank and weapon progression. Linux and Windows clients use
 Plutonium LAN mode and connect directly to the private host. No Plutonium
 server key is needed for this LAN path.
 
+The [stable gameplay baseline](docs/STABLE-BASELINE.md) documents the hosting
+settings, native match limits and update/rollback procedure for version 0.1.3.
+Experimental combat and positioning controls remain disabled by default.
+
 The source provides native bot filling, configurable identities and class roles,
 optional local Ollama chat, and client setup helpers. See the
 [implementation methodology](docs/METHODOLOGY.md) for architecture and
@@ -211,6 +215,10 @@ availability, lock-on, damage and ground combat stay authoritative. Set the dela
 to `0` and chance to `100` to restore stock target selection. This feature uses
 the bot profile module; disabling profiles also bypasses its air-target gate.
 
+## Configurable Outlands AI Director preview
+
+A modular development candidate adds validated combat presets, varied actual skill tiers, filtered native combat aiming, shorter defensive holds and owner-only care-package support. It builds on the existing rivals, squads, contracts and contextual chat. Read [settings, capability limits and isolated verification](docs/BOT-HUMANIZATION.md) before enabling modules. Backend receipts and client feel are separate acceptance gates; this preview does not include a live admin settings GUI.
+
 ## Custom AI development update
 
 The working source adds five bot class roles: rushers favor SMGs/shotguns,
@@ -286,18 +294,12 @@ gamesettings wrapper. Adjust map/mode weights in the private
 `sv_maprotation` in the private CFG remains the fallback when the director is off. Difficulty changes take effect through fresh map
 initialization, including native combat tuning.
 
-All eight wrappers double the baseline time and score targets:
-
-| Mode | Time limit (minutes) | Score limit |
-| --- | ---: | ---: |
-| Team Deathmatch (`tdm`) | 20 | 200 |
-| Free-for-All (`dm`) | 20 | 60 |
-| Kill Confirmed (`conf`) | 20 | 150 |
-| Capture the Flag (`ctf`) | 10 | 6 |
-| Demolition (`dem`) | 5 | 4 |
-| Domination (`dom`) | 10 | 200 |
-| Headquarters (`hq`) | 30 | 500 |
-| Hardpoint (`koth`) | 20 | 500 |
+All eight wrappers inherit the native BO2 time and score limits from
+`gamesettings_default.cfg` and the matching `gamesettings_<mode>.cfg`.
+For example, native Team Deathmatch runs for 10 minutes with a 75-kill limit.
+The server prints `OUTLANDS_MATCH_LIMITS_V1` after each map initializes so
+operators can verify the actual time and score settings. Changes to these
+wrappers take effect on the next map load, without altering the active match.
 
 These limits follow each mode's native timer and round structure. CTF overtime
 and Demolition bomb/round rules can end rounds independently of the score cap.
@@ -313,7 +315,7 @@ Bot Warfare adapter.
 
 ## CI and development releases
 
-Version 0.1.2 is a development preview. The configured GitHub Actions pipeline
+Version 0.1.3 records the stable gameplay baseline as a development preview. The configured GitHub Actions pipeline
 checks Linux setup/hosting/chat code, Bash syntax, and Windows PowerShell parsing
 with synthetic client fixtures. Packaging waits for both platform jobs, then
 produces an allowlisted source ZIP and `SHA256SUMS`. Version-matching `v*` tags
