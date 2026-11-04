@@ -76,6 +76,15 @@ map initialization, `OUTLANDS_MATCH_LIMITS_V1` records the map, mode, time and s
 readbacks without player identifiers. Config changes take effect at map load;
 the active round does not need to be interrupted.
 
+For container hosting, updating persistent CFG files or changing a Compose image
+reference alone does not update an already-created container. On its next start,
+the entrypoint copies mode wrappers and scripts from that container's immutable
+image into persistent storage. An older image can therefore restore older limits.
+After validating a candidate, recreate only the game service at an agreed idle or
+match boundary using the pinned image. Confirm the running image ID, installed
+wrapper hashes and fresh native limit receipts. Include a disposable process
+restart in acceptance so a one-time volume patch cannot pass as a durable fix.
+
 ## Update and rollback
 
 1. Use a versioned source archive and verify `SHA256SUMS`. Preserve the previous
@@ -105,3 +114,7 @@ disposable servers. Compare native metrics across maps and seeds, monitor CPU
 and memory, then obtain client gameplay acceptance before promotion. Compilation,
 kills, movement counters or an HTTP health response alone do not demonstrate an
 improvement. Preserve this version as the rollback checkpoint.
+
+The [native armory expansion draft](ARMORY-EXPANSION-DRAFT.md) records proposed
+weapons, camo mastery, repeatable careers and native-menu integration. It is not
+implemented content. See [DLC readiness](DLC-READINESS.md) before adding maps.

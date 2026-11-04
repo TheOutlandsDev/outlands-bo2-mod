@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — documentation and release-source update
+
+- Record the one-weapon, one-camo, one-challenge Armory expansion as a design
+  draft with separate backend and client acceptance gates.
+- Document the current DLC map asset gap and the checks needed before a map
+  enters rotation. No DLC assets are distributed in the source release.
+- Explain why container recreation and a native restart check are required to
+  keep vanilla match limits after host restarts.
+
 ## 0.1.3 — Stable gameplay baseline
 
 - Restore native BO2 time and score settings for all eight supported modes and

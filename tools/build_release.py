@@ -34,6 +34,8 @@ DOC_FILES = {"VALIDATION.md", "RELEASING.md", "WINDOWS.md", "METHODOLOGY.md", "R
 DOC_FILES.add("RIVAL-PLANNER.md")
 DOC_FILES.add("BOT-HUMANIZATION.md")
 DOC_FILES.add("STABLE-BASELINE.md")
+DOC_FILES.add("ARMORY-EXPANSION-DRAFT.md")
+DOC_FILES.add("DLC-READINESS.md")
 WORKFLOW_FILES = {"ci.yml", "release.yml"}
 STORAGE_FILES = {"storage/t6/outlands_t6.cfg", "storage/t6/gamesettings/outlands_tdm.cfg",
                  "storage/t6/gamesettings/outlands_dm.cfg", "storage/t6/gamesettings/outlands_ctf.cfg",
