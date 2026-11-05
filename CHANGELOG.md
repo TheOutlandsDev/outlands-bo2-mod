@@ -2,6 +2,8 @@
 
 ## Unreleased — documentation and release-source update
 
+- Set stock BO2 menu integration as the player-facing target for Outlands
+  equipment, camos, challenges and career views, with client acceptance gates.
 - Gate DLC rotation on a private, hash-bound acceptance record backed by
   isolated native observations for every enabled mode. Missing or changed
   packages fail closed; the existing 15-map base rotation remains eligible.
