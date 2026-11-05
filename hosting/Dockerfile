@@ -27,6 +27,8 @@ COPY --from=game ["/t6mp.exe", "/t6sp.exe", "/binkw32.dll", "/steam_api.dll", "/
 COPY --chown=10001:10001 storage/ /opt/t6/mod/storage/
 COPY --chmod=755 hosting/entrypoint.py /opt/t6/entrypoint.py
 COPY hosting/rotation.py /opt/t6/rotation.py
+COPY hosting/dlc_gate.py /opt/t6/dlc_gate.py
+COPY tools/content_inventory.py /opt/t6/content_inventory.py
 COPY --chmod=755 hosting/healthcheck.py /opt/t6/healthcheck.py
 COPY --chmod=755 hosting/store_key.py /opt/t6/store_key.py
 

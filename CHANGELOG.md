@@ -2,6 +2,9 @@
 
 ## Unreleased — documentation and release-source update
 
+- Gate DLC rotation on a private, hash-bound acceptance record backed by
+  isolated native observations for every enabled mode. Missing or changed
+  packages fail closed; the existing 15-map base rotation remains eligible.
 - Record the one-weapon, one-camo, one-challenge Armory expansion as a design
   draft with separate backend and client acceptance gates.
 - Document the current DLC map asset gap and the checks needed before a map

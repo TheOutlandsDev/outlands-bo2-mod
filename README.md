@@ -285,9 +285,9 @@ to check source rotation assets before hosting. The inventory distinguishes paid
 DLC and separately discovered Zombies files without distributing either.
 
 The [weighted rotation](docs/ROTATION.md) catalogs all 31 multiplayer maps,
-including all four DLC packs. Container hosting selects only installed maps;
-missing DLC is excluded until its owned files are supplied and the private image
-is rebuilt. Equal map weights give complete shuffled-deck coverage, recent-map
+including all four DLC packs. Container hosting selects installed base maps;
+DLC additionally needs a private acceptance record for the compiled packages
+and isolated native tests of every enabled mode. Equal map weights give complete shuffled-deck coverage, recent-map
 protection and saved history across restarts. The static fallback covers the
 fourteen base maps plus Nuketown. Clients need the selected content too.
 

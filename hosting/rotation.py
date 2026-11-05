@@ -1,7 +1,7 @@
 """Weighted map decks, native next-map transport and private restart history.
 
-Only catalogued, nonempty main fastfiles are eligible. Presence is not a
-full install or client ownership check. No game assets or player data are read.
+Base maps require catalogued, nonempty main fastfiles. DLC also requires a
+private, hash-bound native acceptance record for every enabled mode.
 """
 from __future__ import annotations
 
@@ -45,11 +45,18 @@ def load_catalog(path):
     return data
 
 
-def installed_maps(catalog, game):
+def installed_maps(catalog, game, acceptance_path=None):
+    try:
+        from hosting.dlc_gate import DLC_MAPS, accepted_maps
+    except ImportError:  # Flat /opt/t6 layout in the private game image.
+        from dlc_gate import DLC_MAPS, accepted_maps
     def present(path):
         return not path.is_symlink() and path.is_file() and path.stat().st_size > 0
+    modes = {key for key, weight in catalog['modes'].items() if weight}
+    approved = accepted_maps(acceptance_path, game, modes) if acceptance_path else set()
     return {key: row['weight'] for key, row in catalog['maps'].items()
-            if row['weight'] and present(Path(game) / 'zone/all' / (key + '.ff'))}
+            if row['weight'] and (key not in DLC_MAPS or key in approved)
+            and present(Path(game) / 'zone/all' / (key + '.ff'))}
 
 
 def rotation_entry(map_name, mode):
@@ -96,11 +103,11 @@ class Rotation:
     """One game process owns this state under the host's existing volume lock."""
     def __init__(self, catalog, game, state, secret='', port=4977, rng=None, send=None):
         self.catalog = load_catalog(catalog)
-        self.maps = installed_maps(self.catalog, game)
+        self.path = Path(state)
+        self.maps = installed_maps(self.catalog, game, self.path.parent / 'dlc_acceptance.json')
         self.modes = {key: value for key, value in self.catalog['modes'].items() if value}
         if not self.maps:
             raise ValueError('No installed maps in weighted rotation')
-        self.path = Path(state)
         self.secret, self.port = secret, port
         self.rng = rng or random.SystemRandom()
         self.send = send or self.send_native

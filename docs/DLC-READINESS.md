@@ -37,6 +37,18 @@ Keep commercial game content outside the public repository and source releases.
    bot population, movement and increasing combat/objective counters.
 4. Exercise supported modes and a normal map transition. Confirm weighted deck
    eligibility, recent-map protection and preserved native time/score limits.
+   The new fail-closed gate requires passing `hosting/backend_verify.py` reports
+   for **every enabled mode on each proposed map**. Prepare a private candidate
+   JSON mapping each map ID to its complete reviewed list of required compiled
+   package paths, including the main `.ff` and relevant texture/sound packages.
+   Use `python3 -B -m hosting.dlc_gate --game-dir GAME --candidate CANDIDATE.json
+   --report REPORT.json --catalog storage/t6/outlands_rotation.json
+   --output dlc_acceptance.json`, repeating `--report` for all isolated runs.
+   Copy the resulting private file into `/data/private/` only after reviewing
+   the native results and confirming the running image contains those same files.
+   This is an operator acceptance record, not proof of asset ownership or client
+   rendering. A changed package hash or newly enabled, untested mode revokes
+   rotation eligibility until fresh acceptance is generated.
 5. Promote only accepted content, preserving private configuration and saves.
    Keep the previous image for rollback and respect connected players.
 6. Have real clients with matching content join. Inspect geometry, collision,
