@@ -26,6 +26,7 @@ HOST_FILES = {"quality_probe.gsc", "quality_verify.py", "human_verify.py", "READ
 AI_FILES = {"README.md", "Dockerfile", "Modelfile", "bridge.py", "tests/test_bridge.py", "armory.py", "tests/test_armory.py", "armory_native.py", "tests/test_armory_native.py",
             "config.example.json", "personalities.json", "careers.py", "tests/test_careers.py", "benchmark.py", "tactics.py", "tests/test_tactics.py", "operations.py", "conversation_benchmark.py", "tests/test_operations.py", "tests/test_dialogue_v3.py"}
 AI_FILES |= {"bot_settings.py", "bot_settings.json", "tests/test_bot_settings.py", "rivals.py", "rival_profiles.json", "tests/test_rivals.py"}
+AI_FILES |= {"camo_challenge.py", "tests/test_camo_challenge.py"}
 TOOL_FILES = {"build_release.py", "client_settings.py", "install_files.py", "play_lan_windows.ps1",
               "preflight.py", "setup_client.py", "windows_client.ps1", "content_inventory.py", "contract_rules.py", "validate_system.py"}
 TEST_FILES = {"test_quality_verify.py", "test_loadout_verify.py", "test_streak_verify.py", "test_human_verify.py", "test_client_setup.py", "test_host_setup.py", "test_host_state.py", "test_release.py",
