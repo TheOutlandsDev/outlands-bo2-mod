@@ -6,13 +6,16 @@ maps. The mod distributes no game files. Both host and connecting clients need
 their own installed content. Zombies maps belong to a separate game/server and
 are not multiplayer rotation entries.
 
-The Linux container's rotation director filters `outlands_rotation.json` against
-nonempty main map fastfiles in the private game image. Missing, empty, linked
-or zero-weight maps are excluded. Presence is only an eligibility check, not
-proof of supporting assets, ownership or runtime loadability. After installing
-owned DLC into the game folder, rebuild the private game image and restart the
-server. Files added outside the image do not update an already-built image.
-Verify a matching client installation before putting new DLC into use.
+The Linux container's rotation director filters base maps against nonempty main
+map fastfiles in the private game image. DLC maps additionally need the private
+`/data/private/dlc_acceptance.json` gate: every enabled mode must have a passing
+isolated native receipt, and the compiled packages listed in that gate must
+still match their SHA-256 hashes in the running image. Missing, changed, linked,
+zero-weight or unaccepted DLC maps are excluded. The gate fails closed; a main
+`.ff` alone never enables DLC. This is still not a client ownership or rendering
+test. Rebuild the private image after installing owned content, generate the
+acceptance against that exact image's files, and test a matching client before
+promoting it. Files added outside an existing image do not update that image.
 
 ## Weights and repeat protection
 
