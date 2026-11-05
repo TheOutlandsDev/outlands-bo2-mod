@@ -22,14 +22,14 @@ HOST_FILES = {"quality_probe.gsc", "quality_verify.py", "human_verify.py", "READ
               "compose.smoke.yaml", "compose.ai.yaml", "compose.dockhand.yaml",
               "compose.dockhand.ai.yaml", "manage.sh", "docker.sh", "entrypoint.py",
               "healthcheck.py", "store_key.py", "prepare_package.py", "setup_host.py", "export_invite.py",
-              "backend_verify.py", "verification.gsc", "rotation.py", "rotation_verify.py", "compose.portal.yaml", "compose.accounts.yaml", "account_verify.py"}
+              "backend_verify.py", "verification.gsc", "rotation.py", "rotation_verify.py", "dlc_gate.py", "compose.portal.yaml", "compose.accounts.yaml", "account_verify.py"}
 AI_FILES = {"README.md", "Dockerfile", "Modelfile", "bridge.py", "tests/test_bridge.py", "armory.py", "tests/test_armory.py", "armory_native.py", "tests/test_armory_native.py",
             "config.example.json", "personalities.json", "careers.py", "tests/test_careers.py", "benchmark.py", "tactics.py", "tests/test_tactics.py", "operations.py", "conversation_benchmark.py", "tests/test_operations.py", "tests/test_dialogue_v3.py"}
 AI_FILES |= {"bot_settings.py", "bot_settings.json", "tests/test_bot_settings.py", "rivals.py", "rival_profiles.json", "tests/test_rivals.py"}
 TOOL_FILES = {"build_release.py", "client_settings.py", "install_files.py", "play_lan_windows.ps1",
               "preflight.py", "setup_client.py", "windows_client.ps1", "content_inventory.py", "contract_rules.py", "validate_system.py"}
 TEST_FILES = {"test_quality_verify.py", "test_loadout_verify.py", "test_streak_verify.py", "test_human_verify.py", "test_client_setup.py", "test_host_setup.py", "test_host_state.py", "test_release.py",
-              "test_windows_client.ps1", "test_backend_verify.py", "test_content_inventory.py", "test_contract_rules.py", "test_system_validation.py", "test_rotation.py", "test_portal.py", "test_accounts.py", "test_account_service.py", "test_account_agent.py", "test_google_login.py"}
+              "test_windows_client.ps1", "test_backend_verify.py", "test_content_inventory.py", "test_contract_rules.py", "test_system_validation.py", "test_rotation.py", "test_dlc_gate.py", "test_portal.py", "test_accounts.py", "test_account_service.py", "test_account_agent.py", "test_google_login.py"}
 DOC_FILES = {"VALIDATION.md", "RELEASING.md", "WINDOWS.md", "METHODOLOGY.md", "RIVALS.md", "SQUADS-CONTRACTS.md", "OPERATIONS.md", "UI-VALIDATION.md", "UI.md", "ARMORY.md", "ROTATION.md", "COMMANDS.md", "PORTAL.md", "ACCOUNTS.md"}
 DOC_FILES.add("RIVAL-PLANNER.md")
 DOC_FILES.add("BOT-HUMANIZATION.md")
