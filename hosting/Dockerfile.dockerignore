@@ -6,3 +6,8 @@ hosting/**
 !hosting/entrypoint.py
 !hosting/healthcheck.py
 !hosting/store_key.py
+!hosting/rotation.py
+!hosting/dlc_gate.py
+!tools/
+tools/**
+!tools/content_inventory.py
