@@ -3,8 +3,9 @@
 Status: research and proposed acceptance gates; no imported content implemented.
 The first portable challenge-rule preview is source-only and has no native event
 adapter, menu, camo asset, equipment grant or live server deployment.
-Priority: restore durable vanilla match limits and validate installed DLC maps
-before beginning this expansion. Preserve the stable combat controller.
+Priority: preserve the restored vanilla match limits and validate installed DLC
+maps before expanding the live content rotation. Preserve the stable combat
+controller.
 
 ## Intended experience
 
@@ -13,16 +14,45 @@ flow. Add weapons gradually without replacing existing weapons, camos or earned
 progression. A matching client content package will be necessary; server-side
 scripts alone cannot supply new rendered weapon assets.
 
-## Proposed first milestone
+## Player-facing menu decision
 
-One imported weapon, one original Outlands camo, one gameplay challenge. The
+The shipping experience should use BO2's normal menu navigation and visual
+language, with Outlands entries where players already expect them:
+
+- Create-a-Class: owned weapons, attachments and camos beside stock choices,
+  each with a preview, lock reason and equip action.
+- Barracks/Challenges: Outlands career, weapon mastery and earned rewards.
+- After-action report: verified challenge progress and unlock notifications.
+- In-match class selection: edit a future spawn only if a client-side menu hook
+  can preserve stock input, class validation and the current life's inventory.
+
+This is a client-menu integration target, not a claim that the existing GSC HUD
+editor implements those screens. The HUD and Tailscale portal can remain optional
+development and account views; they cannot substitute for Create-a-Class
+acceptance. Menu presentation should read versioned Outlands catalog and progress
+data. The trusted server remains authoritative for kills, unlocks and equipment
+grants, and native BO2 saves remain untouched until a separately verified format
+and migration path exists.
+
+Prove one stock-weapon Outlands Dusk camo entry first: a locked preview in the
+normal class flow, progress from native server-observed gameplay, an equip choice,
+restart persistence and matching appearance on a second client. Backend tests
+can validate the catalog, ownership and event rules, but cannot establish that
+T6 loads the client menu hook, that stock controllers work, or that an original
+asset replicates. If the hook or representation fails, keep this feature gated
+and continue using the stable stock menus; do not simulate it with save edits.
+
+## Subsequent imported-weapon milestone
+
+After the stock-weapon camo proof, add one imported weapon using the same
+menu, asset and award boundaries. The
 COD4 M40A3 is a candidate because a public T6 port provides a concrete reference;
 its compatibility, reuse terms and save behavior have not been accepted here.
 
 1. Reach the weapon and camo through Create-a-Class.
 2. Display the preview, locked requirement and challenge progress.
-3. Earn the camo using native server-observed eligible gameplay. A provisional
-   challenge is 25 headshots with this weapon; final eligibility is undecided.
+3. Earn the camo using native server-observed eligible gameplay. The current
+   AN-94 rule is only a backend preview; imported-weapon eligibility is undecided.
 4. Equip it, restart the client and server, and retain the selection.
 5. Confirm a second client sees the correct world model and camo, while stock
    weapons, camos, attachments, class selections and progression remain intact.
