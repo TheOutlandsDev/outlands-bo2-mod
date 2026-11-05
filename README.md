@@ -12,7 +12,9 @@ Experimental combat and positioning controls remain disabled by default.
 The [DLC readiness guide](docs/DLC-READINESS.md) explains the asset and client
 checks required before enabling additional maps. The [Armory expansion draft](docs/ARMORY-EXPANSION-DRAFT.md)
 records a proposed first weapon, camo and challenge with separate backend and
-client acceptance gates. Neither document marks new content as playable.
+client acceptance gates. A source-only first camo challenge-rule preview has
+synthetic backend tests but is not wired to gameplay or a client menu. Neither
+document marks new content as playable.
 
 The source provides native bot filling, configurable identities and class roles,
 optional local Ollama chat, and client setup helpers. See the

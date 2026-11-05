@@ -1,6 +1,8 @@
 # Outlands native armory expansion — design draft
 
 Status: research and proposed acceptance gates; no imported content implemented.
+The first portable challenge-rule preview is source-only and has no native event
+adapter, menu, camo asset, equipment grant or live server deployment.
 Priority: restore durable vanilla match limits and validate installed DLC maps
 before beginning this expansion. Preserve the stable combat controller.
 
@@ -37,6 +39,27 @@ native validation, stat schemas and network representation are research gates.
   and persistent selections. Existing native BO2 saves remain separate.
 - OpenAssetTools: pinned asset conversion/build pipeline and dependency checks.
 - Rust: optional installer tooling; not a prerequisite for the prototype.
+
+## First challenge-rule preview
+
+`ai/camo_challenge.py` provides a small, portable proof of the award boundary.
+It uses the stock AN-94 (`an94_mp`) and an original reserved Outlands Dusk camo
+ID, not the proposed imported weapon. The preview requires 25 confirmed enemy
+headshot kills by a human with that weapon. It accepts only events supplied by a
+trusted server adapter with a private salted player key, a session and monotonic
+event sequence. Browser requests, chat, scoreboard totals and client assertions
+must never become award evidence. There is no such native adapter yet.
+
+The rule records progress and event receipts in an owned private file using an
+atomic replacement. Duplicate native events count once; changed replays and
+ineligible kills do not advance. The file stores only hashed player keys and
+event receipts, not game identities. A single writer is required until a real
+service or transactional store owns the ledger. Tests use synthetic trusted
+events to check eligibility, idempotence, restart persistence, player separation,
+tampered state and interrupted writes. They do not prove a visible or equippable
+camo, native event provenance, multi-server synchronization or multiplayer
+appearance. The source release includes the rule and tests; it does not add
+anything to BO2 saves or a deployed server.
 
 The existing Armory supports a bounded base-class subset. Its HUD editor and
 backend rules do not establish native Create-a-Class support for imported guns,
