@@ -5,6 +5,9 @@
 - Gate DLC rotation on a private, hash-bound acceptance record backed by
   isolated native observations for every enabled mode. Missing or changed
   packages fail closed; the existing 15-map base rotation remains eligible.
+- Add a source-only Outlands Dusk camo challenge-rule preview for the stock AN-94.
+  Synthetic backend tests cover eligibility, deduplication and private durable
+  progress; no native adapter, menu, camo asset or live award is included.
 - Record the one-weapon, one-camo, one-challenge Armory expansion as a design
   draft with separate backend and client acceptance gates.
 - Document the current DLC map asset gap and the checks needed before a map
