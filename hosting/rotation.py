@@ -68,7 +68,7 @@ def rotation_entry(map_name, mode):
 def draw(weights, remaining, history, window, rng):
     """Draw a weighted ticket without replacement; relax only if exhausted.
 
-    Every enabled map has tickets in each complete deck. A five-map hard recent
+    Every enabled map has tickets in each complete deck. A configured hard recent
     window applies whenever a remaining ticket permits it. At a constrained deck
     boundary the oldest exclusion relaxes first, retaining no immediate repeat
     whenever at least two maps are enabled. Unused tickets are never discarded.

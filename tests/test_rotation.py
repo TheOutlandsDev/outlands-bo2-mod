@@ -25,14 +25,31 @@ class DeckTests(unittest.TestCase):
         weights = {str(i): 1 for i in range(31)}
         rng = random.Random(123)
         history, deck = [], {}
+        recent = load_catalog(CATALOG)['recent_maps']
         for turn in range(3100):
-            selected, deck, window = draw(weights, deck, history, 5, rng)
+            selected, deck, window = draw(weights, deck, history, recent, rng)
             self.assertNotEqual(selected, history[-1] if history else None)
             self.assertNotIn(selected, history[-window:] if window else [])
+            self.assertEqual(window, min(recent, len(weights) - 1))
             history.append(selected)
             deck[selected] -= 1
             if turn % 31 == 30:
                 self.assertEqual(set(history[-31:]), set(weights))
+
+    def test_base_pool_keeps_ten_other_maps_between_repeats(self):
+        weights = {str(i): 1 for i in range(15)}
+        history, deck = [], {}
+        rng = random.Random(20261108)
+        recent = load_catalog(CATALOG)['recent_maps']
+        self.assertEqual(recent, 10)
+        for turn in range(1500):
+            selected, deck, window = draw(weights, deck, history, recent, rng)
+            self.assertEqual(window, recent)
+            self.assertNotIn(selected, history[-recent:])
+            history.append(selected)
+            deck[selected] -= 1
+            if turn % 15 == 14:
+                self.assertEqual(set(history[-15:]), set(weights))
 
     def test_weighted_decks_follow_ticket_ratios_without_starvation(self):
         weights = {str(i): 1 + (i % 3) for i in range(15)}

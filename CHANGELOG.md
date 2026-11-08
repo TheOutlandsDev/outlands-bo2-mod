@@ -2,6 +2,11 @@
 
 ## Unreleased — documentation and release-source update
 
+- Extend the default recent-map exclusion from five to ten matches while
+  retaining the weighted no-replacement deck. Document the private-catalog
+  update needed on existing hosts.
+- Record a private compiled-DLC candidate with all 16 multiplayer map packages
+  and the native/client acceptance gates. No commercial game files enter source.
 - Set stock BO2 menu integration as the player-facing target for Outlands
   equipment, camos, challenges and career views, with client acceptance gates.
 - Gate DLC rotation on a private, hash-bound acceptance record backed by

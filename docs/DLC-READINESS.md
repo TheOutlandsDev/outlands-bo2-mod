@@ -6,8 +6,8 @@ Catalog membership does not mean the map is installed or tested.
 
 ## Current backend investigation
 
-The inspected host contains the 15 base/bonus main fastfiles. The 16 DLC main
-fastfiles are absent from the installed game and the game image.
+The inspected live host contains the 15 base/bonus main fastfiles. The 16 DLC
+main fastfiles are absent from its installed game and running image.
 
 An inspected extracted DLC archive has source recipes for all 16 maps but no
 compiled `.ff`, `.ipak`, `.sabs` or `.sabl` packages. For example, Studio's recipe
@@ -17,6 +17,14 @@ through the currently documented OAT asset import support.
 
 Do not install these dumps as replacement map packages, or mark their maps ready
 because extraction logs have no errors. Do not add missing maps to the live deck.
+
+A separate, privately held full-game archive has been inventoried: it contains
+the 16 compiled DLC main and English locale fastfiles, all four DLC texture
+packages, per-map sound banks, and additional DLC faction packages. The 91
+packages missing from the live game were CRC-checked while staging into a
+private candidate image. This establishes a usable backend test input, not
+native map/mode acceptance or client compatibility. The running image and live
+DLC eligibility remain unchanged until the checks below pass.
 
 ## Required inputs
 
