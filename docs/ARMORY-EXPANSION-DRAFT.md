@@ -42,6 +42,35 @@ T6 loads the client menu hook, that stock controllers work, or that an original
 asset replicates. If the hook or representation fails, keep this feature gated
 and continue using the stable stock menus; do not simulate it with save edits.
 
+### Client menu feasibility gate
+
+Plutonium's public T6 raw-assets repository contains Lua/LUI menu rawfiles and
+a `plutonium_mp.zone` manifest that packages them. Its `build.bat` invokes
+OpenAssetTools Linker against the installed `ui_mp.ff`. The published
+`ui_mp/t6/hud/class.lua` shows a stock in-match Choose Class action, but this
+is the pause/class menu, not proof that a third-party package can extend the
+normal Create-a-Class camo list. The local owned game has `zone/all/ui_mp.ff`;
+no Linker executable or Lua compiler was found on the development host during
+this review. No Outlands client menu package has been built or installed.
+
+The first disposable client test should therefore check loading before adding
+rewards: back up the current Plutonium client content, install an original
+Outlands-only Lua rawfile in a test package, show a clearly labeled locked
+Outlands Dusk entry beside the stock AN-94 camos, navigate it with the normal
+menu controls, then remove the package and confirm stock menus return. Do not
+replace Plutonium's own fastfile or publish extracted BO2 menu sources. A
+successful static build is only a package check; a real client must verify the
+entry, focus, back behavior and lack of impact on existing camos. Server kill
+event wiring, unlock persistence and second-client appearance are later gates.
+
+Plutonium documents simple texture overrides as local-only, so an `.iwi`
+replacement alone cannot establish a shared new camo. Its general FastDL
+documentation also requires a publicly reachable HTTP download server; verify
+the distribution model separately before relying on it for this tailnet-only
+service. Use an opt-in client installer package for the first test.
+
+
+
 ## Subsequent imported-weapon milestone
 
 After the stock-weapon camo proof, add one imported weapon using the same
@@ -138,7 +167,11 @@ map content. Missing or failed candidates must remain excluded.
 - https://github.com/OpenAssetTools/Examples/tree/main/zone_raw/t6_xmodel_import
 - https://github.com/SadSlothXL/t6-ports
 - https://github.com/plutoniummod/client-raw-assets
+- https://github.com/plutoniummod/client-raw-assets/blob/master/t6/zone_source/plutonium_mp.zone
+- https://github.com/plutoniummod/client-raw-assets/blob/master/t6/build.bat
+- https://github.com/plutoniummod/client-raw-assets/blob/master/t6/raw/ui_mp/t6/hud/class.lua
 - https://plutonium.pw/docs/modding/loading-textures/
+- https://plutonium.pw/docs/server/t6/fastdl/
 
 Keep commercial asset dumps, private inventories, credentials, accounts and raw
 runtime diagnostics outside the public source and release packages.
