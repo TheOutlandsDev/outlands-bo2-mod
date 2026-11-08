@@ -26,7 +26,7 @@ more tickets, increasing long-run frequency. Mode selection has its own deck;
 a map is not permanently tied to one mode. Native gamesettings wrappers reset
 the selected mode's native BO2 time and score limits.
 
-The director avoids the last five maps and last two modes when eligible tickets
+The director avoids the last ten maps and last two modes when eligible tickets
 permit it. If a deck's last tickets are all blocked, it relaxes the oldest recent
 exclusion first. No immediate map repeat is allowed when two or more maps are
 enabled. That protection takes priority over exact weights in a constrained
@@ -41,7 +41,10 @@ reload observations of the same map/mode do not spend another ticket.
 
 Host startup copies the default catalog only when a private catalog is absent.
 An operator can edit `/data/plutonium/storage/t6/outlands_rotation.json` inside
-the private volume; later image updates preserve these weights. Keep private
+the private volume; later image updates preserve these weights. Updating the
+public default alone does not change an existing host's private catalog: apply
+the new recent-map window there at an idle match boundary, preserve its other
+weights, then restart the game service. Keep private
 state/config backups outside shared source. An invalid catalog/state refuses the
 director and retains the existing static CFG fallback rather than overwriting
 the state. Restore the backup or correct the configuration before restarting.
