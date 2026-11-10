@@ -49,7 +49,7 @@ def receipts(text):
     return result
 
 
-def run(image, steps, directory):
+def run(image, steps, directory, dlc_acceptance=None):
     docker = Docker(ROOT / 'hosting/docker.sh')
     resource = 'outlands-rotation-' + uuid.uuid4().hex
     volume = resource + '-state'
@@ -64,16 +64,39 @@ def run(image, steps, directory):
         cfg += '\nset outlands_rotation 1\nset outlands_rotation_verification 1\nset outlands_bot_idle_fill 16\n'
         catalog = json.loads((ROOT / 'storage/t6/outlands_rotation.json').read_text())
         catalog['modes'] = {'tdm': 1}
+        acceptance = None
+        expected_maps = None
+        if dlc_acceptance is not None:
+            path = Path(dlc_acceptance)
+            if path.is_symlink() or not path.is_file() or path.stat().st_size > 256 * 1024:
+                raise ValueError('Invalid private DLC acceptance input')
+            acceptance = json.loads(path.read_text())
+            if (set(acceptance) != {'schema_version', 'maps'} or acceptance['schema_version'] != 1
+                    or not isinstance(acceptance['maps'], dict)):
+                raise ValueError('Invalid private DLC acceptance record')
+            expected_maps = {name for name, row in catalog['maps'].items()
+                             if row['pack'] not in ('base', 'nuketown_bonus')}
+            if set(acceptance['maps']) != expected_maps or steps != len(expected_maps):
+                raise ValueError('DLC rotation requires acceptance for every DLC map')
+            for name, row in catalog['maps'].items():
+                if name not in expected_maps:
+                    row['weight'] = 0
+            report['dlc_only'] = True
         seed = """import json,sys
 from pathlib import Path
 x=json.load(sys.stdin);p=Path('/data/plutonium/storage/t6');p.mkdir(parents=True)
 (p/'scripts/mp').mkdir(parents=True)
 (p/'outlands_t6.cfg').write_text(x['cfg']);(p/'outlands_rotation.json').write_text(json.dumps(x['catalog']))
 (p/'scripts/mp/outlands_rotation_verification.gsc').write_text(x['probe'])
+if x['acceptance'] is not None:
+ private=Path('/data/private');private.mkdir(mode=0o700,exist_ok=True)
+ record=private/'dlc_acceptance.json';record.write_text(json.dumps(x['acceptance']))
+ record.chmod(0o600)
 """
         docker.call('run', '--rm', '-i', '--network', 'none', '--cap-drop', 'ALL', '-v', volume + ':/data',
                     '--entrypoint', 'python3', image, '-c', seed,
-                    input_text=json.dumps({'cfg': cfg, 'catalog': catalog, 'probe': PROBE}))
+                    input_text=json.dumps({'cfg': cfg, 'catalog': catalog, 'probe': PROBE,
+                                           'acceptance': acceptance}))
         container = docker.call('run', '-d', '--name', resource, '--label', LABEL + '=1', '--network', 'none',
                                 '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges:true',
                                 '-e', 'T6_MODE=lan', '-e', 'T6_BIND_IP=127.0.0.1', '-e', 'T6_PORT=14977',
@@ -133,6 +156,8 @@ with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as s:
             print('PASS: native rotation loaded ' + current['map_history'][-1], flush=True)
         if len(set(report['maps'])) != steps:
             raise RuntimeError('Equal-weight deck repeated a map before coverage')
+        if expected_maps is not None and set(report['maps']) != expected_maps:
+            raise RuntimeError('DLC rotation did not cover the accepted maps')
         before = current
         docker.call('restart', '-t', '15', container)
         wait_count(steps + 1, 180)
@@ -152,6 +177,8 @@ def main():
     parser.add_argument('--run', action='store_true')
     parser.add_argument('--image', default='outlands-t6:rotation-chat-dev')
     parser.add_argument('--steps', type=int, default=15)
+    parser.add_argument('--dlc-acceptance', type=Path,
+                        help='Private hash-bound DLC record; test the DLC-only deck')
     parser.add_argument('--report-dir', type=Path)
     args = parser.parse_args()
     if not 2 <= args.steps <= 31 or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_./:-]{0,180}', args.image):
@@ -166,7 +193,7 @@ def main():
         parser.error('Choose a fresh private report directory')
     directory.mkdir(mode=0o700, parents=True)
     try:
-        result = run(args.image, args.steps, directory)
+        result = run(args.image, args.steps, directory, args.dlc_acceptance)
         print('PASS: native map deck, natural end and process-restart history' if result['passed'] else 'FAIL: native rotation')
         return 0 if result['passed'] else 1
     except (OSError, ValueError, RuntimeError):
