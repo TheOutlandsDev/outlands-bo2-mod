@@ -19,6 +19,22 @@ observe()
             if ( isdefined( player ) && isplayer( player ) && player istestclient() && !scripts\mp\outlands_challenge_preview::human( player ) ) excluded++;
         basevalid = scripts\mp\outlands_challenge_preview::base_weapon( "an94_mp+reflex" ) == "an94_mp";
         scripts\mp\outlands_log::emit( "OUTLANDS_CHALLENGE_GUARD_V1|" + registered + "|" + level.outlands_challenge_deaths + "|" + level.outlands_challenge_bot_rejections + "|" + level.outlands_challenge_emitted_kills + "|" + basevalid + "|" + excluded );
+        if ( getdvarint( "outlands_challenge_accounts" ) )
+        {
+            checks = grant_parser_checks();
+            scripts\mp\outlands_log::emit( "OUTLANDS_CHALLENGE_ACCOUNT_GUARD_V1|" + checks + "|" + level.outlands_challenge_grants_applied + "|" + level.outlands_challenge_account_kills + "|" + level.outlands_challenge_bind_requests );
+        }
         wait 5;
     }
+}
+
+grant_parser_checks()
+{
+    checks = 0;
+    grant = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    prefix = "canary_challenge_request|0|synthetic_session_001|";
+    if ( isdefined( scripts\mp\outlands_challenge_preview::parse_grant( prefix + grant + "|120" ) ) ) checks++;
+    foreach ( text in array( prefix + grant + "|0", prefix + grant + "|21601", prefix + grant + "|0120", prefix + "bad|120", "bad||synthetic_session_001|" + grant + "|120" ) )
+        if ( !isdefined( scripts\mp\outlands_challenge_preview::parse_grant( text ) ) ) checks++;
+    return checks;
 }
