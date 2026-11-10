@@ -35,6 +35,11 @@ The [challenge preview](CHALLENGES.md) and
 [original native-menu module](../client-preview/README.md) have separate
 backend/engine/client gates. Linux CI installs a Lua 5.4 runtime to execute the
 original menu module with API stubs; this is not native HavokScript validation.
+Account-challenge CI also builds the account image, explicitly enables only a
+disposable fixture server, and checks HTTP awards, account privacy and replay
+after service restart. Synthetic trusted principals do not establish actual
+Google consent, native human headshots or client-visible rewards. Retained-log
+outage and duplicate tests exercise the separate account-mode durable outbox.
 
 ## Automated source checks
 
