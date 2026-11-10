@@ -96,6 +96,39 @@ its explicit file/event capacity. No automatic cleanup sacrifices unread data.
 
 ## Backend verification
 
+### Private delivery health
+
+Inside the optional account challenge worker, inspect without starting a worker,
+requiring credentials or creating/migrating state:
+
+```sh
+python3 /opt/outlands-chat/challenge_delivery.py --health --state /challenges
+```
+
+The operator aggregate reports pending/acknowledged counts, the oldest staged
+pending event and its age, the last acknowledged delivery, ingestion heartbeat,
+and a fixed blocked-log category. It includes no event payloads, GUIDs, account
+IDs, grants, pairing codes or file paths. The private outbox stores these
+timestamps transactionally; acknowledged payloads are cleared as before. Old
+outboxes migrate without resetting pending events; missing historical timestamps
+remain unknown. Health reads use SQLite read-only/query-only mode and fail
+explicitly if private state, schema or clock continuity cannot be checked.
+
+Heartbeats persist at most once per five seconds unless blocked state changes.
+Successfully checked unchanged log files do not rewrite their cursor. Reading
+health never awards progress or changes a checkpoint. A failed remote attempt
+does not update the successful-delivery timestamp. Repeated log errors keep
+their original blocked-since time; successful ingestion clears the block.
+
+`hosting/live_audit.py` checks a `challenge-worker` service only when installed.
+Missing preview services are exclusions. Installed workers fail health checks
+when ingestion is blocked, polling is older than 120 seconds, or pending events
+are older than five minutes or have unknown age. A small recent backlog is an
+operator warning, not automatic evidence of lost progress. Zero awards while
+no eligible humans are playing is valid. This aggregate stays out of the player
+dashboard and public portal. Publishing it is not required for players to see
+their own career progress.
+
 ```sh
 python3 -B -m unittest discover -s ai/tests -p 'test_*challenge*.py' -v
 python3 -B hosting/challenge_verify.py --run \
