@@ -58,9 +58,11 @@ async function refresh(){
   try{
     const value=await request('/api/me',undefined,controller.signal);
     if(current!==version)return;
-    if(!value||typeof value.display_name!=='string'||!Array.isArray(value.profiles))throw new Error('Invalid account view');
+    if(!value||typeof value.id!=='string'||typeof value.display_name!=='string'||!Array.isArray(value.profiles))throw new Error('Invalid account view');
+    const accountChanged=me!==null&&me.id!==value.id;
+    if(accountChanged)clearPrivate();
     me=value;lastSuccess=Date.now();$('guest').hidden=true;$('member').hidden=false;
-    if(document.activeElement!==$('display-name'))$('display-name').value=me.display_name;
+    if(accountChanged||document.activeElement!==$('display-name'))$('display-name').value=me.display_name;
     profiles(me.profiles);career(me);message('Signed in. Outlands challenges follow your account; native BO2 saves remain on their PCs.');
   }catch(error){
     if(current!==version)return;
