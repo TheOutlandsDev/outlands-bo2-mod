@@ -22,9 +22,13 @@ A separate, privately held full-game archive has been inventoried: it contains
 the 16 compiled DLC main and English locale fastfiles, all four DLC texture
 packages, per-map sound banks, and additional DLC faction packages. The 91
 packages missing from the live game were CRC-checked while staging into a
-private candidate image. This establishes a usable backend test input, not
-native map/mode acceptance or client compatibility. The running image and live
-DLC eligibility remain unchanged until the checks below pass.
+private candidate image. The isolated candidate subsequently passed all 128
+combinations of sixteen DLC maps and eight supported modes. A private acceptance
+record covers 91 distinct compiled packages whose hashes were checked against
+the candidate image. A DLC-only native rotation loaded all sixteen unique maps,
+observed a normal match end and preserved its pending choice after a process
+restart. These backend results do not establish client compatibility. The live
+image and DLC eligibility remain unchanged pending real-client acceptance.
 
 ## Required inputs
 
@@ -57,6 +61,17 @@ Keep commercial game content outside the public repository and source releases.
    This is an operator acceptance record, not proof of asset ownership or client
    rendering. A changed package hash or newly enabled, untested mode revokes
    rotation eligibility until fresh acceptance is generated.
+   The isolated DLC-only deck check can be repeated with:
+
+   ```sh
+   python3 -B -m hosting.rotation_verify --run --steps 16 \
+     --image CANDIDATE_IMAGE --dlc-acceptance PRIVATE_ACCEPTANCE.json \
+     --report-dir PRIVATE_REPORT_DIR
+   ```
+
+   This uses disposable state and no published network ports. The record must
+   cover all sixteen DLC maps; the check observes a natural transition, full
+   deck coverage and a process restart.
 5. Promote only accepted content, preserving private configuration and saves.
    Keep the previous image for rollback and respect connected players.
 6. Have real clients with matching content join. Inspect geometry, collision,
