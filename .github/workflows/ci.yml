@@ -27,6 +27,8 @@ jobs:
           python -m pip install --only-binary=:all: -r accounts/requirements.txt
       - name: Require real Google signature verification dependencies
         run: python -c "import google.auth, cryptography, requests"
+      - name: Check career dashboard privacy and stale data
+        run: node tests/test_career_dashboard.cjs
       - name: Install Lua runtime for original menu lifecycle checks
         run: |
           sudo apt-get update
@@ -76,6 +78,8 @@ jobs:
       - name: Parse scripts and test synthetic client setup
         shell: powershell
         run: '& ./tests/test_windows_client.ps1'
+      - name: Check portable career dashboard data and privacy
+        run: node tests/test_career_dashboard.cjs
       - name: Test portable Armory rules
         run: python -B -m unittest discover -s ai/tests -p "test_armory*.py" -v
       - name: Test portable weighted rotation
