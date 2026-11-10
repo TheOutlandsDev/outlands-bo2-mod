@@ -7,14 +7,13 @@ import os
 from pathlib import Path
 import secrets
 import threading
+import sys
 from urllib.parse import parse_qs,urlsplit
 
-try:
-    from .store import AccountStore,Refused,BROWSER,BROWSER_SECONDS
-    from .google_login import Config,GoogleLogin,LoginRefused,ISSUER
-except ImportError:
-    from store import AccountStore,Refused,BROWSER,BROWSER_SECONDS
-    from google_login import Config,GoogleLogin,LoginRefused,ISSUER
+if not __package__:
+    sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
+from accounts.store import AccountStore,Refused,BROWSER,BROWSER_SECONDS
+from accounts.google_login import Config,GoogleLogin,LoginRefused,ISSUER
 
 ROOT=Path(__file__).resolve().parent
 SESSION_COOKIE='__Host-outlands_session'
@@ -24,9 +23,14 @@ LOGIN_COOKIE='__Host-outlands_login'
 class AccountServer(ThreadingHTTPServer):
     daemon_threads=True
     allow_reuse_address=True
-    def __init__(self,address,store,login):
+    def __init__(self,address,store,login,challenge_preview=False):
         if address[0]!='127.0.0.1':raise ValueError('Account service requires trusted loopback HTTPS proxy')
         self.store=store;self.login=login;self.host=urlsplit(login.config.origin).netloc
+        if type(challenge_preview) is not bool:raise ValueError('Explicit challenge preview switch required')
+        self.challenges=None
+        if challenge_preview:
+            from accounts.challenges import AccountChallenges
+            self.challenges=AccountChallenges(store)
         self.slots=threading.BoundedSemaphore(16)
         super().__init__(address,Handler)
     def process_request(self,request,address):
@@ -94,7 +98,10 @@ class Handler(BaseHTTPRequestHandler):
                 self.server.store.provision(identity['issuer'],identity['subject'],'Outlander_'+secrets.token_hex(3))
                 credential=self.server.store.start_browser_session(identity['issuer'],identity['subject'])
                 return self.send(303,{},location='/',cookies=[self.state_cookie(SESSION_COOKIE,credential,BROWSER_SECONDS),self.state_cookie(LOGIN_COOKIE,'',0)])
-            if path=='/api/me':return self.send(200,self.server.store.dashboard(BROWSER,self.browser()))
+            if path=='/api/me':
+                credential=self.browser();value=self.server.store.dashboard(BROWSER,credential)
+                if self.server.challenges is not None:value['custom_challenges']=self.server.challenges.dashboard(BROWSER,credential)
+                return self.send(200,value)
             files={'/':('index.html','text/html; charset=utf-8'),'/account.js':('account.js','text/javascript; charset=utf-8'),'/app.css':('app.css','text/css; charset=utf-8')}
             if path not in files:return self.send(404,{'error':'Not found'})
             filename,kind=files[path];return self.send(200,raw=(ROOT/'web'/filename).read_bytes(),kind=kind)
@@ -104,6 +111,11 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if not self.safe_host():return self.send(421,{'error':'Account host mismatch'})
         try:
+            if self.path=='/internal/challenges':
+                if self.server.challenges is None:return self.send(404,{'error':'Not found'})
+                bearer=self.headers.get('Authorization','')
+                if not bearer.startswith('Bearer ') or len(bearer)>160:raise Refused('Game worker authentication required')
+                return self.send(200,self.server.challenges.handle(bearer[7:],self.payload(native=True)))
             if self.path=='/internal/native':
                 bearer=self.headers.get('Authorization','')
                 if not bearer.startswith('Bearer ') or len(bearer)>160:raise Refused('Game worker authentication required')
@@ -132,7 +144,9 @@ def main():
     key_path=Path('/run/outlands/identity.key')
     if key_path.is_symlink() or not key_path.is_file() or key_path.stat().st_size!=32:raise ValueError('Private account key required')
     store=AccountStore(Path('/accounts/accounts.sqlite3'),key_path.read_bytes())
-    AccountServer(('127.0.0.1',8087),store,GoogleLogin(config)).serve_forever()
+    preview=os.environ.get('OUTLANDS_CHALLENGE_PREVIEW','0')
+    if preview not in ('0','1'):raise ValueError('Explicit challenge preview switch required')
+    AccountServer(('127.0.0.1',8087),store,GoogleLogin(config),challenge_preview=preview=='1').serve_forever()
 
 
 if __name__=='__main__':main()

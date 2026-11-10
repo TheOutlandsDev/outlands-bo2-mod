@@ -11,5 +11,8 @@
 
 !accounts/agent.py
 !accounts/admin.py
+!accounts/challenges.py
+!ai/
+!ai/camo_challenge.py
 !portal/
 !portal/portal.py

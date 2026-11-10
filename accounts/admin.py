@@ -4,13 +4,12 @@ import argparse
 import os
 from pathlib import Path
 import secrets
+import sys
 
-try:
-    from .store import AccountStore
-    from .google_login import Config
-except ImportError:
-    from store import AccountStore
-    from google_login import Config
+if not __package__:
+    sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
+from accounts.store import AccountStore
+from accounts.google_login import Config
 
 
 def new_file(path,raw):
@@ -60,6 +59,8 @@ def main():
     commands=parser.add_subparsers(dest='action',required=True)
     configure=commands.add_parser('configure');configure.add_argument('--origin',required=True);configure.add_argument('--google-client',type=Path,required=True)
     enroll=commands.add_parser('enroll');enroll.add_argument('--server',required=True)
+    for action in ('enable-challenges','disable-challenges'):
+        command=commands.add_parser(action);command.add_argument('--server',required=True)
     args=parser.parse_args();private=Path('/run/outlands')
     if args.action=='configure':
         if os.getuid()!=0:raise ValueError('Offline bootstrap requires container root to assign ownership')
@@ -67,6 +68,11 @@ def main():
         print('Account OAuth configuration and identity key stored privately')
     else:
         store=AccountStore(Path('/accounts/accounts.sqlite3'),(private/'identity.key').read_bytes())
+        if args.action in ('enable-challenges','disable-challenges'):
+            from accounts.challenges import AccountChallenges
+            AccountChallenges(store).enable_server(args.server,args.action=='enable-challenges')
+            print('Offline challenge capability updated; service and native preview remain independently gated')
+            return
         output=Path('/agent-secrets/server.credential')
         enroll_file(store,args.server,output)
         print('Game worker enrolled; credential stored privately')
