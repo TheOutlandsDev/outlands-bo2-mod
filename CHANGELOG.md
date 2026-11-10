@@ -2,6 +2,29 @@
 
 ## Unreleased — documentation and release-source update
 
+- Add an account career dashboard for the AN-94 challenge, unavailable/stale
+  states and current-session pairing guidance. Prevent late refreshes from
+  restoring private data after sign-out; camo equipping remains unavailable.
+  Include a loopback-only synthetic browser fixture and portable DOM/data tests.
+- Add private read-only challenge delivery health, durable queue/delivery ages,
+  blocked-log recovery status and optional live-audit checks. Preserve unknown
+  historical ages when migrating existing outboxes; never expose identities.
+- Add an opt-in account-owned challenge preview with a transactional outbox,
+  retained-log recovery and replay-safe account receipts. Rewards require a
+  fresh browser-confirmed native session and an explicitly authorized server;
+  delayed events retain their original account owner. Exercise container HTTP,
+  privacy and restart persistence with synthetic principals in Linux CI.
+- Add a read-only aggregate live audit that treats excluded DLC and historical
+  lifecycle flags separately from current health, and uses recent chat activity
+  rather than requiring an old startup marker in a bounded log tail.
+- Add an isolated native challenge-event preview and a separate private worker.
+  Verify native callback registration and bot exclusion independently from
+  synthetic human eligibility, replay, identity and persistence checks. It is
+  not enabled on live servers and does not install or equip a camo.
+- Prepare original namespaced Lua/LUI menu source with executable stub-based
+  focus/back/cleanup checks. Client loading, HavokScript and rendered menus
+  remain unverified; no stock menu or fastfile is replaced.
+
 - Extend the default recent-map exclusion from five to ten matches while
   retaining the weighted no-replacement deck. Document the private-catalog
   update needed on existing hosts.
@@ -14,7 +37,8 @@
   packages fail closed; the existing 15-map base rotation remains eligible.
 - Add a source-only Outlands Dusk camo challenge-rule preview for the stock AN-94.
   Synthetic backend tests cover eligibility, deduplication and private durable
-  progress; no native adapter, menu, camo asset or live award is included.
+  progress; the later isolated adapter and menu-source previews remain gated,
+  with no camo asset or live award included.
 - Record the one-weapon, one-camo, one-challenge Armory expansion as a design
   draft with separate backend and client acceptance gates.
 - Document the current DLC map asset gap and the checks needed before a map

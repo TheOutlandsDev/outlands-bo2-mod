@@ -3,6 +3,7 @@ WORKDIR /app
 COPY accounts/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir --only-binary=:all: -r requirements.txt
 COPY accounts/ /app/accounts/
+COPY ai/camo_challenge.py /app/ai/camo_challenge.py
 COPY portal/portal.py /app/portal/portal.py
 RUN mkdir -m 700 /accounts /run/outlands /agent-secrets && chown 10001:10001 /accounts /run/outlands /agent-secrets
 USER 10001:10001

@@ -4,10 +4,49 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 DOCKER=str(ROOT/'hosting/docker.sh')
 
+# Executes only inside the disposable container. These trusted-principal fixtures
+# test HTTP/account persistence, not a real Google consent or native human kill.
+CHALLENGE_FIXTURE = '''
+import json,sys
+from pathlib import Path
+from urllib.request import Request,build_opener,ProxyHandler
+from accounts.store import AccountStore
+from accounts.service import SESSION_COOKIE
+p=Path('/accounts/challenge-fixture.json')
+store=AccountStore(Path('/accounts/accounts.sqlite3'),Path('/run/outlands/identity.key').read_bytes())
+credential=Path('/agent-secrets/server.credential').read_text().strip()
+issuer='https://accounts.google.com'
+def request(path,data=None,cookie=None):
+ headers={'Host':'accounts.example.invalid','Authorization':'Bearer '+credential}
+ if cookie:headers['Cookie']=SESSION_COOKIE+'='+cookie
+ raw=None
+ if data is not None:raw=json.dumps(data).encode();headers['Content-Type']='application/json'
+ with build_opener(ProxyHandler({})).open(Request('http://127.0.0.1:8087'+path,data=raw,headers=headers),timeout=3) as r:return json.load(r)
+if sys.argv[1]=='seed':
+ for subject in ('fixture_one','fixture_two'):store.provision(issuer,subject,subject)
+ first=store.start_browser_session(issuer,'fixture_one');second=store.start_browser_session(issuer,'fixture_two')
+ session='synthetic_session_001';store.open_session(credential,session,'abc123')
+ store.ingest(credential,session,1,{'rank_xp':123})
+ code=store.challenge(credential,session)['code'];store.confirm(issuer,'fixture_one',code)
+ grant=request('/internal/challenges',{'kind':'bind','session':session,'profile_reference':'abc123'})['grant']
+ event={'kind':'award','grant':grant,'session':session,'match':'match1','event_session':'event_session1','sequence':1,'weapon':'an94_mp','revision':1,'human':True,'enemy':True,'headshot':True,'confirmed':True}
+ result=request('/internal/challenges',event);assert result['accepted'] and not result['duplicate']
+ p.write_text(json.dumps({'first':first,'second':second,'event':event}));p.chmod(0o600)
+else:
+ fixture=json.loads(p.read_text());first=fixture['first'];second=fixture['second']
+ result=request('/internal/challenges',fixture['event']);assert result['duplicate']
+mine=request('/api/me',cookie=first);other=request('/api/me',cookie=second)
+assert mine['custom_challenges'][0]['progress']==1 and other['custom_challenges'][0]['progress']==0
+assert mine['profiles'][0]['stats']['rank_xp']==123 and mine['native_save_sync'] is False
+assert 'grant' not in json.dumps(mine) and 'synthetic_session_001' not in json.dumps(mine)
+print('PASS: isolated account challenge HTTP, privacy and native-save separation')
+'''
+
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--run',action='store_true',help='create and remove disposable fixture resources')
+    parser.add_argument('--challenges-preview',action='store_true',help='also verify opt-in account challenges with synthetic principals')
     parser.add_argument('--image',default='outlands-bo2-accounts:dev')
     parser.add_argument('--report-dir',type=Path,default=ROOT/'runtime/validation/account-bootstrap')
     args=parser.parse_args()
@@ -48,7 +87,11 @@ def main():
             verify="from pathlib import Path;import os,json;from accounts.store import AccountStore;p=Path('/run/outlands');k=(p/'identity.key').read_bytes();c=Path('/agent-secrets/server.credential').read_text();s=AccountStore(Path('/accounts/accounts.sqlite3'),k);\nwith s.connection() as db:ok=s.server(db,c)=='synthetic_server_001'\nprint(json.dumps({'uid':os.getuid(),'key_bytes':len(k),'secret_mode':(p/'identity.key').stat().st_mode&511,'db_mode':Path('/accounts/accounts.sqlite3').stat().st_mode&511,'credential_mode':Path('/agent-secrets/server.credential').stat().st_mode&511,'credential_authenticates':ok}))"
             details=json.loads(call('run',*common,*mounts,'--entrypoint','python3',IMAGE,'-B','-c',verify).stdout)
             checks['owned_private_storage']=details=={'uid':10001,'key_bytes':32,'secret_mode':384,'db_mode':384,'credential_mode':384,'credential_authenticates':True}
-            call('run','-d','--pull','never','--label','outlands.account-verification=1','--name',container,'--network','none','--read-only','--cap-drop','ALL','--security-opt','no-new-privileges:true','-e','OUTLANDS_ACCOUNT_ORIGIN='+ORIGIN,'-v',volumes[0]+':/accounts','-v',volumes[1]+':/run/outlands:ro',IMAGE)
+            preview=[]
+            if args.challenges_preview:
+                call('run',*common,*mounts,'--entrypoint','python3',IMAGE,'-B','/app/accounts/admin.py','enable-challenges','--server','synthetic_server_001')
+                preview=['-e','OUTLANDS_CHALLENGE_PREVIEW=1','-v',volumes[2]+':/agent-secrets:ro']
+            call('run','-d','--pull','never','--label','outlands.account-verification=1','--name',container,'--network','none','--read-only','--cap-drop','ALL','--security-opt','no-new-privileges:true','-e','OUTLANDS_ACCOUNT_ORIGIN='+ORIGIN,'-v',volumes[0]+':/accounts','-v',volumes[1]+':/run/outlands:ro',*preview,IMAGE)
             container_created=True
             health="import urllib.request,json;r=urllib.request.Request('http://127.0.0.1:8087/healthz',headers={'Host':'accounts.example.invalid'});print(urllib.request.urlopen(r,timeout=2).read().decode())"
             for _ in range(20):
@@ -58,12 +101,16 @@ def main():
             checks['service_starts_with_bootstrapped_config']=result.returncode==0 and json.loads(result.stdout).get('service')=='outlands-accounts'
             privacy="import urllib.request,urllib.error,json;r=urllib.request.Request('http://127.0.0.1:8087/api/me',headers={'Host':'accounts.example.invalid'});\ntry:urllib.request.urlopen(r,timeout=2);raise SystemExit(1)\nexcept urllib.error.HTTPError as e:print(json.dumps({'status':e.code}))"
             checks['anonymous_private_data_refused']=json.loads(call('exec',container,'python3','-B','-c',privacy).stdout)['status']==401
+            if args.challenges_preview:
+                checks['challenge_http_and_privacy']=call('exec',container,'python3','-B','-c',CHALLENGE_FIXTURE,'seed').returncode==0
             call('restart',container)
             for _ in range(20):
                 result=call('exec',container,'python3','-B','-c',health,check=False)
                 if result.returncode==0:break
                 time.sleep(.2)
             checks['service_restarts_with_same_private_state']=result.returncode==0
+            if args.challenges_preview:
+                checks['challenge_restart_and_replay']=call('exec',container,'python3','-B','-c',CHALLENGE_FIXTURE,'replay').returncode==0
             state=json.loads(call('inspect',container).stdout)[0]
             checks['isolated_rootless_runtime']=state['HostConfig']['NetworkMode']=='none' and not state['HostConfig'].get('PortBindings') and state['Config']['User']=='10001:10001'
             logs=call('logs',container)

@@ -14,6 +14,40 @@ Receipts contain only the opaque request nonce, never its pairing code. The
 readable private code, real player ownership and observed rank after reconnect
 remain separate client acceptance checks; never fabricate a human native profile.
 
+## Read-only live operations
+
+```sh
+python3 -B hosting/live_audit.py --seconds 15 --report-dir PRIVATE_REPORT_DIRECTORY
+```
+
+This writes an aggregate private report without restarting services or changing
+game state. Uninstalled DLC is an exclusion, not an automatic health failure.
+Historical restart and OOM flags are warnings; lifecycle changes during the
+observation window are current failures. Recent worker submissions and native
+speech receipts establish activity without relying on a startup message still
+being present in a log tail. Fallback generation is valid worker activity.
+Operator CFG/catalog templates may differ from the image intentionally; code
+payload comparisons remain separate. A source branch ahead of deployment can
+fail source-alignment checks without proving a live gameplay failure. External
+Tailscale joining and actual client gameplay still require client evidence.
+
+The [challenge preview](CHALLENGES.md) and
+[original native-menu module](../client-preview/README.md) have separate
+backend/engine/client gates. Linux CI installs a Lua 5.4 runtime to execute the
+original menu module with API stubs; this is not native HavokScript validation.
+Account-challenge CI also builds the account image, explicitly enables only a
+disposable fixture server, and checks HTTP awards, account privacy and replay
+after service restart. Synthetic trusted principals do not establish actual
+Google consent, native human headshots or client-visible rewards. Retained-log
+outage and duplicate tests exercise the separate account-mode durable outbox.
+Career dashboard CI executes the presentation module and page controller in a
+small DOM harness on Linux/Windows, checking malformed/disabled data, stale
+refreshes, session expiry, sign-out races and disabled equip state. The synthetic
+loopback fixture supports actual browser desktop/390px layout, keyboard focus,
+pairing shortcut, completion and sign-out checks. It is not real OAuth or native
+BO2 menu evidence. Worker health tests verify read-only snapshots, legacy outbox
+migration, restart timestamps, blocked-log recovery and aggregate privacy.
+
 ## Automated source checks
 
 From the project root:
