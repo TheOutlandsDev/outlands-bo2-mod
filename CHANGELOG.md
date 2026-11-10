@@ -2,6 +2,11 @@
 
 ## Unreleased — documentation and release-source update
 
+- Add an opt-in account-owned challenge preview with a transactional outbox,
+  retained-log recovery and replay-safe account receipts. Rewards require a
+  fresh browser-confirmed native session and an explicitly authorized server;
+  delayed events retain their original account owner. Exercise container HTTP,
+  privacy and restart persistence with synthetic principals in Linux CI.
 - Add a read-only aggregate live audit that treats excluded DLC and historical
   lifecycle flags separately from current health, and uses recent chat activity
   rather than requiring an old startup marker in a bounded log tail.
