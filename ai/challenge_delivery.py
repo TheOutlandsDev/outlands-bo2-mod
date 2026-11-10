@@ -395,7 +395,7 @@ def deliver(store, transport, now):
         except (OSError, ValueError, TypeError):
             store.retry(row['id'], now)
         else:
-            store.acknowledge(row['id'], now)
+            store.acknowledge(row['id'])
 
 
 def grant_packet(binding, result, password):
