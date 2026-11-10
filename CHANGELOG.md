@@ -2,6 +2,13 @@
 
 ## Unreleased — documentation and release-source update
 
+- Add an account career dashboard for the AN-94 challenge, unavailable/stale
+  states and current-session pairing guidance. Prevent late refreshes from
+  restoring private data after sign-out; camo equipping remains unavailable.
+  Include a loopback-only synthetic browser fixture and portable DOM/data tests.
+- Add private read-only challenge delivery health, durable queue/delivery ages,
+  blocked-log recovery status and optional live-audit checks. Preserve unknown
+  historical ages when migrating existing outboxes; never expose identities.
 - Add an opt-in account-owned challenge preview with a transactional outbox,
   retained-log recovery and replay-safe account receipts. Rewards require a
   fresh browser-confirmed native session and an explicitly authorized server;
