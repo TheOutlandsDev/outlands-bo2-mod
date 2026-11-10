@@ -28,7 +28,7 @@ AI_FILES = {"README.md", "Dockerfile", "Modelfile", "bridge.py", "tests/test_bri
 AI_FILES |= {"bot_settings.py", "bot_settings.json", "tests/test_bot_settings.py", "rivals.py", "rival_profiles.json", "tests/test_rivals.py"}
 AI_FILES |= {"camo_challenge.py", "tests/test_camo_challenge.py", "challenge_native.py", "tests/test_challenge_native.py", "challenge_delivery.py", "tests/test_challenge_delivery.py"}
 HOST_FILES |= {"live_audit.py", "challenge_adapter.gsc", "challenge_probe.gsc", "challenge_verify.py"}
-TOOL_FILES = {"build_release.py", "client_settings.py", "install_files.py", "play_lan_windows.ps1",
+TOOL_FILES = {"dashboard_fixture.py", "build_release.py", "client_settings.py", "install_files.py", "play_lan_windows.ps1",
               "preflight.py", "setup_client.py", "windows_client.ps1", "content_inventory.py", "contract_rules.py", "validate_system.py"}
 TEST_FILES = {"test_quality_verify.py", "test_loadout_verify.py", "test_streak_verify.py", "test_human_verify.py", "test_client_setup.py", "test_host_setup.py", "test_host_state.py", "test_release.py",
               "test_windows_client.ps1", "test_backend_verify.py", "test_content_inventory.py", "test_contract_rules.py", "test_system_validation.py", "test_rotation.py", "test_dlc_gate.py", "test_portal.py", "test_accounts.py", "test_account_service.py", "test_account_agent.py", "test_google_login.py"}
@@ -39,7 +39,7 @@ DOC_FILES.add("STABLE-BASELINE.md")
 DOC_FILES.add("ARMORY-EXPANSION-DRAFT.md")
 DOC_FILES.add("DLC-READINESS.md")
 DOC_FILES.add("CHALLENGES.md")
-TEST_FILES |= {"test_live_audit.py", "test_challenge_verify.py", "test_menu_preview.py", "test_account_challenges.py", "test_account_challenge_service.py"}
+TEST_FILES |= {"test_career_dashboard.cjs", "test_live_audit.py", "test_challenge_verify.py", "test_menu_preview.py", "test_account_challenges.py", "test_account_challenge_service.py"}
 WORKFLOW_FILES = {"ci.yml", "release.yml"}
 STORAGE_FILES = {"storage/t6/outlands_t6.cfg", "storage/t6/gamesettings/outlands_tdm.cfg",
                  "storage/t6/gamesettings/outlands_dm.cfg", "storage/t6/gamesettings/outlands_ctf.cfg",
@@ -57,7 +57,7 @@ PORTAL_FILES = {"portal.py", "Dockerfile", "Dockerfile.dockerignore", "web/index
 STORAGE_FILES |= {"storage/t6/scripts/mp/outlands_accounts.gsc"}
 STORAGE_FILES |= {"storage/t6/scripts/mp/outlands_rivals.gsc", "storage/t6/scripts/mp/outlands_rival_catalog.gsc"}
 STORAGE_FILES |= {"storage/t6/scripts/mp/outlands_log.gsc", "storage/t6/scripts/mp/outlands_loadouts.gsc", "storage/t6/scripts/mp/outlands_streaks.gsc", "storage/t6/scripts/mp/outlands_humanize.gsc", "storage/t6/scripts/mp/outlands_human_catalog.gsc"}
-ACCOUNT_FILES = {"store.py", "google_login.py", "service.py", "agent.py", "admin.py", "challenges.py", "requirements.txt", "Dockerfile", "Dockerfile.dockerignore", "web/index.html", "web/account.js", "web/app.css"}
+ACCOUNT_FILES = {"store.py", "google_login.py", "service.py", "agent.py", "admin.py", "challenges.py", "requirements.txt", "Dockerfile", "Dockerfile.dockerignore", "web/index.html", "web/account.js", "web/career.js", "web/app.css"}
 PUBLIC_PATHS = frozenset(ROOT_FILES | STORAGE_FILES
                         | {"client-preview/README.md", "client-preview/zone_source/outlands_ui_preview.zone",
                            "client-preview/raw/ui_mp/outlands/armory_preview.lua"}
