@@ -133,13 +133,18 @@ with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as sock:
             report['grant_canary_consumed_without_owner'] = 'OUTLANDS_CHALLENGE_BIND_ACK_V1|canary_challenge_request' in logs
             script = "import sqlite3,json;db=sqlite3.connect('/challenges/delivery.sqlite3');print(json.dumps(db.execute('SELECT COUNT(*) FROM outbox').fetchone()[0]))"
             report['no_bot_events_staged'] = docker.call('exec', worker, 'python3', '-c', script) == '0'
+            health = json.loads(docker.call('exec',worker,'python3','/opt/outlands-chat/challenge_delivery.py','--health'))
+            report['delivery_health_recovered'] = (health.get('scope') == 'operator_aggregate'
+                and health.get('status') == 'idle' and health.get('pending') == 0
+                and health.get('blocked_reason') is None and health.get('poll_age_seconds') is not None
+                and 0 <= health['poll_age_seconds'] <= 120)
         report['script_error'] = bool(FAILURE.search(logs) or NATIVE_FAILURE.search(logs))
         report['passed'] = all((report['native_gameplay']['passed'], report['guards']['passed'],
                                 report['worker_code_matches_source'],
                                 report['worker_ready'], report['no_bot_reward_ledger'],
                                 report['no_bot_reward_after_worker_restart'], not report['script_error']))
         if accounts:
-            report['passed'] = report['passed'] and all(report[k] for k in ('account_guards','grant_canary_consumed_without_owner','no_bot_events_staged'))
+            report['passed'] = report['passed'] and all(report[k] for k in ('account_guards','grant_canary_consumed_without_owner','no_bot_events_staged','delivery_health_recovered'))
         return report
     finally:
         (directory/'report.json').write_text(json.dumps(report, indent=2)+'\n')

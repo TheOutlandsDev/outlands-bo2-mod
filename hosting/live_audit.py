@@ -11,6 +11,7 @@ import argparse
 from datetime import datetime, timezone
 import hashlib
 import json
+import math
 from pathlib import Path
 import re
 import subprocess
@@ -24,7 +25,7 @@ sys.path.insert(0, str(ROOT))
 from portal.portal import parse_snapshot
 from tools.build_release import public_files
 
-SERVICES = ('t6', 'tailscale', 'chat', 'ollama', 'accounts', 'account-agent', 'portal', 'portal-export')
+SERVICES = ('t6', 'tailscale', 'chat', 'ollama', 'accounts', 'account-agent', 'portal', 'portal-export', 'challenge-worker')
 MODES = frozenset(('tdm', 'dm', 'dom', 'conf', 'ctf', 'dem', 'hq', 'koth'))
 GAME_PROBE = r'''
 import json,re,time
@@ -134,6 +135,33 @@ def http_ok(url, anonymous=False):
         return False
 
 
+def challenge_activity(value):
+    """Validate an operator aggregate before including it in a private audit."""
+    fields = {'schema','scope','status','pending','acknowledged','oldest_pending_at',
+              'oldest_pending_age_seconds','pending_age_unknown','last_successful_delivery_at',
+              'last_poll_at','poll_age_seconds','blocked_reason','blocked_since'}
+    valid = isinstance(value,dict) and set(value) == fields
+    if valid:
+        valid = (value['schema'] == 1 and value['scope'] == 'operator_aggregate'
+                 and value['status'] in ('starting','blocked','backlogged','idle')
+                 and value['blocked_reason'] in (None,'log_continuity','log_unavailable','state_unavailable')
+                 and all(type(value[k]) is int and value[k] >= 0 for k in ('pending','acknowledged','pending_age_unknown'))
+                 and value['pending_age_unknown'] <= value['pending'])
+        for key in ('oldest_pending_at','oldest_pending_age_seconds','last_successful_delivery_at','last_poll_at','poll_age_seconds','blocked_since'):
+            number=value[key]
+            valid = valid and (number is None or type(number) in (float,int) and math.isfinite(number) and number >= 0)
+    if not valid:
+        return {'checks':{'challenge_delivery_available':False},'warnings':['challenge: aggregate health unavailable'],'health':None}
+    checks={'challenge_delivery_available':True,
+            'challenge_ingestion_fresh':value['poll_age_seconds'] is not None and value['poll_age_seconds'] <= 120,
+            'challenge_log_continuity':value['blocked_reason'] is None and value['status'] != 'blocked',
+            'challenge_delivery_within_window':not value['pending'] or value['pending_age_unknown'] == 0 and value['oldest_pending_age_seconds'] is not None and value['oldest_pending_age_seconds'] <= 300}
+    warnings=[]
+    if value['pending']:warnings.append('challenge: pending deliveries; inspect age and account-service availability')
+    if value['pending_age_unknown']:warnings.append('challenge: historical pending age is unknown; inspect retained state')
+    return {'checks':checks,'warnings':warnings,'health':dict(value)}
+
+
 def collect(docker, project, interval):
     start = inspect_services(docker, project)
     def sample():
@@ -193,6 +221,15 @@ def collect(docker, project, interval):
                 result['warnings'].append('ollama: current memory usage is at least 90 percent of its limit; review headroom')
         except (ValueError, RuntimeError):
             result['warnings'].append('ollama: current memory measurement unavailable')
+    if 'challenge-worker' in end:
+        try:
+            raw = json.loads(docker.call('exec',end['challenge-worker']['Id'],'python3','/opt/outlands-chat/challenge_delivery.py','--health'))
+        except (RuntimeError,ValueError):raw=None
+        challenge = challenge_activity(raw)
+        checks.update(challenge['checks']);result['warnings'].extend(challenge['warnings'])
+        result['challenge_delivery'] = challenge['health']
+    else:
+        result['challenge_delivery'] = {'status':'not_installed','scope':'operator_aggregate'}
     result.update({'passed': all(checks.values()), 'scope': 'live_readonly',
                    'created_utc': datetime.now(timezone.utc).isoformat(),
                    'services': lifecycle(end), 'worker_recent_activity': worker,
