@@ -181,6 +181,9 @@ class DeliveryTests(unittest.TestCase):
         health=self.db.read_health(self.path,10020)
         self.assertEqual(health['pending'],1);self.assertIsNone(health['last_successful_delivery_at'])
         with self.assertRaises(ValueError):self.db.record_poll('private_session_value',10020)
+        self.db.clock=lambda:10035
+        deliver(self.db,self.remote(),10030)
+        self.assertEqual(self.db.read_health(self.path,10040)['last_successful_delivery_at'],10035)
 
 
 if __name__=='__main__':unittest.main()
