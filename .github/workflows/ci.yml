@@ -39,6 +39,7 @@ jobs:
         run: |
           docker build -f accounts/Dockerfile -t outlands-bo2-accounts:ci .
           python -B hosting/account_verify.py --run --image outlands-bo2-accounts:ci --report-dir runtime/account-bootstrap-ci
+          python -B hosting/account_verify.py --run --challenges-preview --image outlands-bo2-accounts:ci --report-dir runtime/account-challenges-ci
       - name: Validate source and record acceptance boundaries
         run: python -B tools/validate_system.py --report-dir runtime/validation
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -48,6 +49,7 @@ jobs:
           path: |
             runtime/validation/report.json
             runtime/account-bootstrap-ci/report.json
+            runtime/account-challenges-ci/report.json
           if-no-files-found: error
           retention-days: 14
 
