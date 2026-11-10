@@ -12,6 +12,7 @@ from dataclasses import dataclass
 import hashlib
 import hmac
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -100,7 +101,8 @@ def parse_native(line, credential):
 
 class DeliveryStore:
     """One worker owns the DB; separate tests may open it to simulate recovery."""
-    def __init__(self, path, binding_digest):
+    def __init__(self, path, binding_digest, clock=time.time):
+        self.clock = clock
         self.path = Path(path).absolute()
         if not isinstance(binding_digest, str) or not HEX.fullmatch(binding_digest):
             raise ValueError('Private destination binding required')
@@ -129,6 +131,12 @@ class DeliveryStore:
                     next_attempt REAL NOT NULL DEFAULT 0)''',
             ):
                 db.execute(ddl)
+            # Existing private outboxes remain usable. Unknown historical
+            # timestamps stay NULL rather than inventing a delivery age.
+            columns = {row['name'] for row in db.execute('PRAGMA table_info(outbox)')}
+            for name in ('staged_at', 'delivered_at'):
+                if name not in columns:
+                    db.execute('ALTER TABLE outbox ADD COLUMN '+name+' REAL')
             old = db.execute("SELECT value FROM metadata WHERE key='binding'").fetchone()
             if old and old['value'] != binding_digest:
                 raise ValueError('Delivery destination changed; explicit backlog migration required')
@@ -157,7 +165,8 @@ class DeliveryStore:
             return
         if db.execute('SELECT COUNT(*) FROM outbox').fetchone()[0] >= MAX_EVENTS:
             raise ContinuityError('Delivery capacity reached; source cursor retained')
-        db.execute('INSERT INTO outbox(id,fingerprint,payload) VALUES (?,?,?)', (event_id, fingerprint, raw))
+        db.execute('INSERT INTO outbox(id,fingerprint,payload,staged_at) VALUES (?,?,?,?)',
+                   (event_id, fingerprint, raw, self.clock()))
 
     def checkpoint(self, db, values):
         db.execute('INSERT OR REPLACE INTO cursors VALUES (?,?,?,?,?,?,?)', values)
@@ -166,9 +175,12 @@ class DeliveryStore:
         with self.connection() as db:
             return [dict(row) for row in db.execute('SELECT * FROM outbox WHERE delivered=0 AND next_attempt<=? ORDER BY rowid LIMIT ?', (now, limit))]
 
-    def acknowledge(self, event_id):
+    def acknowledge(self, event_id, now=None):
+        now = self.clock() if now is None else now
         with self.connection() as db:
-            db.execute('UPDATE outbox SET delivered=1,payload=NULL WHERE id=?', (event_id,))
+            changed = db.execute('UPDATE outbox SET delivered=1,payload=NULL,delivered_at=? WHERE id=? AND delivered=0', (now,event_id))
+            if changed.rowcount:
+                db.execute("INSERT OR REPLACE INTO metadata VALUES ('last_delivery_at',?)", (str(now),))
 
     def retry(self, event_id, now):
         with self.connection() as db:
@@ -183,6 +195,63 @@ class DeliveryStore:
             return {'pending': db.execute('SELECT COUNT(*) FROM outbox WHERE delivered=0').fetchone()[0],
                     'acknowledged': db.execute('SELECT COUNT(*) FROM outbox WHERE delivered=1').fetchone()[0],
                     'files': db.execute('SELECT COUNT(*) FROM cursors').fetchone()[0]}
+
+    def record_poll(self, error=None, now=None):
+        if error not in (None, 'log_continuity', 'log_unavailable', 'state_unavailable'):
+            raise ValueError('Fixed ingestion health category required')
+        now = self.clock() if now is None else now
+        with self.connection() as db:
+            old = db.execute("SELECT value FROM metadata WHERE key='blocked_reason'").fetchone()
+            previous = db.execute("SELECT value FROM metadata WHERE key='last_poll_at'").fetchone()
+            if old and previous and old['value'] == (error or '') and 0 <= now-float(previous['value']) < 5:
+                return  # Persist heartbeats at most once per five seconds.
+            if error and (not old or old['value'] == ''):
+                db.execute("INSERT OR REPLACE INTO metadata VALUES ('blocked_since',?)", (str(now),))
+            if not error:
+                db.execute("DELETE FROM metadata WHERE key='blocked_since'")
+            for key,value in (('last_poll_at',str(now)),('blocked_reason',error or '')):
+                db.execute('INSERT OR REPLACE INTO metadata VALUES (?,?)', (key,value))
+
+    @staticmethod
+    def read_health(path, now=None):
+        """Read-only aggregate operator view; never creates/migrates private state."""
+        path = Path(path).absolute(); now = time.time() if now is None else now
+        if any(p.is_symlink() for p in (path,*path.parents)):
+            raise ValueError('Private state required')
+        for location in (path.parent,path):
+            info = location.stat()
+            if info.st_uid != os.getuid() or info.st_mode & 0o077:
+                raise ValueError('Owned private state required')
+        if not stat.S_ISREG(path.stat().st_mode):
+            raise ValueError('Regular delivery state required')
+        db = sqlite3.connect(path.as_uri()+'?mode=ro',uri=True,timeout=2)
+        db.row_factory = sqlite3.Row
+        try:
+            db.execute('PRAGMA query_only=ON');db.execute('BEGIN')
+            row = db.execute('''SELECT COUNT(*) AS total,SUM(delivered=0) AS pending,
+                MIN(CASE WHEN delivered=0 THEN staged_at END) AS oldest,
+                SUM(delivered=0 AND staged_at IS NULL) AS unknown FROM outbox''').fetchone()
+            metadata = dict(db.execute("SELECT key,value FROM metadata WHERE key IN ('last_poll_at','last_delivery_at','blocked_reason','blocked_since')"))
+            def stamp(value):
+                if value is None:return None
+                value = float(value)
+                if not math.isfinite(value) or value < 0 or value > now:
+                    raise ValueError('Health clock discontinuity')
+                return value
+            oldest = stamp(row['oldest']);poll = stamp(metadata.get('last_poll_at'))
+            delivered = stamp(metadata.get('last_delivery_at'));blocked = stamp(metadata.get('blocked_since'))
+            reason = metadata.get('blocked_reason','')
+            if reason not in ('','log_continuity','log_unavailable','state_unavailable'):
+                raise ValueError('Invalid health category')
+            pending = row['pending'] or 0
+            return {'schema':1,'scope':'operator_aggregate','status':'blocked' if reason else 'starting' if poll is None else 'backlogged' if pending else 'idle',
+                    'pending':pending,'acknowledged':row['total']-pending,
+                    'oldest_pending_at':oldest,'oldest_pending_age_seconds':None if oldest is None else now-oldest,
+                    'pending_age_unknown':row['unknown'] or 0,'last_successful_delivery_at':delivered,
+                    'last_poll_at':poll,'poll_age_seconds':None if poll is None else now-poll,
+                    'blocked_reason':reason or None,'blocked_since':blocked}
+        finally:
+            db.close()
 
 
 class ArchiveReader:
@@ -216,6 +285,8 @@ class ArchiveReader:
         with self.store.connection() as db:
             if any(row['id'] not in paths and not row['sealed'] for row in db.execute('SELECT id,sealed FROM cursors')):
                 raise ContinuityError('Previously unsealed native log is missing')
+        if not paths:
+            raise OSError('Native log inventory unavailable')
         bindings = []
         for identity, path in paths.items():
             bindings.extend(self.read_file(identity, path))
@@ -246,6 +317,8 @@ class ArchiveReader:
             stream.seek(offset)
             bindings = []; read = 0
             archived = path != self.log
+            if row is not None and offset == info.st_size and bool(row['sealed']) == archived:
+                return []  # Verified unchanged file; do not rewrite its checkpoint.
             while read < 65536:
                 line = stream.readline(1025)
                 if not line:
@@ -322,7 +395,7 @@ def deliver(store, transport, now):
         except (OSError, ValueError, TypeError):
             store.retry(row['id'], now)
         else:
-            store.acknowledge(row['id'])
+            store.acknowledge(row['id'], now)
 
 
 def grant_packet(binding, result, password):
@@ -369,20 +442,31 @@ def wait_secret(path, seconds=60):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--run', action='store_true')
+    parser.add_argument('--health', action='store_true', help='read only private aggregate delivery health')
     parser.add_argument('--state', type=Path, default=Path('/challenges'))
     parser.add_argument('--log', type=Path, default=Path('/data/plutonium/console.log'))
     parser.add_argument('--credential', type=Path, default=Path('/data/private/challenge_token'))
     parser.add_argument('--server-credential', type=Path, default=Path('/run/outlands/server.credential'))
     parser.add_argument('--rcon-secret', type=Path, default=Path('/data/private/outlands_rcon_password'))
-    parser.add_argument('--account-api', required=True)
-    parser.add_argument('--account-origin', required=True)
+    parser.add_argument('--account-api')
+    parser.add_argument('--account-origin')
     parser.add_argument('--port', type=int, default=4977)
     args = parser.parse_args()
+    if args.health:
+        if args.run:parser.error('Choose health inspection or worker execution')
+        try:
+            print(json.dumps(DeliveryStore.read_health(args.state/'delivery.sqlite3'),sort_keys=True))
+            return 0
+        except (OSError,ValueError,sqlite3.Error):
+            print(json.dumps({'schema':1,'status':'unavailable','reason':'private_state_unavailable'}))
+            return 1
     if not 1 <= args.port <= 65535:
         parser.error('Invalid native loopback port')
     if not args.run:
         print('Plan: private durable outbox, confirmed account grants, fixed native grant mailbox; no native saves')
         return 0
+    if not args.account_api or not args.account_origin:
+        parser.error('Worker execution requires reviewed account API and origin')
     credential = secret_text(args.server_credential)
     transport = AccountTransport(args.account_api, args.account_origin, credential)
     binding_digest = hashlib.sha256((transport.url+'\0'+credential).encode()).hexdigest()
@@ -396,7 +480,11 @@ def main():
             try:
                 for request in reader.poll():
                     pending[request.slot] = request
-            except (OSError, ValueError, sqlite3.Error):
+                store.record_poll()
+            except (OSError, ValueError, sqlite3.Error) as error:
+                reason = 'log_continuity' if isinstance(error, ValueError) else 'state_unavailable' if isinstance(error, sqlite3.Error) else 'log_unavailable'
+                try:store.record_poll(reason)
+                except (OSError, sqlite3.Error):pass
                 print('Challenge ingestion blocked; checkpoints and pending events retained', flush=True)
                 time.sleep(1)
             if pending:
@@ -410,7 +498,9 @@ def main():
                     pass  # Native requests retry; no kills emit before a grant.
             deliver(store, transport, time.time())
             if time.monotonic() >= next_summary:
-                print('Account challenge delivery: '+json.dumps(store.summary(), sort_keys=True), flush=True)
+                try:health = DeliveryStore.read_health(store.path)
+                except (OSError,ValueError,sqlite3.Error):health = {'schema':1,'status':'unavailable','reason':'private_state_unavailable'}
+                print('Account challenge delivery: '+json.dumps(health, sort_keys=True), flush=True)
                 next_summary = time.monotonic()+10
             time.sleep(.1)
 
