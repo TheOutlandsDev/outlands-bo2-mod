@@ -26,7 +26,8 @@ HOST_FILES = {"quality_probe.gsc", "quality_verify.py", "human_verify.py", "READ
 AI_FILES = {"README.md", "Dockerfile", "Modelfile", "bridge.py", "tests/test_bridge.py", "armory.py", "tests/test_armory.py", "armory_native.py", "tests/test_armory_native.py",
             "config.example.json", "personalities.json", "careers.py", "tests/test_careers.py", "benchmark.py", "tactics.py", "tests/test_tactics.py", "operations.py", "conversation_benchmark.py", "tests/test_operations.py", "tests/test_dialogue_v3.py"}
 AI_FILES |= {"bot_settings.py", "bot_settings.json", "tests/test_bot_settings.py", "rivals.py", "rival_profiles.json", "tests/test_rivals.py"}
-AI_FILES |= {"camo_challenge.py", "tests/test_camo_challenge.py"}
+AI_FILES |= {"camo_challenge.py", "tests/test_camo_challenge.py", "challenge_native.py", "tests/test_challenge_native.py"}
+HOST_FILES |= {"live_audit.py", "challenge_adapter.gsc", "challenge_probe.gsc", "challenge_verify.py"}
 TOOL_FILES = {"build_release.py", "client_settings.py", "install_files.py", "play_lan_windows.ps1",
               "preflight.py", "setup_client.py", "windows_client.ps1", "content_inventory.py", "contract_rules.py", "validate_system.py"}
 TEST_FILES = {"test_quality_verify.py", "test_loadout_verify.py", "test_streak_verify.py", "test_human_verify.py", "test_client_setup.py", "test_host_setup.py", "test_host_state.py", "test_release.py",
@@ -37,6 +38,8 @@ DOC_FILES.add("BOT-HUMANIZATION.md")
 DOC_FILES.add("STABLE-BASELINE.md")
 DOC_FILES.add("ARMORY-EXPANSION-DRAFT.md")
 DOC_FILES.add("DLC-READINESS.md")
+DOC_FILES.add("CHALLENGES.md")
+TEST_FILES |= {"test_live_audit.py", "test_challenge_verify.py", "test_menu_preview.py"}
 WORKFLOW_FILES = {"ci.yml", "release.yml"}
 STORAGE_FILES = {"storage/t6/outlands_t6.cfg", "storage/t6/gamesettings/outlands_tdm.cfg",
                  "storage/t6/gamesettings/outlands_dm.cfg", "storage/t6/gamesettings/outlands_ctf.cfg",
@@ -56,6 +59,8 @@ STORAGE_FILES |= {"storage/t6/scripts/mp/outlands_rivals.gsc", "storage/t6/scrip
 STORAGE_FILES |= {"storage/t6/scripts/mp/outlands_log.gsc", "storage/t6/scripts/mp/outlands_loadouts.gsc", "storage/t6/scripts/mp/outlands_streaks.gsc", "storage/t6/scripts/mp/outlands_humanize.gsc", "storage/t6/scripts/mp/outlands_human_catalog.gsc"}
 ACCOUNT_FILES = {"store.py", "google_login.py", "service.py", "agent.py", "admin.py", "requirements.txt", "Dockerfile", "Dockerfile.dockerignore", "web/index.html", "web/account.js", "web/app.css"}
 PUBLIC_PATHS = frozenset(ROOT_FILES | STORAGE_FILES
+                        | {"client-preview/README.md", "client-preview/zone_source/outlands_ui_preview.zone",
+                           "client-preview/raw/ui_mp/outlands/armory_preview.lua"}
                         | {"accounts/" + name for name in ACCOUNT_FILES}
                         | {"portal/" + name for name in PORTAL_FILES}
                         | {"hosting/" + name for name in HOST_FILES}
