@@ -143,5 +143,44 @@ class DeliveryTests(unittest.TestCase):
         deliver(self.db,self.remote(),11000)
         self.assertEqual(self.count(),1);self.assertEqual(self.db.summary()['pending'],0)
 
+    def test_health_age_recovery_and_restart_do_not_expose_identity_or_change_state(self):
+        self.db.clock=lambda:10000
+        self.log.write_text(self.line());self.reader.poll();self.db.record_poll(now=10000)
+        before=self.path.read_bytes();health=DeliveryStore.read_health(self.path,10060)
+        self.assertEqual(health['pending'],1);self.assertEqual(health['oldest_pending_age_seconds'],60)
+        self.assertEqual(health['status'],'backlogged');self.assertEqual(self.path.read_bytes(),before)
+        self.assertNotIn(self.grant,json.dumps(health));self.assertNotIn(SESSION,json.dumps(health));self.assertNotIn('abc123',json.dumps(health))
+        self.db.record_poll('log_continuity',10061);self.db.record_poll('log_continuity',10062)
+        reopened=DeliveryStore(self.path,DESTINATION,lambda:10063)
+        self.assertEqual(reopened.read_health(self.path,10063)['blocked_since'],10061)
+        deliver(reopened,self.remote(),10063);reopened.record_poll(now=10064)
+        health=reopened.read_health(self.path,10065)
+        self.assertEqual(health['status'],'idle');self.assertIsNone(health['oldest_pending_age_seconds'])
+        self.assertEqual(health['last_successful_delivery_at'],10063);self.assertIsNone(health['blocked_reason'])
+
+    def test_health_does_not_invent_legacy_timestamps_and_refuses_clock_reversal(self):
+        self.db.clock=lambda:10000;self.log.write_text(self.line());self.reader.poll()
+        with self.db.connection() as connection:
+            connection.execute('ALTER TABLE outbox DROP COLUMN staged_at')
+            connection.execute('ALTER TABLE outbox DROP COLUMN delivered_at')
+        migrated=DeliveryStore(self.path,DESTINATION,lambda:10001)
+        health=migrated.read_health(self.path,10002)
+        self.assertEqual(health['pending'],1);self.assertEqual(health['pending_age_unknown'],1)
+        self.assertIsNone(health['oldest_pending_age_seconds']);self.assertIsNone(health['last_successful_delivery_at'])
+        migrated.record_poll(now=10003)
+        with self.assertRaises(ValueError):migrated.read_health(self.path,10002)
+        missing=self.root/'missing.sqlite3'
+        with self.assertRaises(OSError):DeliveryStore.read_health(missing,10004)
+        self.assertFalse(missing.exists())
+
+    def test_failed_remote_delivery_does_not_claim_success(self):
+        self.db.clock=lambda:10000;self.log.write_text(self.line());self.reader.poll()
+        class Offline:
+            def post(self,event):raise OSError('synthetic outage')
+        deliver(self.db,Offline(),10010)
+        health=self.db.read_health(self.path,10020)
+        self.assertEqual(health['pending'],1);self.assertIsNone(health['last_successful_delivery_at'])
+        with self.assertRaises(ValueError):self.db.record_poll('private_session_value',10020)
+
 
 if __name__=='__main__':unittest.main()
