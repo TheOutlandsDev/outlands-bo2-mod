@@ -102,7 +102,7 @@ class Handler(BaseHTTPRequestHandler):
                 credential=self.browser();value=self.server.store.dashboard(BROWSER,credential)
                 if self.server.challenges is not None:value['custom_challenges']=self.server.challenges.dashboard(BROWSER,credential)
                 return self.send(200,value)
-            files={'/':('index.html','text/html; charset=utf-8'),'/account.js':('account.js','text/javascript; charset=utf-8'),'/app.css':('app.css','text/css; charset=utf-8')}
+            files={'/':('index.html','text/html; charset=utf-8'),'/account.js':('account.js','text/javascript; charset=utf-8'),'/career.js':('career.js','text/javascript; charset=utf-8'),'/app.css':('app.css','text/css; charset=utf-8')}
             if path not in files:return self.send(404,{'error':'Not found'})
             filename,kind=files[path];return self.send(200,raw=(ROOT/'web'/filename).read_bytes(),kind=kind)
         except LoginRefused:return self.send(400,{'error':'Google sign-in could not be confirmed. Start again.'},cookies=[self.state_cookie(LOGIN_COOKIE,'',0)])
