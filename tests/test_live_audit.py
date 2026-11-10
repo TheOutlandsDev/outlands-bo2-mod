@@ -1,6 +1,6 @@
 import copy
 import unittest
-from hosting.live_audit import assess, worker_activity
+from hosting.live_audit import assess, worker_activity, challenge_activity
 
 
 class LiveAuditTests(unittest.TestCase):
@@ -45,6 +45,20 @@ class LiveAuditTests(unittest.TestCase):
         self.assertTrue(assess(*fixtures)['passed'])
         fixtures[-1]['fallback_submissions'] = 0
         self.assertFalse(assess(*fixtures)['passed'])
+
+    def test_optional_challenge_queue_age_blocks_and_privacy(self):
+        health={'schema':1,'scope':'operator_aggregate','status':'idle','pending':0,'acknowledged':0,
+                'oldest_pending_at':None,'oldest_pending_age_seconds':None,'pending_age_unknown':0,
+                'last_successful_delivery_at':None,'last_poll_at':10000,'poll_age_seconds':1,
+                'blocked_reason':None,'blocked_since':None}
+        self.assertTrue(all(challenge_activity(health)['checks'].values()))
+        queued=health|{'pending':1,'status':'backlogged','oldest_pending_at':9999,'oldest_pending_age_seconds':2}
+        self.assertTrue(all(challenge_activity(queued)['checks'].values()))
+        for changes in ({'oldest_pending_age_seconds':301},{'pending_age_unknown':1},{'poll_age_seconds':121},
+                        {'status':'blocked','blocked_reason':'log_continuity'}):
+            self.assertFalse(all(challenge_activity(queued|changes)['checks'].values()))
+        for value in (None,health|{'player':'private'},health|{'blocked_reason':'private'},health|{'poll_age_seconds':float('nan')}):
+            result=challenge_activity(value);self.assertIsNone(result['health']);self.assertFalse(all(result['checks'].values()))
 
 
 if __name__ == '__main__':

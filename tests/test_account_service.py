@@ -76,8 +76,11 @@ class AccountHttpTests(unittest.TestCase):
             cookies=response.headers.get_all('Set-Cookie');self.assertTrue(any(SESSION_COOKIE in value and 'Secure' in value for value in cookies))
         with self.request('/auth/google/callback?state='+state+'&code=fixture-code',auth=False) as response:self.assertEqual(response.status,400)
     def test_static_account_ui_and_loopback_only_binding(self):
-        for path in ('/','/account.js','/app.css'):
-            with self.request(path,auth=False) as response:self.assertEqual(response.status,200)
+        for path in ('/','/account.js','/career.js','/app.css'):
+            with self.request(path,auth=False) as response:
+                self.assertEqual(response.status,200)
+                self.assertEqual(response.headers['Cache-Control'],'no-store')
+                self.assertIn("frame-ancestors 'none'",response.headers['Content-Security-Policy'])
         with self.assertRaises(ValueError):AccountServer(('0.0.0.0',8087),self.store,self.login)
 
     def test_google_callback_accepts_exact_authorization_response_issuer(self):
