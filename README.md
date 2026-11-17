@@ -1,5 +1,20 @@
 # The Outlands BO2 Mod
 
+## Current status and navigation — November 16, 2026
+
+| I want to know | Start here |
+| --- | --- |
+| Is hosted play working? | [Shared-host status and remaining tests](docs/SERVER-STATUS.md): real BO2 player detection and CPU priority verified; owner reported good gameplay. |
+| How do I join? | [Private game setup](#join-a-private-game) and [Windows checks](docs/WINDOWS.md). Obtain connection details privately. |
+| How do I host? | [Container hosting](hosting/README.md) and the [stable baseline](docs/STABLE-BASELINE.md). |
+| What is experimental? | [Armory/UI acceptance](docs/UI-VALIDATION.md), [account foundation](docs/ACCOUNTS.md) and [native challenge-event preview](docs/CHALLENGES.md). These have separate opt-ins and client gates. |
+| What changed in source? | [Changelog](CHANGELOG.md) and [offline validation](docs/VALIDATION.md). Main-branch source and tagged downloads can differ. |
+
+Basic play and the shared-host CPU boost have real-session evidence. This does
+not mark Google login, account pairing, challenge awards, the Armory preview or
+native save portability as accepted. BO2's intermittent telemetry gaps can retain
+high CPU priority while empty; see the status note for the current limitation.
+
 Private Black Ops II multiplayer over Tailscale, with native AI opponents and
 normal earned rank and weapon progression. Linux and Windows clients use
 Plutonium LAN mode and connect directly to the private host. No Plutonium

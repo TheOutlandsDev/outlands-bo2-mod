@@ -88,6 +88,23 @@ alongside the players' exact incident times. An idle backend run cannot prove
 actual remote joining or rule out a WAN/client problem. Command timeouts are
 bounded and the wrapper's process group is cleaned up on timeout/interruption.
 
+The [challenge preview](CHALLENGES.md) and
+[original native-menu module](../client-preview/README.md) have separate
+backend/engine/client gates. Linux CI installs a Lua 5.4 runtime to execute the
+original menu module with API stubs; this is not native HavokScript validation.
+Account-challenge CI also builds the account image, explicitly enables only a
+disposable fixture server, and checks HTTP awards, account privacy and replay
+after service restart. Synthetic trusted principals do not establish actual
+Google consent, native human headshots or client-visible rewards. Retained-log
+outage and duplicate tests exercise the separate account-mode durable outbox.
+Career dashboard CI executes the presentation module and page controller in a
+small DOM harness on Linux/Windows, checking malformed/disabled data, stale
+refreshes, session expiry, sign-out races and disabled equip state. The synthetic
+loopback fixture supports actual browser desktop/390px layout, keyboard focus,
+pairing shortcut, completion and sign-out checks. It is not real OAuth or native
+BO2 menu evidence. Worker health tests verify read-only snapshots, legacy outbox
+migration, restart timestamps, blocked-log recovery and aggregate privacy.
+
 ## Automated source checks
 
 From the project root:

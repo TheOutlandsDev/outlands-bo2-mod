@@ -27,6 +27,12 @@ jobs:
           python -m pip install --only-binary=:all: -r accounts/requirements.txt
       - name: Require real Google signature verification dependencies
         run: python -c "import google.auth, cryptography, requests"
+      - name: Check career dashboard privacy and stale data
+        run: node tests/test_career_dashboard.cjs
+      - name: Install Lua runtime for original menu lifecycle checks
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends liblua5.4-0
       - name: Test portable private account and Google boundaries
         run: |
           python -B -m unittest discover -s tests -p "test_account*.py" -v
@@ -35,6 +41,7 @@ jobs:
         run: |
           docker build -f accounts/Dockerfile -t outlands-bo2-accounts:ci .
           python -B hosting/account_verify.py --run --image outlands-bo2-accounts:ci --report-dir runtime/account-bootstrap-ci
+          python -B hosting/account_verify.py --run --challenges-preview --image outlands-bo2-accounts:ci --report-dir runtime/account-challenges-ci
       - name: Validate source and record acceptance boundaries
         run: python -B tools/validate_system.py --report-dir runtime/validation
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -44,6 +51,7 @@ jobs:
           path: |
             runtime/validation/report.json
             runtime/account-bootstrap-ci/report.json
+            runtime/account-challenges-ci/report.json
           if-no-files-found: error
           retention-days: 14
 
@@ -70,6 +78,8 @@ jobs:
       - name: Parse scripts and test synthetic client setup
         shell: powershell
         run: '& ./tests/test_windows_client.ps1'
+      - name: Check portable career dashboard data and privacy
+        run: node tests/test_career_dashboard.cjs
       - name: Test portable Armory rules
         run: python -B -m unittest discover -s ai/tests -p "test_armory*.py" -v
       - name: Test portable weighted rotation

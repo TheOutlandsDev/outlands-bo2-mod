@@ -7,9 +7,13 @@
 !accounts/web/
 !accounts/web/index.html
 !accounts/web/account.js
+!accounts/web/career.js
 !accounts/web/app.css
 
 !accounts/agent.py
 !accounts/admin.py
+!accounts/challenges.py
+!ai/
+!ai/camo_challenge.py
 !portal/
 !portal/portal.py

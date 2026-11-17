@@ -34,6 +34,37 @@ backup/restore and automated companion proofs are separate future work.
 
 ## Trust and operational limits
 
+The private browser career card displays the account-owned AN-94 challenge when
+the separately enabled [challenge preview](CHALLENGES.md) supplies a valid view.
+It shows unavailable data explicitly, keeps completion separate from camo
+equipping, and never sends reward/equip requests. Linked-profile status comes
+from fresh native observations; a saved link with no fresh current session asks
+the player to confirm again. Native profile XP is displayed separately.
+
+Failed refreshes hide the challenge number and progress bar until recovery.
+Sign-out or an expired browser session clears private profile/form/career data.
+Request generations prevent a late refresh from restoring data after sign-out.
+An account identity change clears previous private edits even when an input has
+focus, before displaying the new account's own data.
+The browser uses neither local storage nor a shared progress cache. Native-menu
+loading and visible/equippable camos remain independent acceptance gates.
+
+For repeatable browser layout checks using **synthetic data only**:
+
+```sh
+node tests/test_career_dashboard.cjs
+python3 -B tools/dashboard_fixture.py --run --port 18089
+```
+
+Open loopback paths `/fixture/in-progress`, `/fixture/complete`,
+`/fixture/disabled`, `/fixture/unlinked`, `/fixture/expired`, `/fixture/offline`
+and `/fixture/guest`. `/viewport` frames the same page in a 390px viewport. The
+fixture has no live database, Google sign-in or game access, refuses profile and
+reward writes, and never exposes a network listener outside loopback. Only this
+synthetic fixture allows same-origin framing for viewport tests; the real
+account service retains its no-framing policy. Stop it after testing. Browser
+layout evidence does not establish mobile-device OAuth or native BO2 rendering.
+
 The worker is trusted to report its enrolled server's observations. This is not
 anti-cheat or proof that a LAN profile cannot be impersonated in-game. A confirmed
 account session does not authorize a different account's dashboard. A session
