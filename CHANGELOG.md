@@ -2,6 +2,12 @@
 
 ## Unreleased — documentation and release-source update
 
+- Bound optional Ollama runtime memory by disabling the llama-server prompt
+  cache and allowing no swap beyond its RAM limit in both hosting templates.
+  Document fallback behavior, memory observation and client acceptance gates.
+- Add a bounded read-only network observer with aggregate transport, socket
+  and native-log evidence. Preserve missing/reset counters and incomplete
+  windows explicitly; exclude player identities, addresses, credentials and chat.
 - Add an account career dashboard for the AN-94 challenge, unavailable/stale
   states and current-session pairing guidance. Prevent late refreshes from
   restoring private data after sign-out; camo equipping remains unavailable.
