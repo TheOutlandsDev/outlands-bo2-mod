@@ -2,6 +2,12 @@
 
 ## Unreleased — documentation and release-source update
 
+- Bound optional Ollama runtime memory by disabling the llama-server prompt
+  cache and allowing no swap beyond its RAM limit in both hosting templates.
+  Document fallback behavior, memory observation and client acceptance gates.
+- Add a bounded read-only network observer with aggregate transport, socket
+  and native-log evidence. Preserve missing/reset counters and incomplete
+  windows explicitly; exclude player identities, addresses, credentials and chat.
 - Extend the default recent-map exclusion from five to ten matches while
   retaining the weighted no-replacement deck. Document the private-catalog
   update needed on existing hosts.

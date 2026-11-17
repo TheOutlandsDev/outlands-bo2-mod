@@ -20,6 +20,7 @@ services:
       OLLAMA_NUM_PARALLEL: "1"
       OLLAMA_CONTEXT_LENGTH: "2048"
       OLLAMA_KEEP_ALIVE: 5m
+      LLAMA_ARG_CACHE_RAM: "0"
     volumes:
       - ollama-models:/root/.ollama
     networks:
@@ -29,6 +30,7 @@ services:
     security_opt: [no-new-privileges:true]
     cpus: 4
     mem_limit: 3g
+    memswap_limit: 3g
     healthcheck:
       test: [CMD, ollama, list]
       interval: 10s
