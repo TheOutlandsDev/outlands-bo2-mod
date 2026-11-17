@@ -25,11 +25,68 @@ game state. Uninstalled DLC is an exclusion, not an automatic health failure.
 Historical restart and OOM flags are warnings; lifecycle changes during the
 observation window are current failures. Recent worker submissions and native
 speech receipts establish activity without relying on a startup message still
-being present in a log tail. Fallback generation is valid worker activity.
+being present in a log tail. Both use bounded Docker logs from the last 30 minutes;
+only timestamped, anchored native receipt records count. An older receipt in the
+console tail cannot satisfy current delivery, and the 5–30 second receipt delta
+is informational. Installed services appearing or disappearing during observation
+fail continuity. Fallback generation is valid worker activity.
+
+An explicit worker `T6_CHAT_MODE=fallback` records Ollama as an excluded optional
+dependency, allowing its container to remain stopped or absent from the active
+profile. Game, chat-worker, account and other installed-service checks still
+apply; `ollama` generation mode requires the model service to be running and
+healthy. A fallback response after a model error does not itself select this
+operating mode.
+
+For a running Ollama container, the audit samples only aggregate cgroup
+`memory.events` counters (`max`, `oom`, `oom_kill`) before and after observation.
+A new `oom_kill` fails the audit even when the container remains healthy and its
+restart count is unchanged. Historical kills are reported separately as a
+warning; memory-limit pressure without a kill also warns. Counter resets fail
+the continuity check, and unavailable cgroup counters produce an explicit
+observability warning. The report contains no process identities or raw logs.
+
+For model-memory investigations, compare anonymous memory with reclaimable file
+cache and observe the actual inference child. A cache-disabled candidate can set
+`LLAMA_ARG_CACHE_RAM=0` on Ollama runtimes that inherit the llama-server setting;
+verify that the child received it and that no command-line option overrides it.
+See the [upstream cache investigation](https://github.com/ollama/ollama/issues/17351).
+Test changing, fictional game contexts with the deployed model, prompt and request
+options in a disposable container with no game/save mounts or published ports.
+Match its CPU, RAM and swap bounds to the proposed deployment; equal Docker
+`mem_limit` and `memswap_limit` values disable extra swap. Preserve fallback chat
+and a scoped rollback. Warm file-cache tests and short live samples do not prove
+cold-boot requirements, long-duration stability or connected-player networking.
+
 Operator CFG/catalog templates may differ from the image intentionally; code
 payload comparisons remain separate. A source branch ahead of deployment can
 fail source-alignment checks without proving a live gameplay failure. External
 Tailscale joining and actual client gameplay still require client evidence.
+
+For timestamped evidence during an actual remote-player interruption, run the
+Linux host observer explicitly in the foreground:
+
+```sh
+python3 -B hosting/network_watch.py --run --seconds 300 --interval 2 --report-dir PRIVATE_REPORT_DIRECTORY
+```
+
+The observer accepts 30–900 seconds with 1–5 second sampling. It creates a fresh
+private directory and aggregate JSON/JSONL files, using read-only Docker calls;
+it installs no daemon, schedule or service. Each sample records UDP4977 queue,
+drop/error counters, recognized timestamped native diagnostics, host memory/PSI
+and OOM deltas. Lifecycle and Tailscale status/metrics refresh approximately every
+five seconds and at the end. Socket replacements, counter resets/disappearances,
+clock regressions and incomplete log windows remain explicit. Cached metrics
+have null deltas until refreshed; unexported series stay null rather than zero.
+
+Reports contain counts and diagnostic timestamps without player/device names,
+addresses, keys, environment values or chat. Peer paths describe active-status
+hints; an idle peer's home relay is not evidence of a relayed connection. Packet
+metrics cover the whole node. Exit status reflects collection and continuity,
+not external connection health; inspect recorded drop changes and diagnostics
+alongside the players' exact incident times. An idle backend run cannot prove
+actual remote joining or rule out a WAN/client problem. Command timeouts are
+bounded and the wrapper's process group is cleaned up on timeout/interruption.
 
 The [challenge preview](CHALLENGES.md) and
 [original native-menu module](../client-preview/README.md) have separate
