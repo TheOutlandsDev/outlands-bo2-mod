@@ -27,7 +27,7 @@ AI_FILES = {"README.md", "Dockerfile", "Modelfile", "bridge.py", "tests/test_bri
             "config.example.json", "personalities.json", "careers.py", "tests/test_careers.py", "benchmark.py", "tactics.py", "tests/test_tactics.py", "operations.py", "conversation_benchmark.py", "tests/test_operations.py", "tests/test_dialogue_v3.py"}
 AI_FILES |= {"bot_settings.py", "bot_settings.json", "tests/test_bot_settings.py", "rivals.py", "rival_profiles.json", "tests/test_rivals.py"}
 AI_FILES |= {"camo_challenge.py", "tests/test_camo_challenge.py", "challenge_native.py", "tests/test_challenge_native.py", "challenge_delivery.py", "tests/test_challenge_delivery.py"}
-HOST_FILES |= {"live_audit.py", "challenge_adapter.gsc", "challenge_probe.gsc", "challenge_verify.py"}
+HOST_FILES |= {"live_audit.py", "network_watch.py", "challenge_adapter.gsc", "challenge_probe.gsc", "challenge_verify.py"}
 TOOL_FILES = {"dashboard_fixture.py", "build_release.py", "client_settings.py", "install_files.py", "play_lan_windows.ps1",
               "preflight.py", "setup_client.py", "windows_client.ps1", "content_inventory.py", "contract_rules.py", "validate_system.py"}
 TEST_FILES = {"test_quality_verify.py", "test_loadout_verify.py", "test_streak_verify.py", "test_human_verify.py", "test_client_setup.py", "test_host_setup.py", "test_host_state.py", "test_release.py",
@@ -39,7 +39,7 @@ DOC_FILES.add("STABLE-BASELINE.md")
 DOC_FILES.add("ARMORY-EXPANSION-DRAFT.md")
 DOC_FILES.add("DLC-READINESS.md")
 DOC_FILES.add("CHALLENGES.md")
-TEST_FILES |= {"test_career_dashboard.cjs", "test_live_audit.py", "test_challenge_verify.py", "test_menu_preview.py", "test_account_challenges.py", "test_account_challenge_service.py"}
+TEST_FILES |= {"test_career_dashboard.cjs", "test_live_audit.py", "test_network_watch.py", "test_challenge_verify.py", "test_menu_preview.py", "test_account_challenges.py", "test_account_challenge_service.py"}
 WORKFLOW_FILES = {"ci.yml", "release.yml"}
 STORAGE_FILES = {"storage/t6/outlands_t6.cfg", "storage/t6/gamesettings/outlands_tdm.cfg",
                  "storage/t6/gamesettings/outlands_dm.cfg", "storage/t6/gamesettings/outlands_ctf.cfg",
