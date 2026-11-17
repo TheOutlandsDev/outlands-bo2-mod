@@ -214,6 +214,22 @@ request used the bounded fallback before Ollama generations succeeded. See
 [the chat guide](../ai/README.md) for resource limits, privacy boundaries,
 canned fallbacks and protocol details.
 
+Both contained Ollama profiles disable the llama-server prompt cache with
+`LLAMA_ARG_CACHE_RAM=0`, retain a 2048-token context and one parallel request,
+and set both `mem_limit` and `memswap_limit` to `3g`. Equal memory and combined
+memory/swap limits permit no additional swap. This runtime profile passed a
+bounded synthetic request test and backend observation; other models, cold
+loads and long-running stability still need their own checks. Native bot
+gameplay and bounded canned chat fallback do not depend on successful model
+generation.
+
+Observe anonymous/working-set memory, cgroup OOM counters and delivered chat,
+rather than treating model-list health as inference proof. The optional
+[read-only network observer](../docs/VALIDATION.md) records aggregate transport,
+socket and native-log evidence without retaining player identities or chat.
+Missing observations remain unknown. Backend evidence does not replace a
+connected client's gameplay and network test.
+
 ## Operations and Dockhand
 
 ```sh
